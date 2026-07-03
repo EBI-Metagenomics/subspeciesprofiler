@@ -1,0 +1,16 @@
+repository_type: pipeline
+
+nf_core_version: 3.6.0.dev0
+
+lint: {}
+
+template:
+  org: nf-core
+  name: subspeciesprofiler
+  description: Pipeline that generates subspecies clusters from a group of genomes
+    of the same species
+  author: Alejandra Escobar
+  version: 1.0.0dev
+  force: true
+  outdir: .
+  is_nfcore: true
