@@ -7,27 +7,27 @@
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "species": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "errorMessage": "Species name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "fastq_1": {
+            "genomes_dir": {
                 "type": "string",
-                "format": "file-path",
+                "format": "directory-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "errorMessage": "Path to the directory containing the gzipped genomes must be provided and must exist"
             },
-            "fastq_2": {
+            "qc_tsv": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^\\S+\\.tsv$",
+                "errorMessage": "Path to the completeness/contamination TSV must be provided, must exist and have extension '.tsv'"
             }
         },
-        "required": ["sample", "fastq_1"]
-    }
+        "required": ["species", "genomes_dir", "qc_tsv"]
+    },
+    "uniqueEntries": ["species"]
 }

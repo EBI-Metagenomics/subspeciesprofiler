@@ -19,8 +19,8 @@
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
-                    "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row. See [usage docs](https://nf-co.re/subspeciesprofiler/usage#samplesheet-input).",
+                    "description": "Path to comma-separated file describing the species to profile.",
+                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_tsv` (path to a TSV of per-genome completeness/contamination values). See [usage docs](https://nf-co.re/subspeciesprofiler/usage#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "outdir": {
