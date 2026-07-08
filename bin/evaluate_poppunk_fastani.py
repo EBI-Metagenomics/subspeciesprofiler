@@ -580,7 +580,33 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     tiny_cluster_rate_hq = rate_tiny(hq_df)
     neg_sil_hq = silhouette_summary(gm_hq, "negative_fraction")
 
-    if (
+    # The decision hinges on the HQ genomes -- the QC-trustworthy signal, expected
+    # to be a solid fraction of the group. `tool_structure_score_hq` is NaN exactly
+    # when no HQ genome sits in a non-singleton cluster, i.e. the HQ genomes show no
+    # cohesive structure. This covers a single cluster, all singletons, AND the case
+    # where only the MQ genomes cluster: MQ-only structure is suspect because contig/
+    # gene fragmentation in lower-quality assemblies distorts the composition signal,
+    # so a real biological signal should be recoverable by another model that also
+    # resolves the HQ genomes. Any of these means this model is unsuitable -- label
+    # it "Weak" immediately (rather than letting the NaN thresholds fall through to
+    # "Mixed") so the model-selection loop moves on to the next model.
+    n_clusters = int(len(cluster_metrics))
+    n_nonsingleton = int((cluster_metrics["cluster_size"] > 1).sum()) if n_clusters else 0
+    no_hq_structure = bool(np.isnan(tool_structure_score_hq))
+
+    if no_hq_structure:
+        status = "Weak"
+        if n_clusters <= 1:
+            reason = "single cluster (no partitioning)"
+        elif n_nonsingleton == 0:
+            reason = "all singletons (no cohesive clusters)"
+        else:
+            reason = (
+                "structure exists only among MQ genomes while HQ genomes are unresolved "
+                "(likely a fragmentation artifact, not true subspecies signal)"
+            )
+        print(f"NOTE: no evaluable HQ structure -> tool_status=Weak: {reason}", file=sys.stderr)
+    elif (
         tool_structure_score_hq >= 0.80
         and tool_structure_score_total >= 0.70
         and defective_hq_fraction <= 0.05
@@ -610,7 +636,9 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     else:
         status = "Mixed"
 
-    if status in ["Strong", "Moderate"]:
+    if no_hq_structure:
+        action = "TRY_NEXT_MODEL"
+    elif status in ["Strong", "Moderate"]:
         action = "ACCEPT"
     elif singleton_rate_hq > 0.20 and defective_hq_fraction <= 0.20:
         action = "TRY_MORE_PERMISSIVE_BOUNDARY"
