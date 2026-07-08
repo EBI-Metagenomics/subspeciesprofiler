@@ -20,8 +20,16 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file describing the species to profile.",
-                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_tsv` (path to a TSV of per-genome completeness/contamination values). See [usage docs](https://nf-co.re/subspeciesprofiler/usage#samplesheet-input).",
+                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_csv` (path to a CSV of per-genome completeness/contamination values). See [usage docs](https://nf-co.re/subspeciesprofiler/usage#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "qc_filter": {
+                    "type": "string",
+                    "default": "STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY",
+                    "pattern": "^(STRONG|STRONG_BOUNDARY|ACCEPTABLE|ACCEPTABLE_BOUNDARY)(,(STRONG|STRONG_BOUNDARY|ACCEPTABLE|ACCEPTABLE_BOUNDARY))*$",
+                    "description": "Comma-separated SPP eligibility labels to keep for downstream processing.",
+                    "help_text": "Species whose `spp_label` (from the species QC eligibility step) is in this list are carried forward; all others are dropped. Allowed values: `STRONG`, `STRONG_BOUNDARY`, `ACCEPTABLE`, `ACCEPTABLE_BOUNDARY`. Defaults to all four (keep every eligible species).",
+                    "fa_icon": "fas fa-filter"
                 },
                 "outdir": {
                     "type": "string",

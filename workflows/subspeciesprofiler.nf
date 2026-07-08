@@ -3,6 +3,7 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+include { SPECIESQC              } from '../modules/local/speciesqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -24,8 +25,43 @@ workflow SUBSPECIESPROFILER {
     ch_versions = channel.empty()
     ch_multiqc_files = channel.empty()
 
-    // TODO nf-core: The first analysis module (subspecies clustering) will consume
-    //   ch_samplesheet = [ meta, genomes_dir, qc_tsv ] and be added here.
+    //
+    // MODULE: Assess subspecies-clustering eligibility from each species' genome QC table
+    //
+    SPECIESQC (
+        ch_samplesheet.map { meta, genomes_dir, qc_csv -> [ meta, qc_csv ] }
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(SPECIESQC.out.report.collect { it[1] })
+
+    //
+    // Keep only species whose eligibility label is in --qc_filter, folding the
+    // label onto meta so it travels downstream. Join is keyed on meta.id because
+    // adding spp_label changes the meta map.
+    //
+    def qc_keep = params.qc_filter.tokenize(',')
+
+    def ch_labels = SPECIESQC.out.report
+        .splitCsv(header: true, sep: '\t')
+        .map { meta, row -> [ meta.id, row.spp_label ] }
+
+    ch_samplesheet
+        .map { meta, genomes_dir, qc_csv -> [ meta.id, meta, genomes_dir ] }
+        .join(ch_labels)
+        .map { id, meta, genomes_dir, label -> [ meta + [ spp_label: label ], genomes_dir ] }
+        .branch { meta, genomes_dir ->
+            pass: meta.spp_label in qc_keep
+            fail: true
+        }
+        .set { ch_eligibility }
+
+    // Eligible species carried forward for subspecies clustering: [ meta(+spp_label), genomes_dir ]
+    ch_eligible = ch_eligibility.pass
+
+    // Species filtered out by --qc_filter (available for reporting / logging)
+    ch_eligibility.fail
+        .subscribe { meta, genomes_dir -> log.warn("Species '${meta.id}' dropped: spp_label='${meta.spp_label}' not in --qc_filter (${params.qc_filter})") }
+
+    // TODO nf-core: The subspecies clustering module will consume ch_eligible next.
 
     //
     // Collate and save software versions
