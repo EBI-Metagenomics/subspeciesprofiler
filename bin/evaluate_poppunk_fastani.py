@@ -3,6 +3,7 @@
 import argparse
 import itertools
 import sys
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -654,6 +655,32 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     return pd.DataFrame([row])
 
 
+def check_species_ani(ani_matrix, genomes, min_ani):
+    """
+    Verify every pair of genomes in the species group is within-species close.
+
+    Genomes of the same species are expected at ANI >= ~0.95 (the species
+    boundary). A pair below `min_ani` -- or absent from the all-vs-all FastANI
+    entirely, which means FastANI could not align them (ANI below its ~0.80
+    detection limit) -- indicates a genome too distant to belong to this species
+    group.
+
+    Returns a list of offending (g1, g2, ani_or_None) pairs; `None` marks a pair
+    missing from FastANI.
+    """
+    problems = []
+    n = len(genomes)
+    for i in range(n):
+        for j in range(i + 1, n):
+            g1, g2 = genomes[i], genomes[j]
+            ani = ani_matrix.loc[g1, g2]
+            if np.isnan(ani):
+                problems.append((g1, g2, None))
+            elif ani < min_ani:
+                problems.append((g1, g2, float(ani)))
+    return problems
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Evaluate PopPUNK cluster assignments using all-vs-all FastANI results."
@@ -662,6 +689,14 @@ def main():
     parser.add_argument("--clusters", required=True, help="PopPUNK *_clusters.csv file.")
     parser.add_argument("--labels", required=True, help="Per-genome HQ/MQ labels CSV (genome,label) from spp_eligibility_from_qc.py.")
     parser.add_argument("--out-prefix", required=True, help="Output prefix.")
+    parser.add_argument(
+        "--min-ani", type=float, default=0.90,
+        help="Minimum within-species ANI (0-1 scale). Fail if any genome pair in the "
+             "species group is below this, or missing from FastANI (below its ~0.80 "
+             "detection limit). Default 0.90: flags genomes likely misplaced during data "
+             "preparation while tolerating borderline within-species cases (species "
+             "boundary ~0.95).",
+    )
 
     args = parser.parse_args()
 
@@ -678,20 +713,31 @@ def main():
 
     genomes = sorted(clusters["genome_id"].unique())
 
-    fastani_genomes = set(fastani["query"]).union(set(fastani["reference"]))
-    missing_fastani = sorted(set(genomes) - fastani_genomes)
-
-    if missing_fastani:
-        print(
-            f"WARNING: {len(missing_fastani)} genomes from clusters/metadata are missing from FastANI results.",
-            file=sys.stderr,
-        )
-        print(
-            "First missing genomes: " + ", ".join(missing_fastani[:10]),
-            file=sys.stderr,
-        )
-
     ani_matrix = make_symmetric_ani_matrix(fastani, genomes)
+
+    # Fail fast if the species group contains genomes too distant to belong to
+    # the same species: same-species genomes should be well within FastANI's
+    # detection range, so a missing or low-ANI pair signals a mis-assigned genome.
+    distant_pairs = check_species_ani(ani_matrix, genomes, args.min_ani)
+    if distant_pairs:
+        counts = Counter()
+        for g1, g2, _ in distant_pairs:
+            counts[g1] += 1
+            counts[g2] += 1
+        print(
+            f"ERROR: {len(distant_pairs)} genome pair(s) fall below the within-species "
+            f"ANI threshold ({args.min_ani:.2f}); the species group contains genomes too "
+            f"distant to belong to the same species. Remove the offending genome(s) and rerun.",
+            file=sys.stderr,
+        )
+        worst = ", ".join(f"{g} ({c} bad pairs)" for g, c in counts.most_common(10))
+        print(f"Most-distant genomes: {worst}", file=sys.stderr)
+        for g1, g2, ani in distant_pairs[:20]:
+            shown = "missing from FastANI (ANI below ~0.80 detection limit)" if ani is None else f"ANI={ani:.3f}"
+            print(f"  {g1} vs {g2}: {shown}", file=sys.stderr)
+        if len(distant_pairs) > 20:
+            print(f"  ... and {len(distant_pairs) - 20} more pair(s)", file=sys.stderr)
+        sys.exit(1)
 
     cluster_metrics = evaluate_clusters(clusters, metadata, ani_matrix)
     genome_metrics = evaluate_genomes(clusters, metadata, ani_matrix)
