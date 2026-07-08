@@ -8,13 +8,29 @@
                     },
                     "E_coli_spp_eligibility_report.tsv:md5,6e53f2e2d6055a85289dff4a30f63a1d"
                 ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_rfile.tsv:md5,bd141700e02a3ac6e94bfc581c932127"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_labels.csv:md5,c8cc3d355202bbf8f56ed78476ae92b7"
+                ]
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-08T11:07:55.61603"
+        "timestamp": "2026-07-08T15:40:58.001271"
     },
     "species qc - csv": {
         "content": [
@@ -25,12 +41,28 @@
                     },
                     "E_coli_spp_eligibility_report.tsv:md5,c8720719a5d902a532295585716eb882"
                 ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_rfile.tsv:md5,bd141700e02a3ac6e94bfc581c932127"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_labels.csv:md5,c8cc3d355202bbf8f56ed78476ae92b7"
+                ]
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-08T11:07:51.774192"
+        "timestamp": "2026-07-08T15:40:53.836841"
     }
 }

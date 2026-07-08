@@ -24,7 +24,11 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert snapshot(process.out.report).match() }
+                { assert snapshot(
+                    process.out.report,
+                    process.out.rfile,
+                    process.out.labels
+                ).match() }
             )
         }
 
@@ -48,7 +52,11 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert snapshot(process.out.report).match() }
+                { assert snapshot(
+                    process.out.report,
+                    process.out.rfile,
+                    process.out.labels
+                ).match() }
             )
         }
 

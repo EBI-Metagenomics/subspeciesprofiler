@@ -41,6 +41,32 @@ output:
             Single-row TSV with columns: species_name, spp_label, n_hq, n_mq, n_eff,
             hq_ratio, n_total_passing_qc, n_discarded.
           pattern: "*_spp_eligibility_report.tsv"
+  rfile:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing species information
+            e.g. `[ id:'Escherichia_coli' ]`
+      - "*_rfile.tsv":
+          type: file
+          description: |
+            PopPUNK r-file (`--r-files` input): no header, tab-separated, one row per
+            HQ/MQ genome as `sample_name<TAB>./genomes/<filename>` (DISCARDED genomes
+            excluded). Paths are relative to the `genomes/` directory staged by the
+            downstream poppunk/createdb module.
+          pattern: "*_rfile.tsv"
+  labels:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing species information
+            e.g. `[ id:'Escherichia_coli' ]`
+      - "*_labels.csv":
+          type: file
+          description: |
+            Per-genome quality labels CSV (`genome,label`) for the HQ/MQ genomes,
+            consumed by the ANI cluster-evaluation step.
+          pattern: "*_labels.csv"
 
 topics:
   versions:

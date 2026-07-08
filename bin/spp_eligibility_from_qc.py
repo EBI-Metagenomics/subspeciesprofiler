@@ -18,12 +18,14 @@ Usage:
 
 QC CSV format (comma-separated, one row per genome, header required):
     genome,completeness,contamination
-    genome1,99.5,0.5
-    genome2,98.2,1.1
+    genome1.fna.gz,99.5,0.5
+    genome2.fna.gz,98.2,1.1
 
     - The completeness and contamination columns are matched case-insensitively
       by name (any column whose header contains 'completeness'/'contamination'),
       so CheckM/CheckM2-style headers work directly.
+    - The genome column holds the assembly *filename* (with extension); the
+      PopPUNK sample name is that filename with the FASTA extension stripped.
 
 Classification thresholds:
     - HQ: completeness >= 90 and contamination <= 1%
@@ -31,13 +33,38 @@ Classification thresholds:
     - otherwise DISCARDED (a >=90%-complete genome with 1-5% contamination is
       demoted to MQ rather than dropped).
 
+In addition to the species eligibility report, this writes two per-genome files
+covering the HQ/MQ genomes (DISCARDED excluded):
+    - a PopPUNK r-file (`--r-files` input): no header, TAB-separated,
+      `sample_name<TAB><genomes_prefix>/<filename>` (default prefix `./genomes`,
+      matching the `stageAs: 'genomes'` used by the poppunk/createdb module).
+    - a labels CSV (`genome,label`) consumed by the ANI evaluator.
+
 The classification thresholds and labelling rules are kept in sync with
 `bin/spp_species_eligibility.py`.
 """
 
 import argparse
 import csv
+import os
 import sys
+
+# FASTA suffixes stripped to derive a sample name from an assembly filename.
+# Kept in sync with normalise_genome_id() in bin/evaluate_poppunk_fastani.py.
+FASTA_SUFFIXES = [
+    ".fasta.gz", ".fa.gz", ".fna.gz",
+    ".fasta", ".fa", ".fna",
+    ".fas", ".contigs",
+]
+
+
+def strip_fasta_ext(filename):
+    """Return the assembly filename with a single trailing FASTA extension removed."""
+    name = os.path.basename(str(filename))
+    for suffix in FASTA_SUFFIXES:
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
 
 # ---------------------------------------------------------------------------
 # SPP thresholds (kept in sync with bin/spp_species_eligibility.py)
@@ -106,28 +133,39 @@ def compute_label(n_hq, n_mq):
 # ---------------------------------------------------------------------------
 
 def resolve_columns(fieldnames):
-    """Find the completeness and contamination columns case-insensitively."""
-    comp_col = cont_col = None
+    """Find the genome, completeness and contamination columns case-insensitively."""
+    genome_col = comp_col = cont_col = None
     for name in fieldnames or []:
         low = name.strip().lower()
+        if genome_col is None and low in ("genome", "genome_id", "sample", "id", "name"):
+            genome_col = name
         if comp_col is None and "completeness" in low:
             comp_col = name
         if cont_col is None and "contamination" in low:
             cont_col = name
+    # Fall back to the first column for the genome identifier.
+    if genome_col is None and fieldnames:
+        genome_col = fieldnames[0]
     missing = [n for n, c in (("completeness", comp_col), ("contamination", cont_col)) if c is None]
     if missing:
         sys.exit(
             "ERROR: QC CSV must contain completeness and contamination columns; "
             f"missing {missing}. Found columns: {list(fieldnames or [])}"
         )
-    return comp_col, cont_col
+    return genome_col, comp_col, cont_col
 
 
 def count_qc(qc_csv, min_comp, hq_comp, hq_cont, max_cont):
+    """Classify every genome; return counts and the per-genome HQ/MQ rows.
+
+    Per-genome rows are tuples of (sample_name, filename, label) for HQ/MQ
+    genomes only (DISCARDED excluded).
+    """
     n_hq = n_mq = n_disc = 0
+    passing = []
     with open(qc_csv, newline="") as fh:
         reader = csv.DictReader(fh)
-        comp_col, cont_col = resolve_columns(reader.fieldnames)
+        genome_col, comp_col, cont_col = resolve_columns(reader.fieldnames)
         for row in reader:
             label = classify_genome(row.get(comp_col), row.get(cont_col), min_comp, hq_comp, hq_cont, max_cont)
             if label == "HQ":
@@ -136,7 +174,10 @@ def count_qc(qc_csv, min_comp, hq_comp, hq_cont, max_cont):
                 n_mq += 1
             else:
                 n_disc += 1
-    return n_hq, n_mq, n_disc
+                continue
+            filename = row.get(genome_col)
+            passing.append((strip_fasta_ext(filename), filename, label))
+    return n_hq, n_mq, n_disc, passing
 
 
 # ---------------------------------------------------------------------------
@@ -153,18 +194,43 @@ def main():
                         help="Per-genome completeness/contamination CSV for this species.")
     parser.add_argument("--output", default="spp_eligibility_report.tsv",
                         help="Output report TSV (default: spp_eligibility_report.tsv).")
+    parser.add_argument("--rfile_output",
+                        help="Output PopPUNK r-file (TAB-separated sample_name<TAB>path, "
+                             "HQ/MQ genomes only). If omitted, no r-file is written.")
+    parser.add_argument("--labels_output",
+                        help="Output labels CSV (genome,label for HQ/MQ genomes) for the "
+                             "ANI evaluator. If omitted, no labels file is written.")
+    parser.add_argument("--genomes_prefix", default="./genomes",
+                        help="Path prefix written before each filename in the r-file; must match "
+                             "the poppunk/createdb `stageAs` directory (default: ./genomes).")
     parser.add_argument("--min_completeness",  type=float, default=MIN_COMP)
     parser.add_argument("--hq_completeness",   type=float, default=HQ_COMP)
     parser.add_argument("--hq_contamination",  type=float, default=HQ_CONT)
     parser.add_argument("--max_contamination", type=float, default=MAX_CONT)
     args = parser.parse_args()
 
-    n_hq, n_mq, n_disc = count_qc(
+    n_hq, n_mq, n_disc, passing = count_qc(
         args.qc_csv, args.min_completeness, args.hq_completeness,
         args.hq_contamination, args.max_contamination
     )
     spp_label, n_eff, hq_ratio = compute_label(n_hq, n_mq)
     n_passing = n_hq + n_mq
+
+    prefix = args.genomes_prefix.rstrip("/")
+    if args.rfile_output:
+        # PopPUNK r-file: no header, TAB-separated. Use "\n" line endings (not the
+        # csv default "\r\n") so a trailing CR never corrupts the genome paths.
+        with open(args.rfile_output, "w", newline="") as rf:
+            writer = csv.writer(rf, delimiter="\t", lineterminator="\n")
+            for sample_name, filename, _label in passing:
+                writer.writerow([sample_name, f"{prefix}/{filename}"])
+
+    if args.labels_output:
+        with open(args.labels_output, "w", newline="") as lf:
+            writer = csv.writer(lf, lineterminator="\n")
+            writer.writerow(["genome", "label"])
+            for sample_name, _filename, label in passing:
+                writer.writerow([sample_name, label])
 
     columns = [
         "species_name", "spp_label", "n_hq", "n_mq", "n_eff",
@@ -186,6 +252,10 @@ def main():
         file=sys.stderr,
     )
     print(f"Report written to: {args.output}", file=sys.stderr)
+    if args.rfile_output:
+        print(f"PopPUNK r-file written to: {args.rfile_output} ({n_passing} HQ/MQ genomes)", file=sys.stderr)
+    if args.labels_output:
+        print(f"Labels written to: {args.labels_output}", file=sys.stderr)
 
 
 if __name__ == "__main__":
