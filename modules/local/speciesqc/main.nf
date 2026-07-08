@@ -8,7 +8,7 @@ process SPECIESQC {
         'biocontainers/python:3.12' }"
 
     input:
-    tuple val(meta), path(qc_tsv)
+    tuple val(meta), path(qc_csv)
 
     output:
     tuple val(meta), path("*_spp_eligibility_report.tsv"), emit: report
@@ -19,13 +19,13 @@ process SPECIESQC {
 
     script:
     // task.ext.args can override QC thresholds, e.g.:
-    //   --min_completeness 80 --hq_completeness 90 --max_contamination 5
+    //   --min_completeness 80 --hq_completeness 90 --hq_contamination 1 --max_contamination 5
     def args   = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     spp_eligibility_from_qc.py \\
         --species_name "${meta.id}" \\
-        --qc_tsv ${qc_tsv} \\
+        --qc_csv ${qc_csv} \\
         --output ${prefix}_spp_eligibility_report.tsv \\
         ${args}
     """

@@ -1,5 +1,5 @@
 {
-    "species qc - tsv - stub": {
+    "species qc - csv - stub": {
         "content": [
             [
                 [
@@ -12,25 +12,25 @@
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.04.6"
+            "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-07T11:22:32.851926"
+        "timestamp": "2026-07-08T11:07:55.61603"
     },
-    "species qc - tsv": {
+    "species qc - csv": {
         "content": [
             [
                 [
                     {
                         "id": "E_coli"
                     },
-                    "E_coli_spp_eligibility_report.tsv:md5,ea025d5bcc010d977279beb4561122b6"
+                    "E_coli_spp_eligibility_report.tsv:md5,c8720719a5d902a532295585716eb882"
                 ]
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.04.6"
+            "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-07T11:22:28.841741"
+        "timestamp": "2026-07-08T11:07:51.774192"
     }
 }

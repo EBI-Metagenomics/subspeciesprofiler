@@ -21,12 +21,12 @@ input:
         description: |
           Groovy Map containing species information
           e.g. `[ id:'Escherichia_coli' ]`
-    - qc_tsv:
+    - qc_csv:
         type: file
         description: |
-          Tab-separated per-genome QC table for this species, with a header row and
+          Comma-separated per-genome QC table for this species, with a header row and
           columns containing 'completeness' and 'contamination' values.
-        pattern: "*.tsv"
+        pattern: "*.csv"
 
 output:
   report:
