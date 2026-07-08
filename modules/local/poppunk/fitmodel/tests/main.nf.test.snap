@@ -1,0 +1,101 @@
+{
+    "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - fitmodel": {
+        "content": [
+            [
+                "test_fitmodel.refs",
+                "test_fitmodel.refs.dists.npy",
+                "test_fitmodel.refs.dists.pkl",
+                "test_fitmodel.refs.h5",
+                "test_fitmodel.refs_graph.gt",
+                "test_fitmodel_DPGMM_fit.png",
+                "test_fitmodel_DPGMM_fit_contours.pdf",
+                "test_fitmodel_clusters.csv",
+                "test_fitmodel_fit.npz",
+                "test_fitmodel_fit.pkl",
+                "test_fitmodel_graph.gt",
+                "test_fitmodel_unword_clusters.csv"
+            ],
+            {
+                "versions_poppunk": [
+                    [
+                        "POPPUNK_FITMODEL",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-08T12:35:30.151026"
+    },
+    "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - fitmodel - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_fitmodel.refs:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.npy:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.h5:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_unword_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        "POPPUNK_FITMODEL",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ],
+                "model": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_fitmodel.refs:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.npy:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.h5:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_unword_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        ]
+                    ]
+                ],
+                "versions_poppunk": [
+                    [
+                        "POPPUNK_FITMODEL",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-08T12:26:59.628778"
+    }
+}
