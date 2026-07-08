@@ -19,15 +19,15 @@
                 "exists": true,
                 "errorMessage": "Path to the directory containing the gzipped genomes must be provided and must exist"
             },
-            "qc_tsv": {
+            "qc_csv": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^\\S+\\.tsv$",
-                "errorMessage": "Path to the completeness/contamination TSV must be provided, must exist and have extension '.tsv'"
+                "pattern": "^\\S+\\.csv$",
+                "errorMessage": "Path to the completeness/contamination CSV must be provided, must exist and have extension '.csv'"
             }
         },
-        "required": ["species", "genomes_dir", "qc_tsv"]
+        "required": ["species", "genomes_dir", "qc_csv"]
     },
     "uniqueEntries": ["species"]
 }
