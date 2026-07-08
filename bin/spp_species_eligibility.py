@@ -25,9 +25,10 @@ Species list TSV format (tab-separated):
 
 Optional:
     --genbank      assembly_summary_genbank.txt
-    --min_completeness  80   (default)
-    --hq_completeness   90   (default)
-    --max_contamination  5   (default)
+    --min_completeness   80   (default)
+    --hq_completeness    90   (default)
+    --hq_contamination    1   (default; max contamination for HQ)
+    --max_contamination   5   (default; max contamination for MQ)
 """
 
 import argparse
@@ -76,6 +77,7 @@ def load_species_list(path: str):
 # ---------------------------------------------------------------------------
 MIN_COMP   = 80.0
 HQ_COMP    = 90.0
+HQ_CONT    = 1.0   # max contamination allowed for HQ; MAX_CONT (5.0) is the MQ ceiling
 MAX_CONT   = 5.0
 
 STRONG_N_HQ   = 75
@@ -286,17 +288,15 @@ def make_short_name(query: str) -> str:
 # QC and inclusion logic
 # ---------------------------------------------------------------------------
 
-def classify_genome(comp, cont, min_comp, hq_comp, max_cont):
+def classify_genome(comp, cont, min_comp, hq_comp, hq_cont, max_cont):
     try:
         comp = float(comp)
         cont = float(cont)
     except (ValueError, TypeError):
         return "DISCARDED"
-    if cont > max_cont:
-        return "DISCARDED"
-    if comp >= hq_comp:
+    if comp >= hq_comp and cont <= hq_cont:      # HQ: >=90 completeness, <=1% contamination
         return "HQ"
-    if comp >= min_comp:
+    elif comp >= min_comp and cont <= max_cont:  # MQ: >=80 completeness, <=5% contamination
         return "MQ"
     return "DISCARDED"
 
@@ -376,11 +376,13 @@ def main():
     parser.add_argument("--output",   default="spp_eligibility_report.tsv")
     parser.add_argument("--min_completeness",  type=float, default=MIN_COMP)
     parser.add_argument("--hq_completeness",   type=float, default=HQ_COMP)
+    parser.add_argument("--hq_contamination",  type=float, default=HQ_CONT)
     parser.add_argument("--max_contamination", type=float, default=MAX_CONT)
     args = parser.parse_args()
 
     min_comp = args.min_completeness
     hq_comp  = args.hq_completeness
+    hq_cont  = args.hq_contamination
     max_cont = args.max_contamination
 
     print(f"Loading species list from: {args.species}", file=sys.stderr)
@@ -457,7 +459,7 @@ def main():
     # Apply QC classification
     merged["qc_label"] = merged.apply(
         lambda r: classify_genome(
-            r["completeness"], r["contamination"], min_comp, hq_comp, max_cont
+            r["completeness"], r["contamination"], min_comp, hq_comp, hq_cont, max_cont
         ),
         axis=1,
     )

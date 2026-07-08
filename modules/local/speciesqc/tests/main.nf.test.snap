@@ -1,0 +1,36 @@
+{
+    "species qc - tsv - stub": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_spp_eligibility_report.tsv:md5,6e53f2e2d6055a85289dff4a30f63a1d"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2026-07-07T11:22:32.851926"
+    },
+    "species qc - tsv": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_spp_eligibility_report.tsv:md5,ea025d5bcc010d977279beb4561122b6"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2026-07-07T11:22:28.841741"
+    }
+}

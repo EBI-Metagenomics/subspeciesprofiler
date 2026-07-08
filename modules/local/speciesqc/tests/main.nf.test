@@ -1,0 +1,57 @@
+nextflow_process {
+
+    name "Test Process SPECIESQC"
+    script "../main.nf"
+    process "SPECIESQC"
+
+    tag "modules"
+    tag "modules_local"
+    tag "speciesqc"
+
+    test("species qc - tsv") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'E_coli' ],
+                    file("${projectDir}/tests/fixtures/E_coli_qc.tsv", checkIfExists: true),
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.report).match() }
+            )
+        }
+
+    }
+
+    test("species qc - tsv - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'E_coli' ],
+                    file("${projectDir}/tests/fixtures/E_coli_qc.tsv", checkIfExists: true),
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.report).match() }
+            )
+        }
+
+    }
+
+}

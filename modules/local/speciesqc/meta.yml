@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "speciesqc"
+description: Assess SPP subspecies-clustering eligibility for a species from its per-genome QC table
+keywords:
+  - qc
+  - completeness
+  - contamination
+  - eligibility
+  - metagenomics
+tools:
+  - "python":
+      description: "Runs bin/spp_eligibility_from_qc.py, a pure-Python (stdlib) script that classifies genomes as HQ/MQ/DISCARDED and assigns an SPP eligibility label."
+      homepage: "https://www.python.org/"
+      documentation: "https://docs.python.org/3/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information
+          e.g. `[ id:'Escherichia_coli' ]`
+    - qc_tsv:
+        type: file
+        description: |
+          Tab-separated per-genome QC table for this species, with a header row and
+          columns containing 'completeness' and 'contamination' values.
+        pattern: "*.tsv"
+
+output:
+  report:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing species information
+            e.g. `[ id:'Escherichia_coli' ]`
+      - "*_spp_eligibility_report.tsv":
+          type: file
+          description: |
+            Single-row TSV with columns: species_name, spp_label, n_hq, n_mq, n_eff,
+            hq_ratio, n_total_passing_qc, n_discarded.
+          pattern: "*_spp_eligibility_report.tsv"
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

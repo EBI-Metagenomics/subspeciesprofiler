@@ -1,0 +1,3 @@
+species,genomes_dir,qc_tsv
+E_coli,tests/fixtures/genomes/E_coli,tests/fixtures/E_coli_qc.tsv
+S_aureus,tests/fixtures/genomes/S_aureus,tests/fixtures/S_aureus_qc.tsv

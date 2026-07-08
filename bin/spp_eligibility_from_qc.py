@@ -2,7 +2,7 @@
 """
 SPP Eligibility from a per-species genome QC table
 ==================================================
-Parses one species' per-genome completeness/contamination TSV (the `qc_tsv`
+Parses one species' per-genome completeness/contamination CSV (the `qc_csv`
 column of the pipeline samplesheet), classifies each genome as HQ / MQ /
 DISCARDED, and assigns an SPP eligibility label to the species group.
 
@@ -13,17 +13,23 @@ Writes a single-row `spp_eligibility_report.tsv` with columns:
 Usage:
     spp_eligibility_from_qc.py \
         --species_name "Escherichia coli" \
-        --qc_tsv       ecoli_qc.tsv \
+        --qc_csv       ecoli_qc.csv \
         --output       spp_eligibility_report.tsv
 
-QC TSV format (tab-separated, one row per genome, header required):
-    genome        completeness  contamination
-    genome1       99.5          0.5
-    genome2       98.2          1.1
+QC CSV format (comma-separated, one row per genome, header required):
+    genome,completeness,contamination
+    genome1,99.5,0.5
+    genome2,98.2,1.1
 
     - The completeness and contamination columns are matched case-insensitively
       by name (any column whose header contains 'completeness'/'contamination'),
       so CheckM/CheckM2-style headers work directly.
+
+Classification thresholds:
+    - HQ: completeness >= 90 and contamination <= 1%
+    - MQ: completeness >= 80 and contamination <= 5%
+    - otherwise DISCARDED (a >=90%-complete genome with 1-5% contamination is
+      demoted to MQ rather than dropped).
 
 The classification thresholds and labelling rules are kept in sync with
 `bin/spp_species_eligibility.py`.
@@ -38,6 +44,7 @@ import sys
 # ---------------------------------------------------------------------------
 MIN_COMP = 80.0
 HQ_COMP  = 90.0
+HQ_CONT  = 1.0   # max contamination allowed for HQ; MAX_CONT (5.0) is the MQ ceiling
 MAX_CONT = 5.0
 
 STRONG_N_HQ  = 75
@@ -55,17 +62,15 @@ NEAR_THRESH_N_EFF   = 64
 # QC and inclusion logic (mirrors spp_species_eligibility.py)
 # ---------------------------------------------------------------------------
 
-def classify_genome(comp, cont, min_comp, hq_comp, max_cont):
+def classify_genome(comp, cont, min_comp, hq_comp, hq_cont, max_cont):
     try:
         comp = float(comp)
         cont = float(cont)
     except (ValueError, TypeError):
         return "DISCARDED"
-    if cont > max_cont:
-        return "DISCARDED"
-    if comp >= hq_comp:
+    if comp >= hq_comp and cont <= hq_cont:      # HQ: >=90 completeness, <=1% contamination
         return "HQ"
-    if comp >= min_comp:
+    elif comp >= min_comp and cont <= max_cont:  # MQ: >=80 completeness, <=5% contamination
         return "MQ"
     return "DISCARDED"
 
@@ -112,19 +117,19 @@ def resolve_columns(fieldnames):
     missing = [n for n, c in (("completeness", comp_col), ("contamination", cont_col)) if c is None]
     if missing:
         sys.exit(
-            "ERROR: QC TSV must contain completeness and contamination columns; "
+            "ERROR: QC CSV must contain completeness and contamination columns; "
             f"missing {missing}. Found columns: {list(fieldnames or [])}"
         )
     return comp_col, cont_col
 
 
-def count_qc(qc_tsv, min_comp, hq_comp, max_cont):
+def count_qc(qc_csv, min_comp, hq_comp, hq_cont, max_cont):
     n_hq = n_mq = n_disc = 0
-    with open(qc_tsv, newline="") as fh:
-        reader = csv.DictReader(fh, delimiter="\t")
+    with open(qc_csv, newline="") as fh:
+        reader = csv.DictReader(fh)
         comp_col, cont_col = resolve_columns(reader.fieldnames)
         for row in reader:
-            label = classify_genome(row.get(comp_col), row.get(cont_col), min_comp, hq_comp, max_cont)
+            label = classify_genome(row.get(comp_col), row.get(cont_col), min_comp, hq_comp, hq_cont, max_cont)
             if label == "HQ":
                 n_hq += 1
             elif label == "MQ":
@@ -144,17 +149,19 @@ def main():
     )
     parser.add_argument("--species_name", required=True,
                         help="Species name (the samplesheet 'species' value).")
-    parser.add_argument("--qc_tsv", required=True,
-                        help="Per-genome completeness/contamination TSV for this species.")
+    parser.add_argument("--qc_csv", required=True,
+                        help="Per-genome completeness/contamination CSV for this species.")
     parser.add_argument("--output", default="spp_eligibility_report.tsv",
                         help="Output report TSV (default: spp_eligibility_report.tsv).")
     parser.add_argument("--min_completeness",  type=float, default=MIN_COMP)
     parser.add_argument("--hq_completeness",   type=float, default=HQ_COMP)
+    parser.add_argument("--hq_contamination",  type=float, default=HQ_CONT)
     parser.add_argument("--max_contamination", type=float, default=MAX_CONT)
     args = parser.parse_args()
 
     n_hq, n_mq, n_disc = count_qc(
-        args.qc_tsv, args.min_completeness, args.hq_completeness, args.max_contamination
+        args.qc_csv, args.min_completeness, args.hq_completeness,
+        args.hq_contamination, args.max_contamination
     )
     spp_label, n_eff, hq_ratio = compute_label(n_hq, n_mq)
     n_passing = n_hq + n_mq

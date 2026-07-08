@@ -1,0 +1,102 @@
+{
+    "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - assemblies - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test.dists.npy:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test.dists.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test.h5:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_rlist.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "2": [
+                    [
+                        "POPPUNK_CREATEDB",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ],
+                "db": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test.dists.npy:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test.dists.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test.h5:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        ]
+                    ]
+                ],
+                "rlist": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_rlist.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions_poppunk": [
+                    [
+                        "POPPUNK_CREATEDB",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.0"
+        },
+        "timestamp": "2026-07-07T13:17:22.168271"
+    },
+    "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - assemblies": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_rlist.txt:md5,72e02f13a66a4ebbbfa7eb9289167c2a"
+                ]
+            ],
+            [
+                "test.dists.npy",
+                "test.dists.pkl",
+                "test.h5",
+                "test.png",
+                "test_ambiguous_base_counts.png",
+                "test_distanceDistribution.png",
+                "test_genome_lengths.png"
+            ],
+            {
+                "versions_poppunk": [
+                    [
+                        "POPPUNK_CREATEDB",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-07T14:34:51.583994"
+    }
+}
