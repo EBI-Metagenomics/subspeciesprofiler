@@ -6,5 +6,7 @@ results/
 testing/
 testing*
 *.pyc
+__pycache__/
+.pytest_cache/
 null/
 .nf-test*

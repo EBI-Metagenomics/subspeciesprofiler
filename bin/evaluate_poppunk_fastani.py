@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import csv
 import itertools
 import sys
 from collections import Counter
@@ -32,18 +33,32 @@ def normalise_genome_id(x: str) -> str:
     return name
 
 
+def _read_csv_or_exit(path: str, description: str, **kwargs) -> pd.DataFrame:
+    """Read a CSV/TSV, failing with a clear message instead of a pandas traceback."""
+    try:
+        return pd.read_csv(path, **kwargs)
+    except FileNotFoundError:
+        sys.exit(f"ERROR: {description} file not found: '{path}'.")
+    except (pd.errors.EmptyDataError, csv.Error):
+        sys.exit(f"ERROR: {description} file is empty or unreadable: '{path}'.")
+
+
 def read_fastani(path: str) -> pd.DataFrame:
     """
     Read all-vs-all FastANI output.
 
-    Expected columns:
+    Expected columns (tab-separated, no header):
       query, reference, ani, fragments_mapped, total_fragments
 
-    FastANI ANI may be reported as 99.3 or 0.993.
-    This function converts ANI to 0-1 scale.
+    FastANI reports ANI as a percentage (0-100). FastANI is run internally by the
+    pipeline, so we rely on that contract and convert to the 0-1 scale used
+    throughout. The values are validated defensively: rather than guessing the
+    scale from the data, we fail loudly if the FastANI output ever stops looking
+    like a percentage, instead of silently mis-scaling every threshold downstream.
     """
-    df = pd.read_csv(
+    df = _read_csv_or_exit(
         path,
+        "FastANI",
         sep="\t",
         header=None,
         names=["query", "reference", "ani", "fragments_mapped", "total_fragments"],
@@ -53,14 +68,22 @@ def read_fastani(path: str) -> pd.DataFrame:
     df["reference"] = df["reference"].map(normalise_genome_id)
 
     df["ani"] = pd.to_numeric(df["ani"], errors="coerce")
-    df["fragments_mapped"] = pd.to_numeric(df["fragments_mapped"], errors="coerce")
-    df["total_fragments"] = pd.to_numeric(df["total_fragments"], errors="coerce")
 
-    # Convert 95-100 scale to 0-1 scale if needed.
-    if df["ani"].dropna().median() > 1:
-        df["ani"] = df["ani"] / 100.0
+    ani = df["ani"].dropna()
+    if ani.empty:
+        sys.exit(f"ERROR: no numeric ANI values found in FastANI output '{path}'.")
+    hi = float(ani.max())
+    if hi <= 1.5:
+        sys.exit(
+            f"ERROR: FastANI ANI looks like a 0-1 fraction (max={hi:.4f}), but percentage "
+            f"(0-100) output is required from the FastANI step ('{path}')."
+        )
+    if hi > 100.5:
+        sys.exit(
+            f"ERROR: FastANI ANI exceeds 100 (max={hi:.4f}); not valid percentage output ('{path}')."
+        )
 
-    df["alignment_fraction"] = df["fragments_mapped"] / df["total_fragments"]
+    df["ani"] = df["ani"] / 100.0
 
     return df
 
@@ -77,7 +100,7 @@ def read_clusters(path: str) -> pd.DataFrame:
       id, cluster
       genome_id, cluster
     """
-    df = pd.read_csv(path)
+    df = _read_csv_or_exit(path, "clusters")
 
     lower_to_original = {c.lower(): c for c in df.columns}
 
@@ -94,8 +117,8 @@ def read_clusters(path: str) -> pd.DataFrame:
             break
 
     if sample_col is None or cluster_col is None:
-        raise ValueError(
-            f"Could not identify sample and cluster columns in {path}. "
+        sys.exit(
+            f"ERROR: could not identify sample and cluster columns in clusters file '{path}'. "
             f"Found columns: {list(df.columns)}"
         )
 
@@ -116,7 +139,7 @@ def read_labels(path: str) -> pd.DataFrame:
     label column among label/quality_status/quality/qc_status. DISCARDED genomes
     are already excluded upstream, so only HQ/MQ genomes are expected here.
     """
-    df = pd.read_csv(path, sep=None, engine="python")
+    df = _read_csv_or_exit(path, "labels", sep=None, engine="python")
 
     lower_to_original = {c.lower(): c for c in df.columns}
 
@@ -127,8 +150,9 @@ def read_labels(path: str) -> pd.DataFrame:
             break
 
     if genome_col is None:
-        raise ValueError(
-            f"Labels file must contain a genome/genome_id column. Found columns: {list(df.columns)}"
+        sys.exit(
+            f"ERROR: labels file '{path}' must contain a genome/genome_id column. "
+            f"Found columns: {list(df.columns)}"
         )
 
     quality_col = None
@@ -138,8 +162,8 @@ def read_labels(path: str) -> pd.DataFrame:
             break
 
     if quality_col is None:
-        raise ValueError(
-            f"Labels file must contain label, quality_status, quality, or qc_status. "
+        sys.exit(
+            f"ERROR: labels file '{path}' must contain label, quality_status, quality, or qc_status. "
             f"Found columns: {list(df.columns)}"
         )
 
@@ -257,16 +281,15 @@ def validity_status(score, cluster_size):
 def confidence_status(cluster_size, n_hq, hq_ratio):
     if n_hq >= 3 and hq_ratio >= 0.40 and cluster_size >= 5:
         return "High_confidence"
-    if n_hq >= 2 and cluster_size >= 3:
+    elif n_hq >= 2 and cluster_size >= 3:
         return "Medium_confidence"
-    if cluster_size >= 2 and n_hq >= 2:
+    elif n_hq >= 2:
         return "Low_confidence"
-    if n_hq < 2:
+    else:
         return "Unresolved_low_HQ"
-    return "Low_confidence"
 
 
-def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame) -> pd.DataFrame:
+def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int) -> pd.DataFrame:
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
@@ -326,12 +349,18 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
         median_intra = safe_percentile(intra_values, 50)
 
         # Find nearest external cluster by highest median inter-cluster ANI.
+        # Only clusters of at least `min_comparison_cluster_size` count as a
+        # competing cluster -- singletons are not treated as separate groupings
+        # for separation metrics (over-splitting is penalised via singleton_rate /
+        # tiny_cluster_rate instead), so a lone outlier can't distort the score.
         best_external_cluster = None
         best_external_median = -np.inf
         best_external_values = []
 
         for other_cluster_id, other_members in cluster_to_genomes.items():
             if other_cluster_id == cluster_id:
+                continue
+            if len(other_members) < min_comparison_cluster_size:
                 continue
 
             inter_values = []
@@ -402,13 +431,17 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
     return pd.DataFrame(rows)
 
 
-def calculate_silhouette_for_genome(genome, own_cluster, clusters_by_id, ani_matrix):
+def calculate_silhouette_for_genome(genome, own_cluster, clusters_by_id, ani_matrix, min_comparison_cluster_size):
     """
     Calculate ANI-based silhouette for one genome.
 
     Distance = 1 - ANI.
 
-    Returns NaN for singleton clusters or if distances are missing.
+    Returns NaN for singleton clusters or if distances are missing. The nearest
+    other cluster (b) is chosen only among clusters of at least
+    `min_comparison_cluster_size`, so singletons are not treated as competing
+    clusters (a lone outlier near a real cluster should not tank its silhouette;
+    over-splitting is penalised separately via singleton_rate).
     """
     own_members = [g for g in clusters_by_id[own_cluster] if g != genome]
 
@@ -432,6 +465,8 @@ def calculate_silhouette_for_genome(genome, own_cluster, clusters_by_id, ani_mat
 
     for cluster_id, members in clusters_by_id.items():
         if cluster_id == own_cluster:
+            continue
+        if len(members) < min_comparison_cluster_size:
             continue
 
         distances = []
@@ -461,7 +496,7 @@ def calculate_silhouette_for_genome(genome, own_cluster, clusters_by_id, ani_mat
     return silhouette, nearest_cluster
 
 
-def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame) -> pd.DataFrame:
+def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int) -> pd.DataFrame:
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
@@ -480,6 +515,7 @@ def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix:
             row.cluster_id,
             clusters_by_id,
             ani_matrix,
+            min_comparison_cluster_size,
         )
 
         rows.append({
@@ -488,12 +524,16 @@ def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix:
             "quality_status": row.quality_status,
             "nearest_external_cluster": nearest_cluster,
             "silhouette_ANI": silhouette,
-            "is_negative_silhouette": (
-                bool(silhouette < 0) if not np.isnan(silhouette) else np.nan
-            ),
         })
 
-    return pd.DataFrame(rows)
+    result = pd.DataFrame(rows)
+    # Derive the negative-silhouette flag vectorised, as a nullable boolean, so the
+    # column has one clean dtype (True/False/<NA>) rather than mixing Python bool
+    # with float NaN (object dtype). NaN silhouettes occur for singleton genomes
+    # (no same-cluster neighbour) and single-cluster inputs (no external cluster).
+    sil = result["silhouette_ANI"]
+    result["is_negative_silhouette"] = (sil < 0).astype("boolean").mask(sil.isna())
+    return result
 
 
 def weighted_tool_score(clusters: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_subset=None):
@@ -532,7 +572,7 @@ def fraction_status(clusters_with_metrics, status, genome_subset=None):
     return float(np.mean(tmp["validity_status"].eq(status)))
 
 
-def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_metrics: pd.DataFrame) -> pd.DataFrame:
+def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_metrics: pd.DataFrame, model_name: str, accept_status: set) -> pd.DataFrame:
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
@@ -594,18 +634,18 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     n_nonsingleton = int((cluster_metrics["cluster_size"] > 1).sum()) if n_clusters else 0
     no_hq_structure = bool(np.isnan(tool_structure_score_hq))
 
+    reason = None
     if no_hq_structure:
         status = "Weak"
         if n_clusters <= 1:
-            reason = "single cluster (no partitioning)"
+            reason = "no evaluable HQ structure: single cluster (no partitioning)"
         elif n_nonsingleton == 0:
-            reason = "all singletons (no cohesive clusters)"
+            reason = "no evaluable HQ structure: all singletons (no cohesive clusters)"
         else:
             reason = (
-                "structure exists only among MQ genomes while HQ genomes are unresolved "
+                "no evaluable HQ structure: structure only among MQ genomes, HQ unresolved "
                 "(likely a fragmentation artifact, not true subspecies signal)"
             )
-        print(f"NOTE: no evaluable HQ structure -> tool_status=Weak: {reason}", file=sys.stderr)
     elif (
         tool_structure_score_hq >= 0.80
         and tool_structure_score_total >= 0.70
@@ -636,20 +676,53 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     else:
         status = "Mixed"
 
-    if no_hq_structure:
-        action = "TRY_NEXT_MODEL"
-    elif status in ["Strong", "Moderate"]:
-        action = "ACCEPT"
-    elif singleton_rate_hq > 0.20 and defective_hq_fraction <= 0.20:
-        action = "TRY_MORE_PERMISSIVE_BOUNDARY"
-    elif defective_hq_fraction > 0.20 or neg_sil_hq > 0.25:
-        action = "TRY_MORE_STRICT_BOUNDARY"
-    elif status == "Mixed":
-        action = "REVIEW"
-    else:
-        action = "REJECT"
+    # Human-readable reason for the profiler-history report (the no-structure
+    # cases already set one above).
+    if reason is None:
+        if status in ("Strong", "Moderate"):
+            reason = f"{status.lower()} clustering (HQ structure score {tool_structure_score_hq:.2f})"
+        elif status == "Weak":
+            fails = []
+            if tool_structure_score_hq < 0.65:
+                fails.append(f"HQ structure score {tool_structure_score_hq:.2f} < 0.65")
+            if tool_structure_score_total < 0.55:
+                fails.append(f"total structure score {tool_structure_score_total:.2f} < 0.55")
+            if defective_hq_fraction > 0.20:
+                fails.append(f"defective HQ fraction {defective_hq_fraction:.2f} > 0.20")
+            if singleton_rate_hq > 0.30:
+                fails.append(f"HQ singleton rate {singleton_rate_hq:.2f} > 0.30")
+            if tiny_cluster_rate_hq > 0.40:
+                fails.append(f"tiny-cluster HQ rate {tiny_cluster_rate_hq:.2f} > 0.40")
+            if neg_sil_hq > 0.25:
+                fails.append(f"negative-silhouette HQ fraction {neg_sil_hq:.2f} > 0.25")
+            reason = "weak clustering: " + ("; ".join(fails) if fails else "below Moderate thresholds")
+        else:  # Mixed: structure/separation reach Moderate quality, but a
+            # fragmentation/misplacement metric sits in the band between the
+            # Moderate and Weak thresholds -- genuinely mixed signals (good on some
+            # axes, borderline on others), not a lack of information.
+            borderline = []
+            if singleton_rate_hq > 0.20:
+                borderline.append(f"HQ singleton rate {singleton_rate_hq:.2f} (> Moderate's 0.20)")
+            if tiny_cluster_rate_hq > 0.30:
+                borderline.append(f"tiny-cluster HQ rate {tiny_cluster_rate_hq:.2f} (> Moderate's 0.30)")
+            if neg_sil_hq > 0.15:
+                borderline.append(f"negative-silhouette HQ fraction {neg_sil_hq:.2f} (> Moderate's 0.15)")
+            reason = "mixed signal: acceptable structure but " + (
+                "; ".join(borderline) if borderline else "borderline over-splitting/misplacement"
+            )
+
+    # Binomial control signal for the model-selection loop: ACCEPT (stop) when the
+    # quality label is in the acceptance set, else TRY_NEXT_MODEL (keep searching).
+    decision = "ACCEPT" if status in accept_status else "TRY_NEXT_MODEL"
+
+    print(
+        f"[{model_name or 'model'}] tool_status={status} decision={decision} :: {reason}",
+        file=sys.stderr,
+    )
 
     row = {
+        "model": model_name,
+
         "tool_structure_score_HQ": tool_structure_score_hq,
         "tool_structure_score_total": tool_structure_score_total,
 
@@ -677,7 +750,8 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
         "negative_silhouette_total_fraction": silhouette_summary(gm_total, "negative_fraction"),
 
         "tool_status": status,
-        "recommended_action": action,
+        "decision": decision,
+        "reason": reason,
     }
 
     return pd.DataFrame([row])
@@ -725,8 +799,28 @@ def main():
              "preparation while tolerating borderline within-species cases (species "
              "boundary ~0.95).",
     )
+    parser.add_argument(
+        "--model-name", default="",
+        help="Name of the PopPUNK model that produced these clusters (e.g. bgmm, dbscan, "
+             "lineage), recorded in the output for the profiler-history report.",
+    )
+    parser.add_argument(
+        "--min-comparison-cluster-size", type=int, default=2,
+        help="Minimum cluster size for a cluster to count as a competing/nearest cluster "
+             "in the separation metrics (silhouette b and nearest-external ANI). Default 2 "
+             "excludes singletons -- they are not treated as genuine groupings for "
+             "separation (over-splitting is penalised via singleton_rate instead).",
+    )
+    parser.add_argument(
+        "--accept-status", default="Strong",
+        help="Comma-separated tool_status values that count as acceptable, i.e. "
+             "decision=ACCEPT (stop the model search). Default: Strong (conservative -- "
+             "keep searching until a clean result; the loop's best-so-far handles "
+             "the case where nothing is Strong).",
+    )
 
     args = parser.parse_args()
+    accept_status = {s.strip() for s in args.accept_status.split(",") if s.strip()}
 
     fastani = read_fastani(args.fastani)
     clusters = read_clusters(args.clusters)
@@ -735,8 +829,9 @@ def main():
     clusters = clusters.merge(metadata[["genome_id"]], on="genome_id", how="inner")
 
     if clusters.empty:
-        raise ValueError(
-            "No overlapping genome IDs between PopPUNK clusters and metadata after normalisation."
+        sys.exit(
+            "ERROR: no overlapping genome IDs between PopPUNK clusters and the labels file "
+            "after normalisation (check that the qc_csv genome names match the assembly filenames)."
         )
 
     genomes = sorted(clusters["genome_id"].unique())
@@ -767,9 +862,9 @@ def main():
             print(f"  ... and {len(distant_pairs) - 20} more pair(s)", file=sys.stderr)
         sys.exit(1)
 
-    cluster_metrics = evaluate_clusters(clusters, metadata, ani_matrix)
-    genome_metrics = evaluate_genomes(clusters, metadata, ani_matrix)
-    summary_metrics = tool_metrics(clusters, metadata, cluster_metrics, genome_metrics)
+    cluster_metrics = evaluate_clusters(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
+    genome_metrics = evaluate_genomes(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
+    summary_metrics = tool_metrics(clusters, metadata, cluster_metrics, genome_metrics, args.model_name, accept_status)
 
     out_prefix = Path(args.out_prefix)
     out_prefix.parent.mkdir(parents=True, exist_ok=True)
