@@ -1,0 +1,69 @@
+{
+    "all-vs-all - mixed gz and plain fasta - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.ani.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        "FASTANI_ALLVSALL",
+                        "fastani",
+                        "1.34"
+                    ]
+                ],
+                "ani": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.ani.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions_fastani": [
+                    [
+                        "FASTANI_ALLVSALL",
+                        "fastani",
+                        "1.34"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-10T09:56:55.548488"
+    },
+    "all-vs-all - mixed gz and plain fasta": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test.ani.txt:md5,6190a1a769daf7178a7977cc2fc8c904"
+                ]
+            ],
+            {
+                "versions_fastani": [
+                    [
+                        "FASTANI_ALLVSALL",
+                        "fastani",
+                        "1.34"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-10T09:56:50.533558"
+    }
+}

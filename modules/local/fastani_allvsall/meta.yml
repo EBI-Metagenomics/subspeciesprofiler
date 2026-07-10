@@ -1,0 +1,85 @@
+name: "fastani_allvsall"
+description: |
+  Computes all-vs-all average nucleotide identity (ANI) with FastANI over a set
+  of HQ/MQ genomes, for scoring PopPUNK clusterings. The genomes are staged into
+  a `genomes/` directory and their paths taken from the speciesqc r-file, so the
+  run is portable (no absolute paths). Gzipped assemblies are decompressed first
+  (FastANI reads uncompressed FASTA only).
+keywords:
+  - fastani
+  - ani
+  - all-vs-all
+  - distance
+  - subspecies
+tools:
+  - "fastani":
+      description: "Fast alignment-free computation of whole-genome Average Nucleotide Identity (ANI)."
+      homepage: "https://github.com/ParBLiSS/FastANI"
+      documentation: "https://github.com/ParBLiSS/FastANI"
+      tool_dev_url: "https://github.com/ParBLiSS/FastANI"
+      doi: "10.1038/s41467-018-07641-9"
+      licence: ["Apache-2.0"]
+      identifier: biotools:fastani
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1' ]`
+    - genomes:
+        type: file
+        description: |
+          The HQ/MQ assembly FASTA files (one per genome), staged into a `genomes/`
+          directory so the r-file's relative `./genomes/<file>` paths resolve.
+        pattern: "*.{fasta,fa,fna,fasta.gz,fa.gz,fna.gz}"
+        ontologies:
+          - edam: "http://edamontology.org/format_1929" # FASTA
+    - rfile:
+        type: file
+        description: |
+          The PopPUNK r-file from the speciesqc module (no header, tab-separated,
+          `<sample name>\t./genomes/<file>`); its 2nd column provides the genome list.
+        pattern: "*.tsv"
+        ontologies:
+          - edam: "http://edamontology.org/format_3475" # TSV
+
+output:
+  ani:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - "*.ani.txt":
+          type: file
+          description: |
+            All-vs-all FastANI output: tab-separated `query reference ani
+            fragments_mapped total_fragments`.
+          pattern: "*.ani.txt"
+  versions_fastani:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "fastani":
+          type: string
+          description: The name of the tool
+      - "fastANI --version 2>&1 | head -1 | sed \"s/version //\"":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - fastani:
+          type: string
+          description: The name of the tool
+      - fastANI --version 2>&1 | head -1 | sed "s/version //":
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"
