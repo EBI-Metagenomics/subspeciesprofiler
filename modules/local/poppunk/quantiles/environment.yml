@@ -1,0 +1,9 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # Reads the PopPUNK <db>.dists.npy with numpy; pandas pulls a compatible numpy
+  # and is the shared analysis env with poppunk/evaluate.
+  - "conda-forge::pandas=1.5.2"

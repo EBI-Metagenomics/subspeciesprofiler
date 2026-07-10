@@ -1,0 +1,36 @@
+{
+    "core-distance quantiles - npy - stub": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_core_quantiles.csv:md5,cce36eab98f6b24dcb8abb8f1ec484aa"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-09T15:50:09.087963"
+    },
+    "core-distance quantiles - npy": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_core_quantiles.csv:md5,1a9b9b26964b6c5cc2389bb2cc0d55af"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-09T15:50:04.093979"
+    }
+}

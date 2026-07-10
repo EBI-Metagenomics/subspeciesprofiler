@@ -1,0 +1,58 @@
+nextflow_process {
+
+    name "Test Process POPPUNK_QUANTILES"
+    script "../main.nf"
+    process "POPPUNK_QUANTILES"
+
+    tag "modules"
+    tag "modules_local"
+    tag "poppunk"
+    tag "poppunk/quantiles"
+
+    test("core-distance quantiles - npy") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/poppunk_qc_db", checkIfExists: true),
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.quantiles).match() }
+            )
+        }
+
+    }
+
+    test("core-distance quantiles - npy - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/poppunk_qc_db", checkIfExists: true),
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.quantiles).match() }
+            )
+        }
+
+    }
+
+}

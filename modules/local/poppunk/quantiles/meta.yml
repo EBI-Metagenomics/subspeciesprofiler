@@ -1,0 +1,75 @@
+name: "poppunk_quantiles"
+description: |
+  Derives the core-distance threshold sweep values for `poppunk --fit-model
+  threshold` from the observed distance distribution of a (QC'd) PopPUNK
+  database. Reads the database's `<name>.dists.npy` core-distance column and
+  writes the requested quantiles as thresholds, dropping degenerate (<=0) and
+  duplicate values so the sweep only runs on the informative range.
+keywords:
+  - poppunk
+  - core distance
+  - quantiles
+  - threshold
+  - clustering
+  - subspecies
+tools:
+  - "python":
+      description: "Runs bin/poppunk_core_quantiles.py, a numpy script that computes core-distance quantiles from a PopPUNK database."
+      homepage: "https://www.python.org/"
+      documentation: "https://numpy.org/doc/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1' ]`
+    - qc_db:
+        type: directory
+        description: |
+          QC'd PopPUNK database directory (from POPPUNK_QCDB), containing the
+          `<name>.dists.npy` pairwise-distance array (column 0 = core distance).
+        pattern: "*"
+        ontologies: []
+
+output:
+  quantiles:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - "*_core_quantiles.csv":
+          type: file
+          description: |
+            CSV with header `quantile,core_threshold`, one row per usable
+            quantile (degenerate/duplicate thresholds removed).
+          pattern: "*_core_quantiles.csv"
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"
