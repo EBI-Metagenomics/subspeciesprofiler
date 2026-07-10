@@ -1,0 +1,9 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # bin/evaluate_poppunk_fastani.py needs pandas + numpy (numpy pulled by pandas);
+  # shared analysis env with poppunk/quantiles.
+  - "conda-forge::pandas=1.5.2"

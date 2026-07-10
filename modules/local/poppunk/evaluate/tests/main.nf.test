@@ -1,0 +1,70 @@
+nextflow_process {
+
+    name "Test Process POPPUNK_EVALUATE"
+    script "../main.nf"
+    process "POPPUNK_EVALUATE"
+
+    tag "modules"
+    tag "modules_local"
+    tag "poppunk"
+    tag "poppunk/evaluate"
+
+    test("evaluate clusters - fastani") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', model:'bgmm_test' ],
+                    file("${projectDir}/tests/fixtures/eval/model", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(
+                    process.out.tool_metrics,
+                    process.out.cluster_metrics,
+                    process.out.genome_metrics,
+                    process.out.findAll { key, val -> key.startsWith("versions") }
+                ).match() },
+                // the evaluated (non-unword) clusters file, the model name and the binomial decision are present
+                { assert path(process.out.tool_metrics[0][1]).text.contains("decision") },
+                { assert path(process.out.tool_metrics[0][1]).text.contains("bgmm_test") }
+            )
+        }
+
+    }
+
+    test("evaluate clusters - fastani - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', model:'bgmm_test' ],
+                    file("${projectDir}/tests/fixtures/eval/model", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

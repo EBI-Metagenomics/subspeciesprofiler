@@ -1,0 +1,102 @@
+name: "poppunk_evaluate"
+description: |
+  Scores a PopPUNK clustering against all-vs-all FastANI, using the per-genome
+  HQ/MQ labels, via bin/evaluate_poppunk_fastani.py. Fails fast if the species
+  group contains genomes too distant to belong to the same species, and emits a
+  per-tool verdict (tool_status + reason for the audit report, and a binomial
+  decision ACCEPT / TRY_NEXT_MODEL for the model-selection loop), plus per-cluster
+  and per-genome metrics.
+keywords:
+  - poppunk
+  - fastani
+  - ani
+  - clustering
+  - evaluation
+  - subspecies
+tools:
+  - "python":
+      description: "Runs bin/evaluate_poppunk_fastani.py (pandas/numpy) to score PopPUNK clusters against FastANI."
+      homepage: "https://www.python.org/"
+      documentation: "https://pandas.pydata.org/docs/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information, optionally a `model` key naming
+          the model that produced the clustering (recorded in the report). e.g.
+          `[ id:'Escherichia_coli', model:'threshold_0.0012' ]`
+    - model:
+        type: directory
+        description: |
+          A PopPUNK fit-model output directory (from POPPUNK_FITMODEL); the module
+          evaluates its `*_clusters.csv` (Taxon,Cluster), ignoring `*_unword_clusters.csv`.
+        pattern: "*"
+        ontologies: []
+    - fastani:
+        type: file
+        description: |
+          All-vs-all FastANI output (columns: query, reference, ani, fragments_mapped,
+          total_fragments), covering the clustered genomes.
+        pattern: "*.txt"
+    - labels:
+        type: file
+        description: |
+          Per-genome HQ/MQ labels CSV (`genome,label`) from the speciesqc module.
+        pattern: "*.csv"
+
+output:
+  tool_metrics:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.tool_metrics.tsv":
+          type: file
+          description: |
+            Single-row per-tool verdict: model, structure/separation scores, tool_status
+            (Strong/Moderate/Weak/Mixed), decision (ACCEPT/TRY_NEXT_MODEL) and reason.
+          pattern: "*.tool_metrics.tsv"
+  cluster_metrics:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.cluster_metrics.tsv":
+          type: file
+          description: Per-cluster metrics (size, N_HQ, intra/inter ANI, structure score, validity).
+          pattern: "*.cluster_metrics.tsv"
+  genome_metrics:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*.genome_metrics.tsv":
+          type: file
+          description: Per-genome metrics (ANI silhouette, nearest external cluster).
+          pattern: "*.genome_metrics.tsv"
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

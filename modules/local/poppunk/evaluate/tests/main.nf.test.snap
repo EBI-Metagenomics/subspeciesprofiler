@@ -1,0 +1,126 @@
+{
+    "evaluate clusters - fastani": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "bgmm_test"
+                    },
+                    "test.tool_metrics.tsv:md5,9d4423217d7e6fb06e2cd05b045a8a20"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "bgmm_test"
+                    },
+                    "test.cluster_metrics.tsv:md5,86d4083d0a20f863662c1f2318f82722"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "bgmm_test"
+                    },
+                    "test.genome_metrics.tsv:md5,1b371b9fed8c118b85f8b32f59e88533"
+                ]
+            ],
+            {
+                "versions_python": [
+                    [
+                        "POPPUNK_EVALUATE",
+                        "python",
+                        "3.11.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-10T09:48:24.693378"
+    },
+    "evaluate clusters - fastani - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "bgmm_test"
+                        },
+                        "test.tool_metrics.tsv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "bgmm_test"
+                        },
+                        "test.cluster_metrics.tsv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "bgmm_test"
+                        },
+                        "test.genome_metrics.tsv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "3": [
+                    [
+                        "POPPUNK_EVALUATE",
+                        "python",
+                        "3.11.0"
+                    ]
+                ],
+                "cluster_metrics": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "bgmm_test"
+                        },
+                        "test.cluster_metrics.tsv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "genome_metrics": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "bgmm_test"
+                        },
+                        "test.genome_metrics.tsv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "tool_metrics": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "bgmm_test"
+                        },
+                        "test.tool_metrics.tsv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "POPPUNK_EVALUATE",
+                        "python",
+                        "3.11.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-07-10T09:48:28.623962"
+    }
+}
