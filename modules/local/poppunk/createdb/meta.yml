@@ -31,16 +31,24 @@ input:
         description: |
           Groovy Map containing sample information
           e.g. `[ id:'sample1' ]`
-    - assemblies:
+    - genomes:
         type: file
         description: |
-          Mandatory. List of assembled genome FASTA files, one per genome, all
-          belonging to the same species. Used to build the PopPUNK r-file
-          (sample name to assembly path mapping) and passed to
-          `poppunk --create-db --r-files`.
+          Mandatory. The HQ/MQ assembly FASTA files (one per genome), staged into
+          a `genomes/` directory so the r-file's relative `./genomes/<file>` paths
+          resolve.
         pattern: "*.{fasta,fa,fna}"
         ontologies:
           - edam: "http://edamontology.org/format_1929" # FASTA
+    - rfile:
+        type: file
+        description: |
+          Mandatory. The PopPUNK r-file produced by the speciesqc module:
+          no header, tab-separated, `<sample name>\t./genomes/<file>`, listing the
+          HQ/MQ genomes. Passed to `poppunk --create-db --r-files`.
+        pattern: "*.tsv"
+        ontologies:
+          - edam: "http://edamontology.org/format_3475" # TSV
 
 output:
   db:
@@ -59,22 +67,6 @@ output:
             database files.
           pattern: "${prefix}"
           ontologies: []
-  rlist:
-    - - meta:
-          type: map
-          description: |
-            Groovy Map containing sample information
-            e.g. `[ id:'sample1' ]`
-      - ${prefix}_rlist.txt:
-          type: file
-          description: |
-            Mandatory. Tab-separated PopPUNK r-file listing each sample name
-            and the path to its assembly FASTA file
-            (`<sample name>\t<assembly path>`), as passed to
-            `poppunk --create-db --r-files`.
-          pattern: "*_rlist.txt"
-          ontologies:
-            - edam: "http://edamontology.org/format_3475" # TSV
   versions_poppunk:
     - - "${task.process}":
           type: string

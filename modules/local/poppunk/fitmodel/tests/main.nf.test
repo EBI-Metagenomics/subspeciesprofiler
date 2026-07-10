@@ -22,7 +22,8 @@ nextflow_process {
                         file(params.modules_testdata_base_path + 'genomics/prokaryotes/haemophilus_influenzae/genome/genome.fna.gz', checkIfExists: true),
                         file(params.modules_testdata_base_path + 'genomics/prokaryotes/escherichia_coli/genome/genome.fa.gz', checkIfExists: true),
                         file(params.modules_testdata_base_path + 'genomics/prokaryotes/candidatus_portiera_aleyrodidarum/genome/genome.fasta', checkIfExists: true)
-                    ]
+                    ],
+                    file("${projectDir}/tests/fixtures/poppunk_rfile.tsv", checkIfExists: true)
                 ]
                 """
             }

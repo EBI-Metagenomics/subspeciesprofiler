@@ -16,14 +16,6 @@
                 ],
                 "1": [
                     [
-                        {
-                            "id": "test"
-                        },
-                        "test_rlist.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
-                "2": [
-                    [
                         "POPPUNK_CREATEDB",
                         "poppunk",
                         "poppunk 2.7.8"
@@ -41,14 +33,6 @@
                         ]
                     ]
                 ],
-                "rlist": [
-                    [
-                        {
-                            "id": "test"
-                        },
-                        "test_rlist.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
-                    ]
-                ],
                 "versions_poppunk": [
                     [
                         "POPPUNK_CREATEDB",
@@ -60,20 +44,12 @@
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.04.0"
+            "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-07T13:17:22.168271"
+        "timestamp": "2026-07-09T16:16:27.802941"
     },
     "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - assemblies": {
         "content": [
-            [
-                [
-                    {
-                        "id": "test"
-                    },
-                    "test_rlist.txt:md5,72e02f13a66a4ebbbfa7eb9289167c2a"
-                ]
-            ],
             [
                 "test.dists.npy",
                 "test.dists.pkl",
@@ -97,6 +73,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-07T14:34:51.583994"
+        "timestamp": "2026-07-09T16:15:58.726251"
     }
 }
