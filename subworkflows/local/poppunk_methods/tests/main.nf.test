@@ -1,0 +1,48 @@
+nextflow_workflow {
+
+    name "Test Subworkflow POPPUNK_METHODS"
+    script "../main.nf"
+    workflow "POPPUNK_METHODS"
+
+    tag "subworkflows"
+    tag "subworkflows_local"
+    tag "poppunk_methods"
+
+    // Stub run: verifies the wiring (Stage 0 -> quantile fan-out -> fit -> evaluate -> select)
+    // connects and the sweep produces one evaluation per quantile. Scientific correctness is
+    // covered by the individual module tests (which use real data).
+    test("threshold sweep - wiring - stub") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'test' ],
+                    [
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome2.fna.gz", checkIfExists: true)
+                    ],
+                    file("${projectDir}/tests/fixtures/poppunk_rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                ])
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                // the quantiles stub emits 3 thresholds -> one fit + evaluation each
+                { assert workflow.out.tool_metrics.size() == 3 },
+                // select emits one best model + the accepted-models set for the species
+                { assert workflow.out.best_model.size() == 1 },
+                { assert workflow.out.best_model.get(0).get(0) == 'test' },
+                { assert workflow.out.accepted_models.size() == 1 }
+            )
+        }
+
+    }
+
+}

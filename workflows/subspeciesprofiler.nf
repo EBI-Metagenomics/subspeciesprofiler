@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
+include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -40,28 +41,39 @@ workflow SUBSPECIESPROFILER {
     //
     def qc_keep = params.qc_filter.tokenize(',')
 
-    def ch_labels = SPECIESQC.out.report
+    def ch_spp_label = SPECIESQC.out.report
         .splitCsv(header: true, sep: '\t')
         .map { meta, row -> [ meta.id, row.spp_label ] }
+    def ch_rfile  = SPECIESQC.out.rfile.map  { meta, rf -> [ meta.id, rf ] }
+    def ch_labels = SPECIESQC.out.labels.map { meta, lb -> [ meta.id, lb ] }
 
     ch_samplesheet
         .map { meta, genomes_dir, qc_csv -> [ meta.id, meta, genomes_dir ] }
+        .join(ch_spp_label)
+        .join(ch_rfile)
         .join(ch_labels)
-        .map { id, meta, genomes_dir, label -> [ meta + [ spp_label: label ], genomes_dir ] }
-        .branch { meta, genomes_dir ->
+        .map { id, meta, genomes_dir, label, rfile, labels ->
+            [ meta + [ spp_label: label ], genomes_dir, rfile, labels ]
+        }
+        .branch { meta, genomes_dir, rfile, labels ->
             pass: meta.spp_label in qc_keep
             fail: true
         }
         .set { ch_eligibility }
 
-    // Eligible species carried forward for subspecies clustering: [ meta(+spp_label), genomes_dir ]
-    ch_eligible = ch_eligibility.pass
-
     // Species filtered out by --qc_filter (available for reporting / logging)
     ch_eligibility.fail
-        .subscribe { meta, genomes_dir -> log.warn("Species '${meta.id}' dropped: spp_label='${meta.spp_label}' not in --qc_filter (${params.qc_filter})") }
+        .subscribe { meta, genomes_dir, rfile, labels -> log.warn("Species '${meta.id}' dropped: spp_label='${meta.spp_label}' not in --qc_filter (${params.qc_filter})") }
 
-    // TODO nf-core: The subspecies clustering module will consume ch_eligible next.
+    //
+    // SUBWORKFLOW: staged PopPUNK model selection for each eligible species.
+    // Expand genomes_dir into the assembly files (staged as genomes/); carry the
+    // r-file + HQ/MQ labels through.
+    //
+    ch_poppunk_in = ch_eligibility.pass.map { meta, genomes_dir, rfile, labels ->
+        [ meta, file("${genomes_dir}/*", checkIfExists: true), rfile, labels ]
+    }
+    POPPUNK_METHODS( ch_poppunk_in )
 
     //
     // Collate and save software versions

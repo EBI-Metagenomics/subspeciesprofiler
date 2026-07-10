@@ -1,0 +1,16 @@
+g1.fna	g1.fna	100.0	950	1000
+g1.fna	g2.fna	99.5	950	1000
+g1.fna	g3.fna	96.0	950	1000
+g1.fna	g4.fna	96.0	950	1000
+g2.fna	g1.fna	99.5	950	1000
+g2.fna	g2.fna	100.0	950	1000
+g2.fna	g3.fna	96.0	950	1000
+g2.fna	g4.fna	96.0	950	1000
+g3.fna	g1.fna	96.0	950	1000
+g3.fna	g2.fna	96.0	950	1000
+g3.fna	g3.fna	100.0	950	1000
+g3.fna	g4.fna	99.5	950	1000
+g4.fna	g1.fna	96.0	950	1000
+g4.fna	g2.fna	96.0	950	1000
+g4.fna	g3.fna	99.5	950	1000
+g4.fna	g4.fna	100.0	950	1000
