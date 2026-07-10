@@ -8,7 +8,10 @@ process POPPUNK_FITMODEL {
         'biocontainers/poppunk:2.7.8--py310h4d0eb5b_0' }"
 
     input:
-    tuple val(meta), path(db)
+    // fit_args = the model type + its params for THIS task, e.g. "threshold --threshold 0.0012",
+    // "bgmm --K 4", "lineage --ranks 1,2,3", "dbscan --D 5 --min-cluster-prop 0.01". Supplied
+    // per-task so one module covers the whole model sweep; task.ext.args adds any common flags.
+    tuple val(meta), path(db), val(fit_args)
 
     output:
     tuple val(meta), path("${fit_prefix}")               , emit: model
@@ -18,23 +21,24 @@ process POPPUNK_FITMODEL {
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: 'bgmm'
+    def args = task.ext.args ?: ''
     prefix     = task.ext.prefix ?: "${meta.id}"
     fit_prefix = "${prefix}_fitmodel"
     """
     poppunk \\
-        --fit-model $args \\
+        --fit-model ${fit_args} \\
         --ref-db ${db} \\
         --output ${fit_prefix} \\
-        --threads $task.cpus
+        --threads $task.cpus \\
+        $args
     """
 
     stub:
-    def args = task.ext.args ?: 'bgmm'
+    def args = task.ext.args ?: ''
     prefix     = task.ext.prefix ?: "${meta.id}"
     fit_prefix = "${prefix}_fitmodel"
     """
-    echo $args
+    echo "${fit_args} ${args}"
 
     mkdir -p ${fit_prefix}
     touch ${fit_prefix}/${fit_prefix}_fit.npz

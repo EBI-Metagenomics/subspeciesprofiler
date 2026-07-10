@@ -29,7 +29,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-09T16:27:41.948335"
+        "timestamp": "2026-07-10T09:36:45.90377"
     },
     "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - fitmodel - stub": {
         "content": [
@@ -96,6 +96,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-09T16:29:11.21761"
+        "timestamp": "2026-07-10T09:38:16.576549"
     }
 }

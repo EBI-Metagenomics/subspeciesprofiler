@@ -39,12 +39,17 @@ input:
           (POPPUNK_QCDB). Contains the sketch database (`<name>.h5`) and
           the pairwise core/accessory distance matrices
           (`<name>.dists.npy`, `<name>.dists.pkl`), plus other PopPUNK
-          database files. Passed to `poppunk --fit-model --ref-db`. The
-          model type (`bgmm`, `dbscan`, `refine`, `threshold`, `lineage`)
-          and any further model-fitting options are supplied via
-          `task.ext.args` (default `bgmm`).
+          database files. Passed to `poppunk --fit-model --ref-db`.
         pattern: "*"
         ontologies: []
+    - fit_args:
+        type: string
+        description: |
+          Mandatory. The model type and its parameters for this task, passed to
+          `poppunk --fit-model`, e.g. `bgmm --K 4`, `dbscan --D 5 --min-cluster-prop 0.01`,
+          `refine --model-dir <dir>`, `threshold --threshold 0.0012`, or
+          `lineage --ranks 1,2,3`. Supplied per task so one module covers the whole
+          model sweep; `task.ext.args` may add any common flags.
 
 output:
   model:

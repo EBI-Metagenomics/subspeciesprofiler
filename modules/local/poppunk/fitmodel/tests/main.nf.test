@@ -35,7 +35,9 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = POPPUNK_CREATEDB.out.db
+                // 'bgmm --K 1': a single Gaussian is stable on the 3-genome test db
+                // (2 components crash on so few distance points).
+                input[0] = POPPUNK_CREATEDB.out.db.map { meta, db -> [ meta, db, 'bgmm --K 1' ] }
                 """
             }
         }
@@ -59,7 +61,9 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = POPPUNK_CREATEDB.out.db
+                // 'bgmm --K 1': a single Gaussian is stable on the 3-genome test db
+                // (2 components crash on so few distance points).
+                input[0] = POPPUNK_CREATEDB.out.db.map { meta, db -> [ meta, db, 'bgmm --K 1' ] }
                 """
             }
         }
