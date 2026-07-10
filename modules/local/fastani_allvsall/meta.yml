@@ -64,7 +64,7 @@ output:
       - "fastani":
           type: string
           description: The name of the tool
-      - "fastANI --version 2>&1 | head -1 | sed \"s/version //\"":
+      - 'fastANI --version 2>&1 | head -1 | sed "s/version //"':
           type: eval
           description: The expression to obtain the version of the tool
 

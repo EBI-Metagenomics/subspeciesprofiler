@@ -11,25 +11,31 @@ Requires Nextflow `>=25.04.0`.
 ## Common commands
 
 Run the pipeline (test profile, needs a container engine):
+
 ```bash
 nextflow run . -profile test,docker --outdir results
 ```
 
 Run on real data:
+
 ```bash
 nextflow run . -profile docker --input samplesheet.csv --outdir results
 ```
+
 Available engine profiles: `docker`, `singularity`, `conda`, `mamba`, `podman`, `shifter`, `charliecloud`, `apptainer`, `wave`, `gpu`. Data profiles: `test` (minimal), `test_full`. Combine as `-profile test,docker`. **Parameters must be passed via CLI or `-params-file`, never via `-c`** (custom configs are for infrastructure config only).
 
 Testing (nf-test, config in `nf-test.config`):
+
 ```bash
 nf-test test tests/default.nf.test              # the pipeline-level snapshot test
 nf-test test tests/default.nf.test --profile docker
 nf-test test --update-snapshot tests/default.nf.test   # regenerate snapshots after intended output changes
 ```
+
 `nf-test.config` ignores tests under `modules/nf-core/**` and `subworkflows/nf-core/**`, and auto-triggers a full run when core config files change.
 
 Linting / formatting:
+
 ```bash
 nf-core pipelines lint     # nf-core structural + template linting
 pre-commit run --all-files # prettier + whitespace/EOF fixers
@@ -45,15 +51,18 @@ Nextflow entrypoints form a layered call chain — read them in this order:
 4. **`subworkflows/nf-core/*`** and **`modules/nf-core/*`** — vendored, unmodified nf-core components. Do **not** hand-edit these; manage them with `nf-core modules`/`nf-core subworkflows` commands (tracked in `modules.json`).
 
 ### Samplesheet channel shape
+
 `PIPELINE_INITIALISATION` emits `ch_samplesheet` as tuples of `[ meta, [fastqs] ]` where `meta` carries `id` and `single_end`. `validateInputSamplesheet` enforces that all runs of a sample share the same single-end/paired-end datatype. The input schema lives in `assets/schema_input.json`.
 
 ### Adding a module and configuring it
+
 - Install with `nf-core modules install <tool>`, then `include { ... }` it in `workflows/subspeciesprofiler.nf` and wire its channels.
 - Feed each module's `.out.versions` into the `ch_versions` mix so it reaches the software-versions YAML.
 - To collect a module's output into the MultiQC report, mix it into `ch_multiqc_files`.
 - Per-process CLI args (`ext.args`), output filename prefixes (`ext.prefix`), and `publishDir` paths are set in **`conf/modules.config`** via `withName:` blocks — not inside the module files. Default publish path derives from the process name.
 
 ### Config layering
+
 `nextflow.config` is the root; it pulls in `conf/base.config` (resource labels/retries), `conf/modules.config` (per-module options), and the selected profile from `conf/test.config` / `conf/test_full.config`. Parameters are declared and JSON-schema-validated against `nextflow_schema.json` (edit it with `nf-core pipelines schema build`). igenomes reference data is defined in `conf/igenomes.config`.
 
 ## Conventions

@@ -17,7 +17,6 @@
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
 [![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/nf-core/subspeciesprofiler)
 
-
 ## Introduction
 
 **ebi-metagenomics/subspeciesprofiler** is a bioinformatics pipeline that generates subspecies clusters from a group of genomes of the same species.
@@ -45,8 +44,8 @@ bacteroides_xylanisolvens,/path/to/bxylanisolvens/genomes,/path/to/bxylanisolven
 ```
 
 | Column        | Description                                                                                                 |
-| ------------- | ---------------------------------------------------------------------------------------------------------- |
-| `species`     | Unique species name (no spaces).                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| `species`     | Unique species name (no spaces).                                                                            |
 | `genomes_dir` | Directory of assembled genomes for that species. FASTA (`.fasta`/`.fa`/`.fna`), optionally gzipped (`.gz`). |
 | `qc_csv`      | Per-genome completeness/contamination table for that species (see below).                                   |
 
@@ -103,15 +102,15 @@ Candidate PopPUNK models are scored against all-vs-all FastANI:
 
 Results are organised per species under `<outdir>/`:
 
-| Path                                          | Contents                                                                                             |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `speciesqc/<species>/`                        | Eligibility report + the PopPUNK r-file and per-genome HQ/MQ labels.                                  |
-| `poppunk/<species>/createdb/`                 | The PopPUNK sketch database + core/accessory distances (with diagnostic plots).                       |
-| `poppunk/<species>/qcdb/`                     | The QC'd (pruned) database (with plots).                                                              |
-| `poppunk/<species>/quantiles/`               | The data-derived core-distance thresholds (`*_core_quantiles.csv`).                                   |
-| `poppunk/<species>/fastani/`                  | The all-vs-all ANI (`*.ani.txt`).                                                                     |
-| `poppunk/<species>/fitmodel/<model>/`         | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model. |
-| `poppunk/<species>/evaluate/<model>/`         | The per-model verdict: `*.tool_metrics.tsv` (`model`, `tool_status`, `decision`, `reason`, scores) plus per-cluster and per-genome metrics. |
+| Path                                  | Contents                                                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `speciesqc/<species>/`                | Eligibility report + the PopPUNK r-file and per-genome HQ/MQ labels.                                                                        |
+| `poppunk/<species>/createdb/`         | The PopPUNK sketch database + core/accessory distances (with diagnostic plots).                                                             |
+| `poppunk/<species>/qcdb/`             | The QC'd (pruned) database (with plots).                                                                                                    |
+| `poppunk/<species>/quantiles/`        | The data-derived core-distance thresholds (`*_core_quantiles.csv`).                                                                         |
+| `poppunk/<species>/fastani/`          | The all-vs-all ANI (`*.ani.txt`).                                                                                                           |
+| `poppunk/<species>/fitmodel/<model>/` | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model.                                       |
+| `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `tool_status`, `decision`, `reason`, scores) plus per-cluster and per-genome metrics. |
 
 To see the results of an example test run with a full size dataset refer to the [results](https://nf-co.re/subspeciesprofiler/results) tab on the nf-core website pipeline page.
 For more details about the output files and reports, please refer to the
