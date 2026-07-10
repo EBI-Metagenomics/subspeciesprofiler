@@ -22,40 +22,43 @@
 
 **ebi-metagenomics/subspeciesprofiler** is a bioinformatics pipeline that generates subspecies clusters from a group of genomes of the same species.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+Given, per species, a directory of assembled genomes and a per-genome completeness/contamination table, for each eligible species the pipeline:
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/guidelines/graphic_design/workflow_diagrams#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+1. **Classifies** each genome as HQ / MQ / DISCARDED from its completeness/contamination and decides whether the species group is eligible for subspecies clustering (`speciesqc`).
+2. Builds and QCs a **[PopPUNK](https://poppunk.bacpop.org)** database from the HQ/MQ genomes and derives a **core-distance threshold sweep** from the observed distance distribution.
+3. Fits PopPUNK clustering models and **scores each against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI)**, then selects the model(s) that best recover the ANI-defined subspecies structure.
+
+Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
 
 ## Usage
 
 > [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
-
-First, prepare a samplesheet with your input data that looks as follows:
+Prepare a samplesheet describing the species to cluster — one row per species:
 
 `samplesheet.csv`:
 
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+species,genomes_dir,qc_csv
+bacteroides_xylanisolvens,/path/to/bxylanisolvens/genomes,/path/to/bxylanisolvens/qc.csv
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
+| Column        | Description                                                                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| `species`     | Unique species name (no spaces).                                                                           |
+| `genomes_dir` | Directory of assembled genomes for that species. FASTA (`.fasta`/`.fa`/`.fna`), optionally gzipped (`.gz`). |
+| `qc_csv`      | Per-genome completeness/contamination table for that species (see below).                                   |
 
--->
+The `qc_csv` has a header row and one row per genome. The `genome` column is the **assembly filename with its extension** (it is stripped to the PopPUNK sample name), and the completeness/contamination columns are matched case-insensitively by name (so CheckM/CheckM2-style headers work directly):
+
+```csv
+genome,completeness,contamination
+MGYG000001345.fasta,99.5,0.5
+MGYG000005313.fasta,98.2,1.1
+```
 
 Now, you can run the pipeline using:
-
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
 
 ```bash
 nextflow run nf-core/subspeciesprofiler \
@@ -64,12 +67,51 @@ nextflow run nf-core/subspeciesprofiler \
    --outdir <OUTDIR>
 ```
 
+> [!NOTE]
+> On x86_64 Linux clusters, use `-profile singularity` (or `docker`); no special settings are needed. The PopPUNK, FastANI and pandas steps all ship pinned containers.
+
 > [!WARNING]
 > Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
 
 For more details and further functionality, please refer to the [usage documentation](https://nf-co.re/subspeciesprofiler/usage) and the [parameter documentation](https://nf-co.re/subspeciesprofiler/parameters).
 
+## How it works
+
+### Genome classification and species eligibility
+
+Each genome is classified from its completeness (`comp`) and contamination (`cont`):
+
+| Class         | Rule                                     |
+| ------------- | ---------------------------------------- |
+| **HQ**        | `comp ≥ 90` and `cont ≤ 1%`              |
+| **MQ**        | `comp ≥ 80` and `cont ≤ 5%`              |
+| **DISCARDED** | otherwise (dropped; not sent to PopPUNK) |
+
+Only HQ + MQ genomes are used to build the PopPUNK database. Each species is then given an eligibility label from its HQ / effective-genome counts (`STRONG`, `ACCEPTABLE`, `NOT_ELIGIBLE`, `DISCARDED`, with `_BOUNDARY` / `_NEAR_THRESHOLD` variants). Only species whose label is in `--qc_filter` (default `STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY`) proceed to clustering.
+
+### Model scoring and selection
+
+Candidate PopPUNK models are scored against all-vs-all FastANI:
+
+- **Within-species ANI gate** — every genome pair in a species group must be ≥ `--min-ani` (0–1 scale, default `0.90`) similar. A pair below the threshold, or one FastANI cannot align, **fails the species**: it flags a genome too distant to belong (e.g. a mis-assignment during data preparation).
+- **`tool_status`** ∈ `Strong` / `Moderate` / `Weak` / `Mixed` — the clustering quality, weighted towards the trustworthy HQ genomes (cluster cohesion + separation, penalising over-splitting).
+- **`decision`** ∈ `ACCEPT` / `TRY_NEXT_MODEL` — `ACCEPT` when `tool_status` is in `--accept-status` (default `Strong`).
+
+**All accepted models are reported** (e.g. several `Strong` fits from one sweep), together with the single best-ranked model as a fallback.
+
 ## Pipeline output
+
+Results are organised per species under `<outdir>/`:
+
+| Path                                          | Contents                                                                                             |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `speciesqc/<species>/`                        | Eligibility report + the PopPUNK r-file and per-genome HQ/MQ labels.                                  |
+| `poppunk/<species>/createdb/`                 | The PopPUNK sketch database + core/accessory distances (with diagnostic plots).                       |
+| `poppunk/<species>/qcdb/`                     | The QC'd (pruned) database (with plots).                                                              |
+| `poppunk/<species>/quantiles/`               | The data-derived core-distance thresholds (`*_core_quantiles.csv`).                                   |
+| `poppunk/<species>/fastani/`                  | The all-vs-all ANI (`*.ani.txt`).                                                                     |
+| `poppunk/<species>/fitmodel/<model>/`         | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model. |
+| `poppunk/<species>/evaluate/<model>/`         | The per-model verdict: `*.tool_metrics.tsv` (`model`, `tool_status`, `decision`, `reason`, scores) plus per-cluster and per-genome metrics. |
 
 To see the results of an example test run with a full size dataset refer to the [results](https://nf-co.re/subspeciesprofiler/results) tab on the nf-core website pipeline page.
 For more details about the output files and reports, please refer to the
