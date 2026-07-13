@@ -72,9 +72,10 @@ workflow POPPUNK_METHODS {
     // nothing is accepted, and the seed for the later refine escalation.
     ch_best = ch_ranked.map { id, rows ->
         def order = [ 'Strong': 3, 'Moderate': 2, 'Mixed': 1, 'Weak': 0 ]
-        def score = { r -> (r.tool_structure_score_HQ ?: '').isNumber() ? r.tool_structure_score_HQ.toDouble() : -1d }
         def best = rows.sort { a, b ->
-            ((order[b.tool_status] ?: -1) <=> (order[a.tool_status] ?: -1)) ?: (score(b) <=> score(a))
+            def sa = (a.tool_structure_score_HQ ?: '').isNumber() ? a.tool_structure_score_HQ.toDouble() : -1d
+            def sb = (b.tool_structure_score_HQ ?: '').isNumber() ? b.tool_structure_score_HQ.toDouble() : -1d
+            ((order[b.tool_status] ?: -1) <=> (order[a.tool_status] ?: -1)) ?: (sb <=> sa)
         }.first()
         [ id, best ]
     }

@@ -10,9 +10,13 @@
 
 ## Pipeline tools
 
-- [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+- [PopPUNK](https://pubmed.ncbi.nlm.nih.gov/30658834/)
 
-> Andrews, S. (2010). FastQC: A Quality Control Tool for High Throughput Sequence Data [Online].
+> Lees JA, Harris SR, Tonkin-Hill G, Gladstone RA, Lo SW, Weiser JN, Corander J, Bentley SD, Croucher NJ. Fast and flexible bacterial genomic epidemiology with PopPUNK. Genome Res. 2019 Feb;29(2):304-316. doi: 10.1101/gr.241455.118. PubMed PMID: 30658834; PubMed Central PMCID: PMC6360808.
+
+- [FastANI](https://pubmed.ncbi.nlm.nih.gov/30504855/)
+
+> Jain C, Rodriguez-R LM, Phillippy AM, Konstantinidis KT, Aluru S. High throughput ANI analysis of 90K prokaryotic genomes reveals clear species boundaries. Nat Commun. 2018 Nov 30;9(1):5114. doi: 10.1038/s41467-018-07641-9. PubMed PMID: 30504855; PubMed Central PMCID: PMC6269478.
 
 - [MultiQC](https://pubmed.ncbi.nlm.nih.gov/27312411/)
 

@@ -32,7 +32,18 @@ workflow SUBSPECIESPROFILER {
     SPECIESQC (
         ch_samplesheet.map { meta, genomes_dir, qc_csv -> [ meta, qc_csv ] }
     )
-    ch_multiqc_files = ch_multiqc_files.mix(SPECIESQC.out.report.collect { it[1] })
+
+    // Combined eligibility report: append every species' single-row report into one table,
+    // published at the top of the outdir (alongside the per-species directories).
+    def ch_eligibility_report = SPECIESQC.out.report
+        .map { meta, report -> report }
+        .collectFile(
+            name: 'species_eligibility_report.tsv',
+            storeDir: params.outdir,
+            keepHeader: true,
+            skip: 1,
+            sort: true,
+        )
 
     //
     // Keep only species whose eligibility label is in --qc_filter, folding the
@@ -71,9 +82,17 @@ workflow SUBSPECIESPROFILER {
     // r-file + HQ/MQ labels through.
     //
     ch_poppunk_in = ch_eligibility.pass.map { meta, genomes_dir, rfile, labels ->
-        [ meta, file("${genomes_dir}/*", checkIfExists: true), rfile, labels ]
+        [ meta, files("${genomes_dir}/*", checkIfExists: true), rfile, labels ]
     }
     POPPUNK_METHODS( ch_poppunk_in )
+
+    // Per-species model report (Phase-4 "profiler history"): append every fitted model's
+    // verdict into one table under that species' poppunk directory. collectFile reads each
+    // per-fit tool_metrics by content, so the identical filenames across fits don't collide.
+    POPPUNK_METHODS.out.tool_metrics
+        .collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
+            [ "${meta.id}/poppunk/${meta.id}_model_report.tsv", tsv ]
+        }
 
     //
     // Collate and save software versions
@@ -134,6 +153,33 @@ workflow SUBSPECIESPROFILER {
             name: 'methods_description_mqc.yaml',
             sort: true
         )
+    )
+
+    //
+    // Subspecies dashboard: cross-species eligibility + selected-model tables as MultiQC
+    // custom content (this replaces feeding the raw eligibility TSVs to MultiQC).
+    //
+    ch_multiqc_files = ch_multiqc_files.mix(
+        ch_eligibility_report
+            .map { report ->
+                "# id: 'subspecies_eligibility'\n" +
+                "# section_name: 'Subspecies eligibility'\n" +
+                "# description: 'Per-species QC eligibility for subspecies clustering (HQ/MQ counts and label).'\n" +
+                "# plot_type: 'table'\n" +
+                report.text
+            }
+            .collectFile(name: 'subspecies_eligibility_mqc.tsv')
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(
+        POPPUNK_METHODS.out.best_model
+            .map { species_id, row ->
+                [ species_id, row.model, row.tool_status, row.decision, row.tool_structure_score_HQ ].join('\t') + '\n'
+            }
+            .collectFile(
+                name: 'subspecies_best_model_mqc.tsv',
+                sort: true,
+                seed: "# id: 'subspecies_best_model'\n# section_name: 'Selected model per species'\n# description: 'Best PopPUNK model chosen per species with its evaluation verdict.'\n# plot_type: 'table'\nspecies\tmodel\ttool_status\tdecision\ttool_structure_score_HQ\n",
+            )
     )
 
     MULTIQC (
