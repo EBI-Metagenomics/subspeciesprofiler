@@ -51,6 +51,43 @@
                 }
             }
         },
+        "poppunk_model_sweep": {
+            "title": "PopPUNK model sweep",
+            "type": "object",
+            "fa_icon": "fas fa-project-diagram",
+            "description": "Parameter grids swept within each PopPUNK model family.",
+            "help_text": "All four families (threshold, lineage, BGMM, DBSCAN) always run; these params set the values swept within each and are scored against all-vs-all ANI. Trim them (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
+            "properties": {
+                "poppunk_lineage_ranks": {
+                    "type": "string",
+                    "default": "1,2,3,5,8,10,15,20,30,50",
+                    "pattern": "^[0-9]+(,[0-9]+)*$",
+                    "description": "Comma-separated lineage ranks (nearest-neighbour counts) to fit in one lineage run; each is scored as a separate clustering.",
+                    "fa_icon": "fas fa-list-ol"
+                },
+                "poppunk_bgmm_k": {
+                    "type": "string",
+                    "default": "2,3,4,5,6,8,10",
+                    "pattern": "^[0-9]+(,[0-9]+)*$",
+                    "description": "Comma-separated K values (number of mixture components) for the BGMM sweep.",
+                    "fa_icon": "fas fa-list-ol"
+                },
+                "poppunk_dbscan_d": {
+                    "type": "string",
+                    "default": "3,5,8,10",
+                    "pattern": "^[0-9]+(,[0-9]+)*$",
+                    "description": "Comma-separated D values (max clusters) for the DBSCAN sweep.",
+                    "fa_icon": "fas fa-list-ol"
+                },
+                "poppunk_dbscan_min_cluster_prop": {
+                    "type": "string",
+                    "default": "0.001,0.005,0.01,0.02",
+                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
+                    "description": "Comma-separated min-cluster-prop values for the DBSCAN sweep.",
+                    "fa_icon": "fas fa-list-ol"
+                }
+            }
+        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -212,6 +249,9 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/poppunk_model_sweep"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

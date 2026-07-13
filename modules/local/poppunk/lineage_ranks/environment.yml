@@ -1,0 +1,9 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # bin/poppunk_split_lineage_ranks.py uses only the Python standard library; the pandas env is
+  # reused for a consistent, already-cached container across the PopPUNK analysis steps.
+  - "conda-forge::pandas=1.5.2"
