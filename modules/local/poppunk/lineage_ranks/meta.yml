@@ -1,0 +1,76 @@
+name: "poppunk_lineage_ranks"
+description: |
+  Splits a PopPUNK lineage fit into one clustering per rank. Lineage mode fits
+  several rank resolutions in a single run and writes them as columns
+  (`Rank_1_Lineage`, `Rank_2_Lineage`, ...) of `<prefix>_lineages.csv`; each rank
+  is a genuinely different partition. This emits one `Taxon,Cluster` clustering
+  per rank (`lineage_rank<N>/lineage_rank<N>_clusters.csv`) so every resolution
+  can be scored separately by the ANI evaluator. The `overall_Lineage` column is
+  skipped as it duplicates the finest rank (already in `<prefix>_clusters.csv`).
+keywords:
+  - poppunk
+  - lineage
+  - ranks
+  - clustering
+  - subspecies
+tools:
+  - "python":
+      description: "Runs bin/poppunk_split_lineage_ranks.py, a standard-library script that pivots a PopPUNK lineages table into one clustering per rank."
+      homepage: "https://www.python.org/"
+      documentation: "https://docs.python.org/3/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1', model:'lineage' ]`
+    - fit:
+        type: directory
+        description: |
+          PopPUNK lineage fit directory (from POPPUNK_FITMODEL run with
+          `--fit-model lineage`), containing `<prefix>_lineages.csv`.
+        pattern: "*"
+        ontologies: []
+
+output:
+  ranks:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1', model:'lineage' ]`
+      - "lineage_rank*":
+          type: directory
+          description: |
+            One directory per rank, each holding a `lineage_rank<N>_clusters.csv`
+            (`Taxon,Cluster`) clustering ready for the ANI evaluator.
+          pattern: "lineage_rank*"
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

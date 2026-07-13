@@ -1,0 +1,55 @@
+{
+    "lineage ranks - split - stub": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "lineage"
+                    },
+                    [
+                        [
+                            "lineage_rank1_clusters.csv:md5,f28f8ade630512e8b0da8671e0883efc"
+                        ],
+                        [
+                            "lineage_rank2_clusters.csv:md5,f28f8ade630512e8b0da8671e0883efc"
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2026-07-13T14:23:45.876517"
+    },
+    "lineage ranks - split": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "lineage"
+                    },
+                    [
+                        [
+                            "lineage_rank1_clusters.csv:md5,0126e3fcafb2546af1bd64a4faabd3d3"
+                        ],
+                        [
+                            "lineage_rank2_clusters.csv:md5,743e0bf60edf1b916313cafed1f4a5bc"
+                        ],
+                        [
+                            "lineage_rank3_clusters.csv:md5,1870e56e97d45c27ba85ae7209b1d612"
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2026-07-13T14:23:40.880674"
+    }
+}

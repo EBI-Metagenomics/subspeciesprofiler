@@ -1,0 +1,60 @@
+nextflow_process {
+
+    name "Test Process POPPUNK_LINEAGE_RANKS"
+    script "../main.nf"
+    process "POPPUNK_LINEAGE_RANKS"
+
+    tag "modules"
+    tag "modules_local"
+    tag "poppunk"
+    tag "poppunk/lineage_ranks"
+
+    test("lineage ranks - split") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', model:'lineage' ],
+                    file("${projectDir}/tests/fixtures/poppunk_lineage_fit", checkIfExists: true),
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // the fixture holds 3 ranks -> one clustering directory per rank
+                { assert process.out.ranks.get(0).get(1).size() == 3 },
+                { assert snapshot(process.out.ranks).match() }
+            )
+        }
+
+    }
+
+    test("lineage ranks - split - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', model:'lineage' ],
+                    file("${projectDir}/tests/fixtures/poppunk_lineage_fit", checkIfExists: true),
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out.ranks).match() }
+            )
+        }
+
+    }
+
+}
