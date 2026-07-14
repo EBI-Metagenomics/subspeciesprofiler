@@ -9,9 +9,13 @@ process POPPUNK_FITMODEL {
 
     input:
     // fit_args = the model type + its params for THIS task, e.g. "threshold --threshold 0.0012",
-    // "bgmm --K 4", "lineage --ranks 1,2,3", "dbscan --D 5 --min-cluster-prop 0.01". Supplied
-    // per-task so one module covers the whole model sweep; task.ext.args adds any common flags.
-    tuple val(meta), path(db), val(fit_args)
+    // "bgmm --K 4", "lineage --ranks 1,2,3", "dbscan --D 5 --min-cluster-prop 0.01", "refine",
+    // "refine --multi-boundary 20", "refine --unconstrained". Supplied per-task so one module covers
+    // the whole model sweep; task.ext.args adds any common flags.
+    // model_dir = optional starting-model directory for `refine` (a prior fit's output). Pass `[]`
+    // for the from-scratch families (threshold/lineage/bgmm/dbscan). Staged as `seed_model` so it
+    // never collides with this task's own `<prefix>_fitmodel` output directory.
+    tuple val(meta), path(db), val(fit_args), path(model_dir, stageAs: 'seed_model')
 
     output:
     tuple val(meta), path("${fit_prefix}")               , emit: model
@@ -22,12 +26,14 @@ process POPPUNK_FITMODEL {
 
     script:
     def args = task.ext.args ?: ''
+    def seed = model_dir ? "--model-dir ${model_dir}" : ''
     prefix     = task.ext.prefix ?: "${meta.id}"
     fit_prefix = "${prefix}_fitmodel"
     """
     poppunk \\
         --fit-model ${fit_args} \\
         --ref-db ${db} \\
+        ${seed} \\
         --output ${fit_prefix} \\
         --threads $task.cpus \\
         $args
