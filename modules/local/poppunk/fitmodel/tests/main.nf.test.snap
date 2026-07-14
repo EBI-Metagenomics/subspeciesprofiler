@@ -47,10 +47,13 @@
                             "test_fitmodel.refs_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_boundary1_clusters.csv:md5,f28f8ade630512e8b0da8671e0883efc",
+                            "test_fitmodel_boundary2_clusters.csv:md5,2e79d3e55af080d20a937d77b77992c0",
                             "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_lineages.csv:md5,2036a0974d51952a6cea126efa0ec201",
                             "test_fitmodel_unword_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e"
                         ]
                     ]
@@ -75,10 +78,13 @@
                             "test_fitmodel.refs_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_boundary1_clusters.csv:md5,f28f8ade630512e8b0da8671e0883efc",
+                            "test_fitmodel_boundary2_clusters.csv:md5,2e79d3e55af080d20a937d77b77992c0",
                             "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_lineages.csv:md5,2036a0974d51952a6cea126efa0ec201",
                             "test_fitmodel_unword_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e"
                         ]
                     ]
@@ -94,8 +100,8 @@
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.04.7"
+            "nextflow": "25.04.6"
         },
-        "timestamp": "2026-07-10T09:38:16.576549"
+        "timestamp": "2026-07-14T14:24:07.860261"
     }
 }
