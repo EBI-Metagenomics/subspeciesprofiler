@@ -15,9 +15,11 @@ include { POPPUNK_QCDB      } from '../../../modules/local/poppunk/qcdb/main'
 include { POPPUNK_QUANTILES } from '../../../modules/local/poppunk/quantiles/main'
 include { POPPUNK_FITMODEL      } from '../../../modules/local/poppunk/fitmodel/main'
 include { POPPUNK_FITMODEL as POPPUNK_REFINE } from '../../../modules/local/poppunk/fitmodel/main'
+include { POPPUNK_FITMODEL as POPPUNK_MULTIBOUNDARY } from '../../../modules/local/poppunk/fitmodel/main'
 include { POPPUNK_LINEAGE_RANKS } from '../../../modules/local/poppunk/lineage_ranks/main'
 include { POPPUNK_EVALUATE      } from '../../../modules/local/poppunk/evaluate/main'
 include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_REFINE } from '../../../modules/local/poppunk/evaluate/main'
+include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_MULTIBOUNDARY } from '../../../modules/local/poppunk/evaluate/main'
 include { FASTANI_ALLVSALL      } from '../../../modules/local/fastani_allvsall/main'
 
 workflow POPPUNK_METHODS {
@@ -137,8 +139,62 @@ workflow POPPUNK_METHODS {
         .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
     POPPUNK_EVALUATE_REFINE( ch_refine_eval_in )
 
-    // ---- Final selection over cheap + refine fits ----
-    ch_tool_metrics = POPPUNK_EVALUATE.out.tool_metrics.mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
+    // ---- Stage 4: gated multi-boundary refine ----
+    // Gate on the post-refine ranking: escalate only if still no ACCEPT. `--multi-boundary` sweeps
+    // several boundary positions around each seed (each position is its own clustering), seeded from
+    // the best 1-2 boundary-model candidates so far (cheap or refine; lineage excluded).
+    ch_ranked_refined = POPPUNK_EVALUATE.out.tool_metrics
+        .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
+        .splitCsv( header: true, sep: '\t' )
+        .map { meta, row -> [ meta.id, row ] }
+        .groupTuple()
+
+    ch_mb_seeds = ch_ranked_refined.map { id, rows ->
+        def accepted = rows.any { it.decision == 'ACCEPT' }
+        def seeds = []
+        if ( !accepted ) {
+            seeds = rows
+                .findAll { r -> !r.model.startsWith('lineage') && (r.tool_structure_score_HQ ?: '').isNumber() && r.tool_structure_score_HQ.toDouble() > 0 }
+                .sort { a, b -> b.tool_structure_score_HQ.toDouble() <=> a.tool_structure_score_HQ.toDouble() }
+                .take( params.poppunk_multiboundary_top_n as int )
+                .collect { it.model }
+        }
+        [ id, seeds ]
+    }
+
+    // Candidate fit dirs that can seed a refine: cheap fits + Stage-3 refine fits.
+    ch_seed_dirs = POPPUNK_FITMODEL.out.model
+        .mix( POPPUNK_REFINE.out.model )
+        .map { meta, dir -> [ meta.id, meta.model, dir ] }
+
+    ch_mb_in = ch_mb_seeds
+        .flatMap { id, names -> names.collect { name -> [ id, name ] } }
+        .combine( ch_seed_dirs, by: 0 )
+        .filter { it[2] == it[1] }
+        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
+        .map { id, seed_name, cand_model, cand_dir, meta, db ->
+            [ meta + [ model: "multiboundary_from_${seed_name}" ], db, "refine --multi-boundary ${params.poppunk_multiboundary_n}", cand_dir ]
+        }
+    POPPUNK_MULTIBOUNDARY( ch_mb_in )
+
+    // Each boundary position writes its own <prefix>_boundary<K>_clusters.csv; fan them all to eval.
+    ch_mb_eval_in = POPPUNK_MULTIBOUNDARY.out.model
+        .flatMap { meta, dir ->
+            files( "${dir}/*_boundary*_clusters.csv" ).collect { f ->
+                def k = (f.name =~ /_boundary(\d+)_clusters\.csv/)[0][1]
+                [ meta + [ model: "${meta.model}_b${k}" ], f ]
+            }
+        }
+        .map { meta, clusters -> [ meta.id, meta, clusters ] }
+        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
+        .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
+        .map { id, meta, clusters, ani, labels -> [ meta, clusters, ani, labels ] }
+    POPPUNK_EVALUATE_MULTIBOUNDARY( ch_mb_eval_in )
+
+    // ---- Final selection over cheap + refine + multi-boundary fits ----
+    ch_tool_metrics = POPPUNK_EVALUATE.out.tool_metrics
+        .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
+        .mix( POPPUNK_EVALUATE_MULTIBOUNDARY.out.tool_metrics )
     ch_ranked = ch_tool_metrics
         .splitCsv( header: true, sep: '\t' )
         .map { meta, row -> [ meta.id, row ] }

@@ -26,9 +26,13 @@ process POPPUNK_EVALUATE {
     def prefix     = task.ext.prefix ?: "${meta.id}"
     def model_name = meta.model ?: meta.id
     """
-    # PopPUNK writes both <p>_clusters.csv (Taxon,Cluster) and <p>_unword_clusters.csv;
-    # evaluate the former.
-    clusters=\$(ls ${model}/*_clusters.csv | grep -v unword | head -n 1)
+    # `model` is either a fit directory (PopPUNK writes <p>_clusters.csv + <p>_unword_clusters.csv;
+    # evaluate the former) or a single Taxon,Cluster clusters CSV (e.g. one multi-boundary position).
+    if [ -d "${model}" ]; then
+        clusters=\$(ls ${model}/*_clusters.csv | grep -v unword | head -n 1)
+    else
+        clusters="${model}"
+    fi
 
     evaluate_poppunk_fastani.py \\
         --fastani ${fastani} \\

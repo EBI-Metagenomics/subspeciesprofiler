@@ -56,6 +56,9 @@ process POPPUNK_FITMODEL {
     touch ${fit_prefix}/${fit_prefix}_unword_clusters.csv
     # lineage fits also write a per-rank table (harmless placeholder for other model families)
     printf 'id,Rank_1_Lineage,Rank_2_Lineage,Rank_3_Lineage,overall_Lineage\\ngenome_a,1,1,1,1-1-1\\ngenome_b,2,1,1,2-1-1\\ngenome_c,3,2,1,3-2-1\\n' > ${fit_prefix}/${fit_prefix}_lineages.csv
+    # refine --multi-boundary fits write one clusters CSV per boundary position (placeholder for stub)
+    printf 'Taxon,Cluster\\ngenome_a,1\\ngenome_b,1\\ngenome_c,2\\n' > ${fit_prefix}/${fit_prefix}_boundary1_clusters.csv
+    printf 'Taxon,Cluster\\ngenome_a,1\\ngenome_b,2\\ngenome_c,2\\n' > ${fit_prefix}/${fit_prefix}_boundary2_clusters.csv
     touch ${fit_prefix}/${fit_prefix}.refs
     touch ${fit_prefix}/${fit_prefix}.refs_graph.gt
     touch ${fit_prefix}/${fit_prefix}.refs.dists.npy

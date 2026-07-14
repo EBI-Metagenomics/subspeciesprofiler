@@ -92,6 +92,20 @@
                     "minimum": 1,
                     "description": "When no cheap model is Strong, how many top candidates (pooled across the non-lineage families, by HQ structure score) to refine.",
                     "fa_icon": "fas fa-sort-amount-down"
+                },
+                "poppunk_multiboundary_n": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 1,
+                    "description": "Number of boundary positions to sweep with `refine --multi-boundary` when refine yields no Strong model.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "poppunk_multiboundary_top_n": {
+                    "type": "integer",
+                    "default": 2,
+                    "minimum": 1,
+                    "description": "How many top post-refine candidates to seed the multi-boundary sweep from.",
+                    "fa_icon": "fas fa-sort-amount-down"
                 }
             }
         },
