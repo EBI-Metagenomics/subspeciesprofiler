@@ -106,6 +106,13 @@
                     "minimum": 1,
                     "description": "How many top post-refine candidates to seed the multi-boundary sweep from.",
                     "fa_icon": "fas fa-sort-amount-down"
+                },
+                "poppunk_unconstrained_top_n": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "How many top model-dir candidates (cheap or refine) to seed the unconstrained-refine rescue from, if multi-boundary still yields no Strong model.",
+                    "fa_icon": "fas fa-sort-amount-down"
                 }
             }
         },

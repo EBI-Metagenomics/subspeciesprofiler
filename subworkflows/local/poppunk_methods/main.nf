@@ -16,10 +16,12 @@ include { POPPUNK_QUANTILES } from '../../../modules/local/poppunk/quantiles/mai
 include { POPPUNK_FITMODEL      } from '../../../modules/local/poppunk/fitmodel/main'
 include { POPPUNK_FITMODEL as POPPUNK_REFINE } from '../../../modules/local/poppunk/fitmodel/main'
 include { POPPUNK_FITMODEL as POPPUNK_MULTIBOUNDARY } from '../../../modules/local/poppunk/fitmodel/main'
+include { POPPUNK_FITMODEL as POPPUNK_UNCONSTRAINED } from '../../../modules/local/poppunk/fitmodel/main'
 include { POPPUNK_LINEAGE_RANKS } from '../../../modules/local/poppunk/lineage_ranks/main'
 include { POPPUNK_EVALUATE      } from '../../../modules/local/poppunk/evaluate/main'
 include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_REFINE } from '../../../modules/local/poppunk/evaluate/main'
 include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_MULTIBOUNDARY } from '../../../modules/local/poppunk/evaluate/main'
+include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_UNCONSTRAINED } from '../../../modules/local/poppunk/evaluate/main'
 include { FASTANI_ALLVSALL      } from '../../../modules/local/fastani_allvsall/main'
 
 workflow POPPUNK_METHODS {
@@ -191,10 +193,53 @@ workflow POPPUNK_METHODS {
         .map { id, meta, clusters, ani, labels -> [ meta, clusters, ani, labels ] }
     POPPUNK_EVALUATE_MULTIBOUNDARY( ch_mb_eval_in )
 
-    // ---- Final selection over cheap + refine + multi-boundary fits ----
+    // ---- Stage 5: gated unconstrained refine (rescue) ----
+    // Gate on the post-multi-boundary ranking: escalate only if still no ACCEPT. Unconstrained
+    // refine optimises both boundary gradient and intercept (one model, not a sweep), seeded from
+    // the single best model-dir candidate so far -- cheap or refine fits only (lineage ranks and
+    // multi-boundary positions have no fittable model directory to seed from).
+    ch_ranked_mb = POPPUNK_EVALUATE.out.tool_metrics
+        .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
+        .mix( POPPUNK_EVALUATE_MULTIBOUNDARY.out.tool_metrics )
+        .splitCsv( header: true, sep: '\t' )
+        .map { meta, row -> [ meta.id, row ] }
+        .groupTuple()
+
+    ch_unc_seeds = ch_ranked_mb.map { id, rows ->
+        def accepted = rows.any { it.decision == 'ACCEPT' }
+        def seeds = []
+        if ( !accepted ) {
+            seeds = rows
+                .findAll { r -> !r.model.startsWith('lineage') && !r.model.startsWith('multiboundary_') && (r.tool_structure_score_HQ ?: '').isNumber() && r.tool_structure_score_HQ.toDouble() > 0 }
+                .sort { a, b -> b.tool_structure_score_HQ.toDouble() <=> a.tool_structure_score_HQ.toDouble() }
+                .take( params.poppunk_unconstrained_top_n as int )
+                .collect { it.model }
+        }
+        [ id, seeds ]
+    }
+
+    ch_unc_in = ch_unc_seeds
+        .flatMap { id, names -> names.collect { name -> [ id, name ] } }
+        .combine( POPPUNK_FITMODEL.out.model.mix( POPPUNK_REFINE.out.model ).map { meta, dir -> [ meta.id, meta.model, dir ] }, by: 0 )
+        .filter { it[2] == it[1] }
+        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
+        .map { id, seed_name, cand_model, cand_dir, meta, db ->
+            [ meta + [ model: "unconstrained_from_${seed_name}" ], db, 'refine --unconstrained', cand_dir ]
+        }
+    POPPUNK_UNCONSTRAINED( ch_unc_in )
+
+    ch_unc_eval_in = POPPUNK_UNCONSTRAINED.out.model
+        .map { meta, model -> [ meta.id, meta, model ] }
+        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
+        .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
+        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
+    POPPUNK_EVALUATE_UNCONSTRAINED( ch_unc_eval_in )
+
+    // ---- Final selection over cheap + refine + multi-boundary + unconstrained fits ----
     ch_tool_metrics = POPPUNK_EVALUATE.out.tool_metrics
         .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
         .mix( POPPUNK_EVALUATE_MULTIBOUNDARY.out.tool_metrics )
+        .mix( POPPUNK_EVALUATE_UNCONSTRAINED.out.tool_metrics )
     ch_ranked = ch_tool_metrics
         .splitCsv( header: true, sep: '\t' )
         .map { meta, row -> [ meta.id, row ] }
