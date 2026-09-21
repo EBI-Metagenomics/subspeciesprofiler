@@ -1,6 +1,6 @@
 {
-    "name": "nf-core/subspeciesprofiler",
-    "homePage": "https://github.com/nf-core/subspeciesprofiler",
+    "name": "ebi-metagenomics/subspeciesprofiler",
+    "homePage": "https://github.com/ebi-metagenomics/subspeciesprofiler",
     "repos": {
         "https://github.com/nf-core/modules.git": {
             "modules": {

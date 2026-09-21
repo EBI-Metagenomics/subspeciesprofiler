@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/nf-core/subspeciesprofiler/master/nextflow_schema.json",
-    "title": "nf-core/subspeciesprofiler pipeline parameters",
+    "$id": "https://raw.githubusercontent.com/ebi-metagenomics/subspeciesprofiler/master/nextflow_schema.json",
+    "title": "ebi-metagenomics/subspeciesprofiler pipeline parameters",
     "description": "Pipeline that generates subspecies clusters from a group of genomes of the same species",
     "type": "object",
     "$defs": {
@@ -20,7 +20,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file describing the species to profile.",
-                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_csv` (path to a CSV of per-genome completeness/contamination values). See [usage docs](https://nf-co.re/subspeciesprofiler/usage#samplesheet-input).",
+                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_csv` (path to a CSV of per-genome completeness/contamination values). See [usage docs](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/usage.md#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "qc_filter": {
@@ -56,15 +56,8 @@
             "type": "object",
             "fa_icon": "fas fa-project-diagram",
             "description": "Parameter grids swept within each PopPUNK model family.",
-            "help_text": "All four families (threshold, lineage, BGMM, DBSCAN) always run; these params set the values swept within each and are scored against all-vs-all ANI. Trim them (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
+            "help_text": "All three families (threshold, BGMM, DBSCAN) always run; these params set the values swept within each and are scored against all-vs-all ANI. Every DBSCAN fit is additionally refined with PopPUNK's standard `--fit-model refine`. Trim the grids (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
             "properties": {
-                "poppunk_lineage_ranks": {
-                    "type": "string",
-                    "default": "1,2,3,5,8,10,15,20,30,50",
-                    "pattern": "^[0-9]+(,[0-9]+)*$",
-                    "description": "Comma-separated lineage ranks (nearest-neighbour counts) to fit in one lineage run; each is scored as a separate clustering.",
-                    "fa_icon": "fas fa-list-ol"
-                },
                 "poppunk_bgmm_k": {
                     "type": "string",
                     "default": "2,3,4,5,6,8,10",
@@ -85,34 +78,6 @@
                     "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
                     "description": "Comma-separated min-cluster-prop values for the DBSCAN sweep.",
                     "fa_icon": "fas fa-list-ol"
-                },
-                "poppunk_refine_top_n": {
-                    "type": "integer",
-                    "default": 3,
-                    "minimum": 1,
-                    "description": "When no cheap model is Strong, how many top candidates (pooled across the non-lineage families, by HQ structure score) to refine.",
-                    "fa_icon": "fas fa-sort-amount-down"
-                },
-                "poppunk_multiboundary_n": {
-                    "type": "integer",
-                    "default": 20,
-                    "minimum": 1,
-                    "description": "Number of boundary positions to sweep with `refine --multi-boundary` when refine yields no Strong model.",
-                    "fa_icon": "fas fa-ruler-horizontal"
-                },
-                "poppunk_multiboundary_top_n": {
-                    "type": "integer",
-                    "default": 2,
-                    "minimum": 1,
-                    "description": "How many top post-refine candidates to seed the multi-boundary sweep from.",
-                    "fa_icon": "fas fa-sort-amount-down"
-                },
-                "poppunk_unconstrained_top_n": {
-                    "type": "integer",
-                    "default": 1,
-                    "minimum": 1,
-                    "description": "How many top model-dir candidates (cheap or refine) to seed the unconstrained-refine rescue from, if multi-boundary still yields no Strong model.",
-                    "fa_icon": "fas fa-sort-amount-down"
                 }
             }
         },

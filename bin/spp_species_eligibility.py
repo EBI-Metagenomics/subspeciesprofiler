@@ -2,6 +2,12 @@
 """
 SPP Species Group Eligibility Assessment
 =========================================
+NOTE: this is an OFFLINE COMPANION script -- it is not called by any pipeline
+module. It screens GTDB/RefSeq at scale to *choose* which species to feed into
+the pipeline samplesheet. The per-species equivalent that the pipeline actually
+runs (via the SPECIESQC module) is `bin/spp_eligibility_from_qc.py`, whose
+thresholds are kept in sync with this script.
+
 Joins GTDB metadata (bacteria + archaea) to RefSeq assembly summary on
 accession, extracts CheckM2 QC values, groups by GTDB species epithet,
 and classifies each target species group against SPP inclusion criteria.

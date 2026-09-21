@@ -8,10 +8,10 @@ nextflow_workflow {
     tag "subworkflows_local"
     tag "poppunk_methods"
 
-    // Stub run: verifies the wiring (Stage 0 -> quantile fan-out -> fit -> evaluate -> select)
-    // connects and the sweep produces one evaluation per quantile. Scientific correctness is
-    // covered by the individual module tests (which use real data).
-    test("threshold sweep - wiring - stub") {
+    // Stub run: verifies the wiring (Stage 0 -> sweep fan-out -> fit -> dbscan refine -> evaluate
+    // -> select) connects and that every fit produces exactly one evaluation. Scientific
+    // correctness is covered by the individual module tests (which use real data).
+    test("model sweep + dbscan refine - wiring - stub") {
 
         options "-stub"
 
@@ -34,8 +34,10 @@ nextflow_workflow {
         then {
             assertAll(
                 { assert workflow.success },
-                // the quantiles stub emits 3 thresholds -> one fit + evaluation each
-                { assert workflow.out.tool_metrics.size() == 3 },
+                // 3 threshold (quantiles stub) + 7 bgmm K + 16 dbscan (4 D x 4 mcp)
+                // = 26 swept fits, plus a standard refine of each of the 16 dbscan fits,
+                // = 42 evaluations in total.
+                { assert workflow.out.tool_metrics.size() == 42 },
                 // select emits one best model + the accepted-models set for the species
                 { assert workflow.out.best_model.size() == 1 },
                 { assert workflow.out.best_model.get(0).get(0) == 'test' },

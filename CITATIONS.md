@@ -1,4 +1,4 @@
-# nf-core/subspeciesprofiler: Citations
+# ebi-metagenomics/subspeciesprofiler: Citations
 
 ## [nf-core](https://pubmed.ncbi.nlm.nih.gov/32055031/)
 

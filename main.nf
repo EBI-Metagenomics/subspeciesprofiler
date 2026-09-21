@@ -1,11 +1,11 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    nf-core/subspeciesprofiler
+    ebi-metagenomics/subspeciesprofiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Github : https://github.com/nf-core/subspeciesprofiler
-    Website: https://nf-co.re/subspeciesprofiler
-    Slack  : https://nfcore.slack.com/channels/subspeciesprofiler
+    Github : https://github.com/ebi-metagenomics/subspeciesprofiler
+    Website: https://github.com/ebi-metagenomics/subspeciesprofiler
+    Slack  : https://github.com/ebi-metagenomics/subspeciesprofiler/issues
 ----------------------------------------------------------------------------------------
 */
 

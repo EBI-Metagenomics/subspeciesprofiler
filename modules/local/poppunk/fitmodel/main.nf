@@ -9,11 +9,11 @@ process POPPUNK_FITMODEL {
 
     input:
     // fit_args = the model type + its params for THIS task, e.g. "threshold --threshold 0.0012",
-    // "bgmm --K 4", "lineage --ranks 1,2,3", "dbscan --D 5 --min-cluster-prop 0.01", "refine",
-    // "refine --multi-boundary 20", "refine --unconstrained". Supplied per-task so one module covers
-    // the whole model sweep; task.ext.args adds any common flags.
+    // "bgmm --K 4", "dbscan --D 5 --min-cluster-prop 0.01",
+    // or "refine" (standard refinement of a prior dbscan fit). Supplied per-task so one module
+    // covers the whole model sweep; task.ext.args adds any common flags.
     // model_dir = optional starting-model directory for `refine` (a prior fit's output). Pass `[]`
-    // for the from-scratch families (threshold/lineage/bgmm/dbscan). Staged as `seed_model` so it
+    // for the from-scratch families (threshold/bgmm/dbscan). Staged as `seed_model` so it
     // never collides with this task's own `<prefix>_fitmodel` output directory.
     tuple val(meta), path(db), val(fit_args), path(model_dir, stageAs: 'seed_model')
 
@@ -54,11 +54,6 @@ process POPPUNK_FITMODEL {
     touch ${fit_prefix}/${fit_prefix}_graph.gt
     touch ${fit_prefix}/${fit_prefix}_clusters.csv
     touch ${fit_prefix}/${fit_prefix}_unword_clusters.csv
-    # lineage fits also write a per-rank table (harmless placeholder for other model families)
-    printf 'id,Rank_1_Lineage,Rank_2_Lineage,Rank_3_Lineage,overall_Lineage\\ngenome_a,1,1,1,1-1-1\\ngenome_b,2,1,1,2-1-1\\ngenome_c,3,2,1,3-2-1\\n' > ${fit_prefix}/${fit_prefix}_lineages.csv
-    # refine --multi-boundary fits write one clusters CSV per boundary position (placeholder for stub)
-    printf 'Taxon,Cluster\\ngenome_a,1\\ngenome_b,1\\ngenome_c,2\\n' > ${fit_prefix}/${fit_prefix}_boundary1_clusters.csv
-    printf 'Taxon,Cluster\\ngenome_a,1\\ngenome_b,2\\ngenome_c,2\\n' > ${fit_prefix}/${fit_prefix}_boundary2_clusters.csv
     touch ${fit_prefix}/${fit_prefix}.refs
     touch ${fit_prefix}/${fit_prefix}.refs_graph.gt
     touch ${fit_prefix}/${fit_prefix}.refs.dists.npy
