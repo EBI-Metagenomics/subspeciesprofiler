@@ -46,25 +46,28 @@ workflow SUBSPECIESPROFILER {
         )
 
     //
-    // Keep only species whose eligibility label is in --qc_filter, folding the
-    // label onto meta so it travels downstream. Join is keyed on meta.id because
-    // adding spp_label changes the meta map.
+    // Keep only species whose eligibility label is in --qc_filter, folding the label and the
+    // post-QC genome count onto meta so they travel downstream. Join is keyed on meta.id
+    // because adding fields changes the meta map.
     //
     def qc_keep = params.qc_filter.tokenize(',')
 
-    def ch_spp_label = SPECIESQC.out.report
+    // n_total_passing_qc is n_hq + n_mq: exactly the genomes written to the r-file and handed to
+    // POPPUNK_CREATEDB, so it is the right count for the BGMM size gate in POPPUNK_METHODS.
+    // (n_eff is a weighted HQ/MQ score, not a genome count -- don't use it here.)
+    def ch_spp_info = SPECIESQC.out.report
         .splitCsv(header: true, sep: '\t')
-        .map { meta, row -> [ meta.id, row.spp_label ] }
+        .map { meta, row -> [ meta.id, [ spp_label: row.spp_label, n_genomes: row.n_total_passing_qc as Integer ] ] }
     def ch_rfile  = SPECIESQC.out.rfile.map  { meta, rf -> [ meta.id, rf ] }
     def ch_labels = SPECIESQC.out.labels.map { meta, lb -> [ meta.id, lb ] }
 
     ch_samplesheet
         .map { meta, genomes_dir, qc_csv -> [ meta.id, meta, genomes_dir ] }
-        .join(ch_spp_label)
+        .join(ch_spp_info)
         .join(ch_rfile)
         .join(ch_labels)
-        .map { id, meta, genomes_dir, label, rfile, labels ->
-            [ meta + [ spp_label: label ], genomes_dir, rfile, labels ]
+        .map { id, meta, genomes_dir, spp_info, rfile, labels ->
+            [ meta + spp_info, genomes_dir, rfile, labels ]
         }
         .branch { meta, genomes_dir, rfile, labels ->
             pass: meta.spp_label in qc_keep

@@ -28,6 +28,7 @@ workflow POPPUNK_METHODS {
 
     take:
     ch_input // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]
+             // meta.n_genomes (post-QC genome count) gates the BGMM family -- see below.
 
     main:
 
@@ -54,8 +55,22 @@ workflow POPPUNK_METHODS {
         .map { id, meta, db, quantile, thr -> [ meta + [ model: "threshold_q${quantile}" ], db, "threshold --threshold ${thr}", [] ] }
 
     // BGMM: sweep the number of mixture components K.
+    // BGMM needs the core/accessory distance components to be clearly separated, which in practice
+    // only holds for small collections -- PopPUNK recommends it for small sample sets and dbscan for
+    // larger ones. So the whole family is skipped for species at or above --poppunk_bgmm_max_genomes,
+    // where dbscan (plus its refinement) carries the fit. meta.n_genomes is the post-QC count
+    // (n_hq + n_mq, set in workflows/subspeciesprofiler.nf); if a caller supplies no count, run BGMM
+    // rather than silently dropping the family.
     def bgmm_k = params.poppunk_bgmm_k.toString().tokenize(',')*.trim()
-    ch_bgmm_fits = POPPUNK_QCDB.out.qc_db.flatMap { meta, db -> bgmm_k.collect { k -> [ meta + [ model: "bgmm_K${k}" ], db, "bgmm --K ${k}", [] ] } }
+    ch_bgmm_fits = POPPUNK_QCDB.out.qc_db
+        .filter { meta, db ->
+            def keep = meta.n_genomes == null || (meta.n_genomes as int) < (params.poppunk_bgmm_max_genomes as int)
+            if ( !keep ) {
+                log.info("Species '${meta.id}': ${meta.n_genomes} genomes >= --poppunk_bgmm_max_genomes (${params.poppunk_bgmm_max_genomes}); skipping the BGMM sweep.")
+            }
+            keep
+        }
+        .flatMap { meta, db -> bgmm_k.collect { k -> [ meta + [ model: "bgmm_K${k}" ], db, "bgmm --K ${k}", [] ] } }
 
     // DBSCAN: sweep the D x min-cluster-prop grid.
     def dbscan_d   = params.poppunk_dbscan_d.toString().tokenize(',')*.trim()

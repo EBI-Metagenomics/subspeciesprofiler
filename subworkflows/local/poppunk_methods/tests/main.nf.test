@@ -19,7 +19,8 @@ nextflow_workflow {
             workflow {
                 """
                 input[0] = Channel.of([
-                    [ id:'test' ],
+                    // n_genomes < poppunk_bgmm_max_genomes (200), so the BGMM family is swept
+                    [ id:'test', n_genomes: 120 ],
                     [
                         file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true),
                         file("${projectDir}/tests/fixtures/genomes/E_coli/genome2.fna.gz", checkIfExists: true)
@@ -42,6 +43,44 @@ nextflow_workflow {
                 { assert workflow.out.best_model.size() == 1 },
                 { assert workflow.out.best_model.get(0).get(0) == 'test' },
                 { assert workflow.out.accepted_models.size() == 1 }
+            )
+        }
+
+    }
+
+    // A species at or above --poppunk_bgmm_max_genomes skips the BGMM family entirely; threshold,
+    // dbscan and the dbscan refinement are unaffected.
+    test("large species skips the bgmm sweep - stub") {
+
+        options "-stub"
+
+        when {
+            params {
+                poppunk_bgmm_max_genomes = 200
+            }
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'test', n_genomes: 500 ],
+                    [
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome2.fna.gz", checkIfExists: true)
+                    ],
+                    file("${projectDir}/tests/fixtures/poppunk_rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                ])
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                // 42 minus the 7 BGMM fits that are no longer fitted = 35
+                { assert workflow.out.tool_metrics.size() == 35 },
+                // and no bgmm_* fit reached the evaluator
+                { assert workflow.out.tool_metrics.every { meta, tsv -> !meta.model.startsWith('bgmm') } },
+                { assert workflow.out.best_model.size() == 1 }
             )
         }
 

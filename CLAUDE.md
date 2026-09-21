@@ -24,7 +24,7 @@ nf-test test modules/local/poppunk/fitmodel/tests/main.nf.test --profile docker
 nf-test test --tag poppunk/fitmodel --profile docker
 nf-test test tests/default.nf.test --profile test,docker --update-snapshot
 
-# Python unit tests for the evaluator (25 tests; not run by CI)
+# Python unit tests for the evaluator (36 tests; not run by CI)
 python3 -m pytest tests/bin/test_evaluate_poppunk_fastani.py
 
 # Lint (both run in CI on every PR)
@@ -54,7 +54,7 @@ nf-core pipelines schema build
 
 1. **`SPECIESQC`** (`modules/local/speciesqc`, runs `bin/spp_eligibility_from_qc.py`) classifies genomes HQ/MQ/DISCARDED and labels the _species group_ (`STRONG`, `ACCEPTABLE`, …). It emits three things the rest of the pipeline depends on: the eligibility report, an **r-file** (`name<TAB>./genomes/<file>`), and a **labels CSV** (`genome,label`).
 2. `workflows/subspeciesprofiler.nf` branches on `params.qc_filter`; species whose label isn't in the list are dropped with a `log.warn` and never reach PopPUNK.
-3. **`POPPUNK_METHODS`** (`subworkflows/local/poppunk_methods/main.nf`) does the real work — see below.
+3. **`POPPUNK_METHODS`** (`subworkflows/local/poppunk_methods/main.nf`) does the real work — see below. Its `take:` contract expects `meta.spp_label` and `meta.n_genomes`, both folded on from the `SPECIESQC` report.
 
 **r-file staging contract**: the r-file's second column holds _relative_ `./genomes/<file>` paths, so any process consuming it must stage genomes with `path(genomes, stageAs: 'genomes/*')`. `POPPUNK_CREATEDB` and `FASTANI_ALLVSALL` both do. This is why `FASTANI_ALLVSALL` is a local module rather than the nf-core one (that one needs absolute paths).
 
@@ -62,7 +62,9 @@ nf-core pipelines schema build
 
 Stage 0 runs once per species: `POPPUNK_CREATEDB` → `POPPUNK_QCDB` → `POPPUNK_QUANTILES` (derives the threshold sweep from the _observed_ core-distance distribution via `bin/poppunk_core_quantiles.py`), plus `FASTANI_ALLVSALL` in parallel (model-independent).
 
-Then **three families sweep unconditionally**: `threshold` (one fit per quantile), `bgmm` (sweeps `--K`), `dbscan` (sweeps the `D` × `min-cluster-prop` grid). Grids come from the `params.poppunk_*` settings.
+Then **three families sweep**: `threshold` (one fit per quantile), `bgmm` (sweeps `--K`), `dbscan` (sweeps the `D` × `min-cluster-prop` grid). Grids come from the `params.poppunk_*` settings.
+
+**BGMM is size-gated.** It needs clearly separated distance components, which only holds for small collections, so the whole family is skipped for species with `meta.n_genomes >= params.poppunk_bgmm_max_genomes` (default 200) and dbscan carries the fit. `meta.n_genomes` is the post-QC count (`n_hq + n_mq`, i.e. `n_total_passing_qc`) folded onto meta in `workflows/subspeciesprofiler.nf` — **not** `n_eff`, which is a weighted score rather than a genome count. A caller that supplies no `n_genomes` runs BGMM rather than silently losing the family.
 
 **Every dbscan fit is then refined** with PopPUNK's standard `--fit-model refine`, seeded from that fit's directory. This is ungated — it runs whether or not anything already scored `ACCEPT`. Refined fits are evaluated and ranked alongside the swept ones; nothing else is refined.
 
@@ -75,7 +77,7 @@ Then **three families sweep unconditionally**: `threshold` (one fit per quantile
 - **`tool_status`** — audit label: `Strong` / `Moderate` / `Mixed` / `Weak`, from HQ and total structure scores plus singleton / tiny-cluster / negative-silhouette rates.
 - **`decision`** — binary: `ACCEPT` if `tool_status` ∈ `--accept-status` (default `Strong`), else `TRY_NEXT_MODEL`. `ch_accepted` reports every ACCEPT row; `ch_best` is the single top-ranked fit and is the fallback when nothing accepts.
 
-Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 25 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
+Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 36 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
 
 ### Failure policy
 
@@ -102,7 +104,6 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 - **`drep/dereplicate`** is likewise installed and unwired _on purpose_. It will pick the representative genome per cluster to use as the SynTracker reference.
 - **SynTracker** (non-PopPUNK synteny signal) is planned as an independent branch. It is not on bioconda and not in nf-core/modules, so it needs a custom `microbiome-informatics/syntracker` container.
 - **Microreact** output via a `poppunk/visualise` module — `rapidnj` and `mandrake` are already in the bioconda poppunk package, so it needs no new container.
-- **BGMM restricted to species with <200 genomes** — not yet implemented; needs the genome count folded onto `meta` from the eligibility report's `n_total_passing_qc`.
 
 ## Known loose ends
 

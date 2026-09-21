@@ -56,7 +56,7 @@
             "type": "object",
             "fa_icon": "fas fa-project-diagram",
             "description": "Parameter grids swept within each PopPUNK model family.",
-            "help_text": "All three families (threshold, BGMM, DBSCAN) always run; these params set the values swept within each and are scored against all-vs-all ANI. Every DBSCAN fit is additionally refined with PopPUNK's standard `--fit-model refine`. Trim the grids (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
+            "help_text": "All three families (threshold, BGMM, DBSCAN) are swept, except that BGMM is skipped for species at or above `--poppunk_bgmm_max_genomes`. Every DBSCAN fit is additionally refined with PopPUNK's standard `--fit-model refine`. Every fit is scored against all-vs-all ANI. Trim the grids (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
             "properties": {
                 "poppunk_bgmm_k": {
                     "type": "string",
@@ -64,6 +64,14 @@
                     "pattern": "^[0-9]+(,[0-9]+)*$",
                     "description": "Comma-separated K values (number of mixture components) for the BGMM sweep.",
                     "fa_icon": "fas fa-list-ol"
+                },
+                "poppunk_bgmm_max_genomes": {
+                    "type": "integer",
+                    "default": 200,
+                    "minimum": 1,
+                    "description": "Skip the BGMM sweep for species with at least this many post-QC genomes.",
+                    "help_text": "BGMM requires the core/accessory distance components to be clearly separated, which in practice only holds for small genome collections. At or above this count the BGMM family is not fitted at all and DBSCAN (plus its standard refinement) carries the fit. The count used is n_hq + n_mq from the species eligibility report, i.e. the genomes actually entering the PopPUNK database.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
                 },
                 "poppunk_dbscan_d": {
                     "type": "string",
