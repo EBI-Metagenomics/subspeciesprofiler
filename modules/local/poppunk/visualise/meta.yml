@@ -1,0 +1,80 @@
+name: "poppunk_visualise"
+description: Generate Microreact-ready visualisations for one fitted PopPUNK model
+keywords:
+  - poppunk
+  - microreact
+  - visualisation
+  - clustering
+  - phylogeny
+tools:
+  - "poppunk":
+      description: "Population Partitioning Using Nucleotide K-mers"
+      homepage: "https://poppunk.bacpop.org"
+      documentation: "https://poppunk.bacpop.org/visualisation.html"
+      tool_dev_url: "https://github.com/bacpop/PopPUNK"
+      doi: "10.1101/gr.241455.118"
+      licence: ["Apache-2.0"]
+      identifier: biotools:poppunk
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species and model information, e.g.
+          `[ id:'E_coli', model:'dbscan_D5_mcp0.01' ]`. `meta.model` becomes part of every
+          output filename, so the published files are self-describing.
+    - db:
+        type: directory
+        description: |
+          The species' QC'd PopPUNK database directory (from `poppunk --qc-db`). Must keep its
+          original name - PopPUNK resolves files inside it from the directory basename.
+        pattern: "*_qc"
+    - fit:
+        type: directory
+        description: |
+          The fit directory of a single model (from `poppunk --fit-model`). Must keep its original
+          name - the model is loaded as `<fit>/<basename(fit)>_fit.pkl`.
+        pattern: "*_fitmodel"
+
+output:
+  clusters:
+    - - meta:
+          type: map
+          description: Groovy Map containing species and model information
+      - "*_microreact_clusters.csv":
+          type: file
+          description: Cluster assignments with Microreact-formatted headers
+          pattern: "*_microreact_clusters.csv"
+  microreact:
+    - - meta:
+          type: map
+          description: Groovy Map containing species and model information
+      - "*.microreact":
+          type: file
+          description: Microreact-compatible JSON, uploadable directly to microreact.org
+          pattern: "*.microreact"
+  tree:
+    - - meta:
+          type: map
+          description: Groovy Map containing species and model information
+      - "*_core_NJ.nwk":
+          type: file
+          description: Neighbour-joining tree built from the core distances (via rapidnj)
+          pattern: "*_core_NJ.nwk"
+  embedding:
+    - - meta:
+          type: map
+          description: Groovy Map containing species and model information
+      - "*_mandrake.dot":
+          type: file
+          description: 2D mandrake embedding of the accessory distances
+          pattern: "*_mandrake.dot"
+  versions:
+    - - topic:
+          type: string
+          description: Version topic channel entry (process, tool, version)
+
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

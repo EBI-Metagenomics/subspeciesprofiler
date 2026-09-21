@@ -27,7 +27,8 @@ Results are organised **species-first**: each species in the samplesheet gets it
 │       ├── createdb/  qcdb/  quantiles/
 │       ├── fastani/
 │       ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
-│       └── evaluate/<model>/
+│       ├── evaluate/<model>/
+│       └── microreact/                    # Strong + Moderate models, one file set each
 ├── multiqc/
 └── pipeline_info/
 ```
@@ -54,6 +55,13 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 - `<species>/poppunk/fastani/`: the all-vs-all FastANI distances used to score each model externally.
 - `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`).
 - `<species>/poppunk/evaluate/<model>/`: per-model evaluation metrics (`*.tool_metrics.tsv`, `*.cluster_metrics.tsv`, `*.genome_metrics.tsv`).
+- `<species>/poppunk/microreact/`: [Microreact](https://microreact.org) visualisations for every model the evaluator rated **Strong or Moderate**, so the credible candidates can be inspected side by side and the best one picked by eye. All models share this one directory and each file carries the model name (family plus its swept parameters), e.g.:
+  - `<species>_<model>.microreact` — upload this single file to [microreact.org/upload](https://microreact.org/upload) to open the visualisation.
+  - `<species>_<model>_microreact_clusters.csv` — cluster assignments with Microreact headers.
+  - `<species>_<model>_core_NJ.nwk` — neighbour-joining tree from the core distances.
+  - `<species>_<model>_perplexity<P>_accessory_mandrake.dot` — 2D embedding of the accessory distances.
+
+  For example `E_coli_refine_from_dbscan_D5_mcp0.01.microreact` is the refined DBSCAN fit with `D=5`, `min-cluster-prop=0.01`.
 
 </details>
 

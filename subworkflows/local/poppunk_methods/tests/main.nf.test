@@ -42,7 +42,12 @@ nextflow_workflow {
                 // select emits one best model + the accepted-models set for the species
                 { assert workflow.out.best_model.size() == 1 },
                 { assert workflow.out.best_model.get(0).get(0) == 'test' },
-                { assert workflow.out.accepted_models.size() == 1 }
+                { assert workflow.out.accepted_models.size() == 1 },
+                // Microreact runs for every Strong or Moderate fit. The evaluate stub rates
+                // refine_from_* Strong and bgmm_* Moderate, so 16 + 7 = 23 visualisations.
+                { assert workflow.out.microreact.size() == 23 },
+                // the model name must be carried in the filename (they all land in one directory)
+                { assert workflow.out.microreact.every { meta, f -> file(f.toString()).name.contains(meta.model) } }
             )
         }
 
@@ -80,7 +85,9 @@ nextflow_workflow {
                 { assert workflow.out.tool_metrics.size() == 35 },
                 // and no bgmm_* fit reached the evaluator
                 { assert workflow.out.tool_metrics.every { meta, tsv -> !meta.model.startsWith('bgmm') } },
-                { assert workflow.out.best_model.size() == 1 }
+                { assert workflow.out.best_model.size() == 1 },
+                // with no BGMM (Moderate) fits, only the 16 Strong refine_from_* fits are visualised
+                { assert workflow.out.microreact.size() == 16 }
             )
         }
 

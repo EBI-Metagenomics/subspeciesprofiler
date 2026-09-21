@@ -68,6 +68,10 @@ Then **three families sweep**: `threshold` (one fit per quantile), `bgmm` (sweep
 
 **Every dbscan fit is then refined** with PopPUNK's standard `--fit-model refine`, seeded from that fit's directory. This is ungated — it runs whether or not anything already scored `ACCEPT`. Refined fits are evaluated and ranked alongside the swept ones; nothing else is refined.
 
+**Microreact visuals** are generated for every fit the evaluator rates **Strong or Moderate** (deliberately _not_ `decision == ACCEPT`, which is Strong-only — the point is to compare all credible models by eye). `POPPUNK_VISUALISE` wraps `poppunk_visualise --microreact`, on the same poppunk container (`rapidnj` and `mandrake` are bundled in the bioconda package).
+
+Two traps in that module: PopPUNK resolves a model as `<model-dir>/<basename(model-dir)>_fit.pkl`, so **the fit and db directories must never be renamed via `stageAs`**; and it writes its output into a `<prefix>/` directory whose files are all prefixed with that basename, which the module then lifts into the task dir so everything publishes flat into one per-species `poppunk/microreact/` folder with the model name carried in each filename.
+
 **One module, aliased.** `POPPUNK_REFINE_DBSCAN` is `POPPUNK_FITMODEL` aliased, and `POPPUNK_EVALUATE_DBSCAN_REFINE` is `POPPUNK_EVALUATE` aliased. The model spec is a _per-task value input_ (`fit_args`, e.g. `"bgmm --K 4"`, `"refine"`), **not** `ext.args` — that's what lets one process cover the whole sweep. `meta.model` labels each fit and drives both the join-back and the publish path. Follow this pattern rather than adding a new process.
 
 ### The evaluator is the pipeline's judgement
@@ -94,6 +98,7 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 ## Conventions
 
 - New tools go in `modules/local/<tool>/` with `main.nf` + `environment.yml` + `meta.yml` + `tests/`, a real-data test and a `-stub` test, and a stub block whose output filenames match the real ones (the subworkflow's stub test depends on this).
+- **Stubs must produce varied, realistic output where downstream code branches on it.** `poppunk/evaluate`'s stub returns `Strong` for `refine_from_*`, `Moderate` for `bgmm_*` and `Weak` otherwise, precisely so stub runs exercise the ACCEPT and Microreact branches. A stub returning one constant verdict leaves those paths untested.
 - Never hand-edit `modules/nf-core/` or `subworkflows/nf-core/` — vendored and SHA-pinned in `modules.json`; use `nf-core modules install/update`.
 - PRs target `dev`, not `master`.
 - New tool → add to `CITATIONS.md` and `docs/output.md`.
@@ -103,7 +108,6 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 - **`checkm2/predict`** is installed in `modules.json` but unwired _on purpose_. It will be wired behind a flag that generates completeness/contamination when the samplesheet's `qc_csv` is absent. Separate task, not yet started.
 - **`drep/dereplicate`** is likewise installed and unwired _on purpose_. It will pick the representative genome per cluster to use as the SynTracker reference.
 - **SynTracker** (non-PopPUNK synteny signal) is planned as an independent branch. It is not on bioconda and not in nf-core/modules, so it needs a custom `microbiome-informatics/syntracker` container.
-- **Microreact** output via a `poppunk/visualise` module — `rapidnj` and `mandrake` are already in the bioconda poppunk package, so it needs no new container.
 
 ## Known loose ends
 

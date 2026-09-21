@@ -8,6 +8,9 @@
 // dbscan), then refine every dbscan fit with PopPUNK's standard refinement.
 // Every fit -- swept or refined -- is scored against FastANI, then ranked.
 //
+// Every fit the evaluator rates Strong or Moderate additionally gets Microreact
+// visualisations, for manual inspection and selection among the worthy models.
+//
 // Lineage is deliberately absent: it clusters *within* a strain (sub-sub-
 // clustering), which is a different question from subspecies structure.
 // Refinement is applied to dbscan only, and is never gated: the non-standard
@@ -22,6 +25,7 @@ include { POPPUNK_FITMODEL  } from '../../../modules/local/poppunk/fitmodel/main
 include { POPPUNK_FITMODEL as POPPUNK_REFINE_DBSCAN } from '../../../modules/local/poppunk/fitmodel/main'
 include { POPPUNK_EVALUATE  } from '../../../modules/local/poppunk/evaluate/main'
 include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_DBSCAN_REFINE } from '../../../modules/local/poppunk/evaluate/main'
+include { POPPUNK_VISUALISE } from '../../../modules/local/poppunk/visualise/main'
 include { FASTANI_ALLVSALL  } from '../../../modules/local/fastani_allvsall/main'
 
 workflow POPPUNK_METHODS {
@@ -133,8 +137,32 @@ workflow POPPUNK_METHODS {
         [ id, best ]
     }
 
+    // ---- Microreact visuals for every model worth inspecting ----
+    // The evaluator's `decision` is deliberately not used here: it is ACCEPT only for Strong,
+    // whereas the point of these visuals is to eyeball and choose among ALL the credible models.
+    // So the gate is `tool_status` in (Strong, Moderate).
+    ch_viz_wanted = ch_ranked
+        .flatMap { id, rows ->
+            rows.findAll { it.tool_status in [ 'Strong', 'Moderate' ] }.collect { [ id, it.model ] }
+        }
+
+    // Pair each wanted model name with its own fit directory (swept or dbscan-refined) and the
+    // species' QC'd db. Same combine + filter idiom used elsewhere to rejoin a model name to its dir.
+    ch_fit_dirs = POPPUNK_FITMODEL.out.model
+        .mix( POPPUNK_REFINE_DBSCAN.out.model )
+        .map { meta, dir -> [ meta.id, meta.model, dir ] }
+
+    ch_viz_in = ch_viz_wanted
+        .combine( ch_fit_dirs, by: 0 )
+        .filter { id, wanted, candidate, dir -> wanted == candidate }
+        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
+        .map { id, wanted, candidate, dir, meta, db -> [ meta + [ model: wanted ], db, dir ] }
+    POPPUNK_VISUALISE( ch_viz_in )
+
+
     emit:
     tool_metrics    = ch_tool_metrics                   // channel: [ val(meta), path(tool_metrics.tsv) ]  (swept + dbscan-refined)
     accepted_models = ch_accepted                       // channel: [ val(species_id), [ all ACCEPT rows ] ]
     best_model      = ch_best                           // channel: [ val(species_id), map(best row) ]
+    microreact      = POPPUNK_VISUALISE.out.microreact  // channel: [ val(meta), path(.microreact) ]  (Strong/Moderate fits)
 }

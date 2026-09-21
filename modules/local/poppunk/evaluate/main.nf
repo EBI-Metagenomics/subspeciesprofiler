@@ -46,9 +46,17 @@ process POPPUNK_EVALUATE {
     stub:
     def prefix     = task.ext.prefix ?: "${meta.id}"
     def model_name = meta.model ?: meta.id
+    // The verdict is varied by model family so that stub runs actually exercise the downstream
+    // branches: Strong -> ACCEPT + Microreact, Moderate -> Microreact only, Weak -> neither.
+    // A stub that always returned one status would leave those paths untested.
+    def status     = model_name.startsWith('refine_from_') ? 'Strong'
+                   : model_name.startsWith('bgmm')         ? 'Moderate'
+                   : 'Weak'
+    def decision   = status == 'Strong' ? 'ACCEPT' : 'TRY_NEXT_MODEL'
+    def score      = status == 'Strong' ? '0.85' : ( status == 'Moderate' ? '0.70' : '0.50' )
     """
     printf 'model\\ttool_status\\tdecision\\treason\\ttool_structure_score_HQ\\n' > ${prefix}.tool_metrics.tsv
-    printf '${model_name}\\tWeak\\tTRY_NEXT_MODEL\\tstub\\t0.5\\n' >> ${prefix}.tool_metrics.tsv
+    printf '${model_name}\\t${status}\\t${decision}\\tstub\\t${score}\\n' >> ${prefix}.tool_metrics.tsv
     touch ${prefix}.cluster_metrics.tsv
     touch ${prefix}.genome_metrics.tsv
     """
