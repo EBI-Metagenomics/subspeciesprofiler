@@ -107,7 +107,7 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 
 - **`checkm2/predict`** is installed in `modules.json` but unwired _on purpose_. It will be wired behind a flag that generates completeness/contamination when the samplesheet's `qc_csv` is absent. Separate task, not yet started.
 - **`drep/dereplicate`** is likewise installed and unwired _on purpose_. It will pick the representative genome per cluster to use as the SynTracker reference.
-- **SynTracker** (non-PopPUNK synteny signal) is planned as an independent branch. It is not on bioconda and not in nf-core/modules, so it needs a custom `microbiome-informatics/syntracker` container.
+- **SynTracker** (non-PopPUNK synteny signal) is the **next task to pick up**. Planned as an independent branch, with `drep/dereplicate` selecting the representative genome per cluster as its reference. It is not on bioconda and not in nf-core/modules, so it needs a custom `microbiome-informatics/syntracker:1.4.0` container (BLAST+ plus python, r-base=4.0.5, bioconductor-decipher, r-tidyverse, and the GitHub source tree). Full detail in the plan file `~/.claude/plans/we-are-going-to-abstract-hartmanis.md`.
 
 ## Known loose ends
 
