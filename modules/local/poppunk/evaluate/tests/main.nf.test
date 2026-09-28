@@ -35,7 +35,10 @@ nextflow_process {
                 ).match() },
                 // the evaluated (non-unword) clusters file, the model name and the binomial decision are present
                 { assert path(process.out.tool_metrics[0][1]).text.contains("decision") },
-                { assert path(process.out.tool_metrics[0][1]).text.contains("bgmm_test") }
+                { assert path(process.out.tool_metrics[0][1]).text.contains("bgmm_test") },
+                // the network score is read from the fit dir's *_fit.log (fixture Score = 0.6)
+                { assert path(process.out.tool_metrics[0][1]).readLines()[0].split('\t')[1] == 'poppunk_network_score' },
+                { assert path(process.out.tool_metrics[0][1]).readLines()[1].split('\t')[1] == '0.6' }
             )
         }
 

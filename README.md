@@ -110,7 +110,7 @@ Results are organised per species under `<outdir>/`:
 | `poppunk/<species>/quantiles/`        | The data-derived core-distance thresholds (`*_core_quantiles.csv`).                                                                         |
 | `poppunk/<species>/fastani/`          | The all-vs-all ANI (`*.ani.txt`).                                                                                                           |
 | `poppunk/<species>/fitmodel/<model>/` | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model.                                       |
-| `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `tool_status`, `decision`, `reason`, scores) plus per-cluster and per-genome metrics. |
+| `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `poppunk_network_score`, `tool_status`, scores, `decision`, `eval_summary`) plus per-cluster and per-genome metrics. |
 
 To see the results of an example test run with a full size dataset refer to the [results](https://github.com/ebi-metagenomics/subspeciesprofiler) tab on the nf-core website pipeline page.
 For more details about the output files and reports, please refer to the

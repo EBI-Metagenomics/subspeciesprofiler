@@ -266,7 +266,7 @@ def test_cli_single_cluster_is_weak(tmp_path):
     assert proc.returncode == 0
     assert tm["tool_status"] == "Weak"
     assert tm["decision"] == "TRY_NEXT_MODEL"
-    assert "single cluster" in tm["reason"]
+    assert "single cluster" in tm["eval_summary"]
 
 
 def test_cli_all_singletons_is_weak(tmp_path):
@@ -275,7 +275,7 @@ def test_cli_all_singletons_is_weak(tmp_path):
     proc, out = run_cli(tmp_path, cluster_of, label_of)
     tm = read_metrics(out, "tool_metrics").iloc[0]
     assert tm["tool_status"] == "Weak"
-    assert "all singletons" in tm["reason"]
+    assert "all singletons" in tm["eval_summary"]
 
 
 def test_cli_mq_only_structure_is_weak(tmp_path):
@@ -285,7 +285,7 @@ def test_cli_mq_only_structure_is_weak(tmp_path):
     proc, out = run_cli(tmp_path, cluster_of, label_of)
     tm = read_metrics(out, "tool_metrics").iloc[0]
     assert tm["tool_status"] == "Weak"
-    assert "only among MQ" in tm["reason"]
+    assert "only among MQ" in tm["eval_summary"]
 
 
 # --------------------------------------------------------------------------- #
@@ -312,6 +312,55 @@ def test_cli_accept_status_controls_decision(tmp_path):
     assert read_metrics(out2, "tool_metrics").iloc[0]["decision"] == "ACCEPT"
 
 
+# A PopPUNK "Network summary" block, as written to stderr by `poppunk --fit-model`.
+NETWORK_SUMMARY = (
+    "Network summary:\n"
+    "\tComponents\t\t\t\t{c}\n"
+    "\tDensity\t\t\t\t\t0.1000\n"
+    "\tTransitivity\t\t\t\t0.9000\n"
+    "\tMean betweenness\t\t\t0.0500\n"
+    "\tWeighted-mean betweenness\t\t0.0400\n"
+    "\tScore\t\t\t\t\t{s}\n"
+    "\tScore (w/ betweenness)\t\t\t0.1111\n"
+    "\tScore (w/ weighted-betweenness)\t\t0.2222\n"
+)
+
+
+def test_parse_network_score_takes_plain_score_only(mod, tmp_path):
+    log = tmp_path / "fit.log"
+    log.write_text(NETWORK_SUMMARY.format(c=3, s="0.8123"))
+    assert mod.parse_network_score(str(log)) == pytest.approx(0.8123)
+
+
+def test_parse_network_score_last_summary_wins(mod, tmp_path):
+    # refine can report the network more than once; the final summary is the saved model.
+    log = tmp_path / "fit.log"
+    log.write_text(NETWORK_SUMMARY.format(c=5, s="0.5000") + "Refining...\n"
+                   + NETWORK_SUMMARY.format(c=3, s="0.9000"))
+    assert mod.parse_network_score(str(log)) == pytest.approx(0.9)
+
+
+def test_parse_network_score_missing_is_nan(mod, tmp_path):
+    log = tmp_path / "fit.log"
+    log.write_text("no summary here\n")
+    assert np.isnan(mod.parse_network_score(str(log)))
+    assert np.isnan(mod.parse_network_score(None))
+
+
+def test_cli_network_score_and_column_order(tmp_path):
+    cluster_of = {f"g{i}": (1 if i <= 3 else 2) for i in range(1, 7)}
+    label_of = {g: "HQ" for g in cluster_of}
+    log = tmp_path / "fit.log"
+    log.write_text(NETWORK_SUMMARY.format(c=2, s="0.7500"))
+    _, out = run_cli(tmp_path, cluster_of, label_of, extra_args=["--fit-log", str(log)])
+    tm = read_metrics(out, "tool_metrics")
+    cols = list(tm.columns)
+    assert cols[:3] == ["model", "poppunk_network_score", "tool_status"]
+    assert cols[-2:] == ["decision", "eval_summary"]
+    assert "reason" not in cols
+    assert tm.iloc[0]["poppunk_network_score"] == pytest.approx(0.75)
+
+
 def test_cli_mixed_signal_reason(tmp_path):
     # cluster1 size 7 (not tiny) + cluster2 size 4 (tiny) -> tiny_cluster_rate_HQ ~0.36,
     # in the (0.30, 0.40] band between Moderate and Weak -> tool_status = Mixed.
@@ -320,8 +369,8 @@ def test_cli_mixed_signal_reason(tmp_path):
     _, out = run_cli(tmp_path, cluster_of, label_of, extra_args=["--model-name", "refine"])
     tm = read_metrics(out, "tool_metrics").iloc[0]
     assert tm["tool_status"] == "Mixed"
-    assert tm["reason"].startswith("mixed signal")
-    assert "tiny-cluster HQ rate" in tm["reason"]
+    assert tm["eval_summary"].startswith("mixed signal")
+    assert "tiny-cluster HQ rate" in tm["eval_summary"]
 
 
 # --------------------------------------------------------------------------- #

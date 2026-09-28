@@ -28,8 +28,13 @@ process POPPUNK_EVALUATE {
     """
     # `model` is either a fit directory (PopPUNK writes <p>_clusters.csv + <p>_unword_clusters.csv;
     # evaluate the former) or a single Taxon,Cluster clusters CSV (e.g. one multi-boundary position).
+    # A fit directory also carries the fitmodel log (<p>_fit.log), the source of the PopPUNK
+    # network score; without one the score is reported as NaN.
+    fit_log_arg=""
     if [ -d "${model}" ]; then
         clusters=\$(ls ${model}/*_clusters.csv | grep -v unword | head -n 1)
+        fit_log=\$(find ${model}/ -maxdepth 1 -name '*_fit.log' | head -n 1)
+        [ -n "\$fit_log" ] && fit_log_arg="--fit-log \$fit_log"
     else
         clusters="${model}"
     fi
@@ -40,6 +45,7 @@ process POPPUNK_EVALUATE {
         --labels ${labels} \\
         --model-name '${model_name}' \\
         --out-prefix ${prefix} \\
+        \$fit_log_arg \\
         ${args}
     """
 
@@ -55,8 +61,8 @@ process POPPUNK_EVALUATE {
     def decision   = status == 'Strong' ? 'ACCEPT' : 'TRY_NEXT_MODEL'
     def score      = status == 'Strong' ? '0.85' : ( status == 'Moderate' ? '0.70' : '0.50' )
     """
-    printf 'model\\ttool_status\\tdecision\\treason\\ttool_structure_score_HQ\\n' > ${prefix}.tool_metrics.tsv
-    printf '${model_name}\\t${status}\\t${decision}\\tstub\\t${score}\\n' >> ${prefix}.tool_metrics.tsv
+    printf 'model\\tpoppunk_network_score\\ttool_status\\ttool_structure_score_HQ\\tdecision\\teval_summary\\n' > ${prefix}.tool_metrics.tsv
+    printf '${model_name}\\t0.9\\t${status}\\t${score}\\t${decision}\\tstub\\n' >> ${prefix}.tool_metrics.tsv
     touch ${prefix}.cluster_metrics.tsv
     touch ${prefix}.genome_metrics.tsv
     """

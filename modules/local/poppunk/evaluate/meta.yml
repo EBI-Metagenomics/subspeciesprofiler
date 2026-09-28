@@ -55,8 +55,9 @@ output:
       - "*.tool_metrics.tsv":
           type: file
           description: |
-            Single-row per-tool verdict: model, structure/separation scores, tool_status
-            (Strong/Moderate/Weak/Mixed), decision (ACCEPT/TRY_NEXT_MODEL) and reason.
+            Single-row per-tool verdict: model, poppunk_network_score (from the fit dir's
+            `*_fit.log`; NaN if absent), tool_status (Strong/Moderate/Weak/Mixed),
+            structure/separation scores, decision (ACCEPT/TRY_NEXT_MODEL) and eval_summary.
           pattern: "*.tool_metrics.tsv"
   cluster_metrics:
     - - meta:

@@ -16,6 +16,7 @@
                             "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.log:md5,8af0e40d00128ba5024f09432ee4e717",
                             "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
@@ -44,6 +45,7 @@
                             "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.log:md5,8af0e40d00128ba5024f09432ee4e717",
                             "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
@@ -64,7 +66,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-09-28T12:03:51.13515"
+        "timestamp": "2026-09-28T12:30:08.715818"
     },
     "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - fitmodel": {
         "content": [
@@ -77,6 +79,7 @@
                 "test_fitmodel_DPGMM_fit.png",
                 "test_fitmodel_DPGMM_fit_contours.pdf",
                 "test_fitmodel_clusters.csv",
+                "test_fitmodel_fit.log",
                 "test_fitmodel_fit.npz",
                 "test_fitmodel_fit.pkl",
                 "test_fitmodel_graph.gt",
@@ -96,7 +99,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-10T09:36:45.90377"
+        "timestamp": "2026-09-28T12:27:07.388787"
     },
     "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - fitmodel - stub": {
         "content": [
@@ -115,6 +118,7 @@
                             "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.log:md5,8af0e40d00128ba5024f09432ee4e717",
                             "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
@@ -143,6 +147,7 @@
                             "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.log:md5,8af0e40d00128ba5024f09432ee4e717",
                             "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
                             "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
@@ -163,6 +168,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-09-21T13:17:44.482573"
+        "timestamp": "2026-09-28T12:28:40.053083"
     }
 }

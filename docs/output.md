@@ -50,10 +50,10 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 <details markdown="1">
 <summary>Output files</summary>
 
-- `<species>/poppunk/<species>_model_report.tsv`: the "profiler history" — every PopPUNK model fitted for this species with its evaluation verdict (`tool_status`, `decision`, structure scores).
+- `<species>/poppunk/<species>_model_report.tsv`: the "profiler history" — every PopPUNK model fitted for this species with PopPUNK's own network score (`poppunk_network_score`, the plain score from the fit's network summary), its evaluation verdict (`tool_status`), the structure scores and a plain-text `eval_summary`. The binary `decision` is kept only in the per-fit `evaluate/<model>/*.tool_metrics.tsv`.
 - `<species>/poppunk/createdb/`, `qcdb/`, `quantiles/`: the PopPUNK database, its distance-QC output, and the core-distance quantiles that seed the threshold sweep.
 - `<species>/poppunk/fastani/`: the all-vs-all FastANI distances used to score each model externally.
-- `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`).
+- `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`) and the run log (`*_fit.log`).
 - `<species>/poppunk/evaluate/<model>/`: per-model evaluation metrics (`*.tool_metrics.tsv`, `*.cluster_metrics.tsv`, `*.genome_metrics.tsv`).
 - `<species>/poppunk/microreact/`: [Microreact](https://microreact.org) visualisations for every model the evaluator rated **Strong or Moderate**, so the credible candidates can be inspected side by side and the best one picked by eye. All models share this one directory and each file carries the model name (family plus its swept parameters), e.g.:
   - `<species>_<model>.microreact` — upload this single file to [microreact.org/upload](https://microreact.org/upload) to open the visualisation.

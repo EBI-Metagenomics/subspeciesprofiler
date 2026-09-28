@@ -3,6 +3,7 @@
 import argparse
 import csv
 import itertools
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -572,7 +573,33 @@ def fraction_status(clusters_with_metrics, status, genome_subset=None):
     return float(np.mean(tmp["validity_status"].eq(status)))
 
 
-def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_metrics: pd.DataFrame, model_name: str, accept_status: set) -> pd.DataFrame:
+# The plain network score in PopPUNK's "Network summary" block. Anchored to the whole line so
+# the "Score (w/ betweenness)" and "Score (w/ weighted-betweenness)" variants never match.
+NETWORK_SCORE_RE = re.compile(r"^\s*Score\s+(\S+)\s*$")
+
+
+def parse_network_score(path) -> float:
+    """
+    Return PopPUNK's network score from a `poppunk --fit-model` log, or NaN if absent.
+
+    The last summary wins: a refine run can report the network more than once, and the
+    final one describes the model that was saved.
+    """
+    if not path:
+        return np.nan
+    score = np.nan
+    with open(path, errors="replace") as fh:
+        for line in fh:
+            m = NETWORK_SCORE_RE.match(line)
+            if m:
+                try:
+                    score = float(m.group(1))
+                except ValueError:
+                    pass
+    return score
+
+
+def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_metrics: pd.DataFrame, model_name: str, accept_status: set, network_score: float = np.nan) -> pd.DataFrame:
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
@@ -722,6 +749,8 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
 
     row = {
         "model": model_name,
+        "poppunk_network_score": network_score,
+        "tool_status": status,
 
         "tool_structure_score_HQ": tool_structure_score_hq,
         "tool_structure_score_total": tool_structure_score_total,
@@ -749,9 +778,8 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
         "p10_silhouette_total": silhouette_summary(gm_total, "p10"),
         "negative_silhouette_total_fraction": silhouette_summary(gm_total, "negative_fraction"),
 
-        "tool_status": status,
         "decision": decision,
-        "reason": reason,
+        "eval_summary": reason,
     }
 
     return pd.DataFrame([row])
@@ -803,6 +831,11 @@ def main():
         "--model-name", default="",
         help="Name of the PopPUNK model that produced these clusters (e.g. bgmm, dbscan, "
              "lineage), recorded in the output for the profiler-history report.",
+    )
+    parser.add_argument(
+        "--fit-log", default=None,
+        help="Log of the `poppunk --fit-model` run that produced these clusters. Its network "
+             "score is reported as poppunk_network_score (NaN when not given).",
     )
     parser.add_argument(
         "--min-comparison-cluster-size", type=int, default=2,
@@ -864,7 +897,10 @@ def main():
 
     cluster_metrics = evaluate_clusters(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
     genome_metrics = evaluate_genomes(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
-    summary_metrics = tool_metrics(clusters, metadata, cluster_metrics, genome_metrics, args.model_name, accept_status)
+    summary_metrics = tool_metrics(
+        clusters, metadata, cluster_metrics, genome_metrics, args.model_name, accept_status,
+        network_score=parse_network_score(args.fit_log),
+    )
 
     out_prefix = Path(args.out_prefix)
     out_prefix.parent.mkdir(parents=True, exist_ok=True)

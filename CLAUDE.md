@@ -24,7 +24,7 @@ nf-test test modules/local/poppunk/fitmodel/tests/main.nf.test --profile docker
 nf-test test --tag poppunk/fitmodel --profile docker
 nf-test test tests/default.nf.test --profile test,docker --update-snapshot
 
-# Python unit tests for the evaluator (36 tests; not run by CI)
+# Python unit tests for the evaluator (40 tests; not run by CI)
 python3 -m pytest tests/bin/test_evaluate_poppunk_fastani.py
 
 # Lint (both run in CI on every PR)
@@ -81,7 +81,9 @@ Two traps in that module: PopPUNK resolves a model as `<model-dir>/<basename(mod
 - **`tool_status`** — audit label: `Strong` / `Moderate` / `Mixed` / `Weak`, from HQ and total structure scores plus singleton / tiny-cluster / negative-silhouette rates.
 - **`decision`** — binary: `ACCEPT` if `tool_status` ∈ `--accept-status` (default `Strong`), else `TRY_NEXT_MODEL`. `ch_accepted` reports every ACCEPT row; `ch_best` is the single top-ranked fit and is the fallback when nothing accepts.
 
-Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 36 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
+`tool_metrics.tsv` column order is `model`, `poppunk_network_score`, `tool_status`, the scores, `decision`, `eval_summary`. `poppunk_network_score` is PopPUNK's plain network `Score` (not the betweenness variants), parsed from the `<prefix>_fit.log` that `poppunk/fitmodel` saves into every fit dir. `*_model_report.tsv` (built in `workflows/subspeciesprofiler.nf`) is the concatenation of every fit's `tool_metrics.tsv` **minus `decision`**. `decision` stays in `tool_metrics.tsv` because control flow reads it.
+
+Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 40 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
 
 ### Failure policy
 

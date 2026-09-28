@@ -92,9 +92,16 @@ workflow SUBSPECIESPROFILER {
     // Per-species model report (Phase-4 "profiler history"): append every fitted model's
     // verdict into one table under that species' poppunk directory. collectFile reads each
     // per-fit tool_metrics by content, so the identical filenames across fits don't collide.
+    // The evaluator's `decision` column is dropped here: it only drives control flow
+    // (ch_accepted, the MultiQC best-model table) and would duplicate tool_status in the report.
     POPPUNK_METHODS.out.tool_metrics
         .collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
-            [ "${meta.id}/poppunk/${meta.id}_model_report.tsv", tsv ]
+            def rows = tsv.readLines().collect { it.split('\t', -1) as List }
+            def drop = rows[0].indexOf('decision')
+            if ( drop >= 0 ) {
+                rows.each { it.remove(drop as int) }
+            }
+            [ "${meta.id}/poppunk/${meta.id}_model_report.tsv", rows*.join('\t').join('\n') + '\n' ]
         }
 
     //
