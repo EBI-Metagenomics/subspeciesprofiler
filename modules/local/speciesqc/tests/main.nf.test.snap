@@ -39,7 +39,7 @@
                     {
                         "id": "E_coli"
                     },
-                    "E_coli_spp_eligibility_report.tsv:md5,c8720719a5d902a532295585716eb882"
+                    "E_coli_spp_eligibility_report.tsv:md5,0ff00da0e29abdef0e4175a38c068287"
                 ]
             ],
             [
@@ -63,6 +63,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-08T15:40:53.836841"
+        "timestamp": "2026-09-28T11:59:14.021135"
     }
 }

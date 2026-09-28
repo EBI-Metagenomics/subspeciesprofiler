@@ -77,4 +77,31 @@ nextflow_process {
 
     }
 
+    // A real refine can't run on the 3-genome test db (too few distances to move the boundary),
+    // so the seed staging is checked in stub mode: the stub fails unless the seed keeps its name,
+    // as PopPUNK resolves it as <model-dir>/<basename(model-dir)>_fit.pkl.
+    test("bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - refine - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = POPPUNK_CREATEDB.out.db.map { meta, db -> [
+                    meta, db, 'refine',
+                    file("${projectDir}/tests/fixtures/poppunk_fit/test_fitmodel", checkIfExists: true)
+                ] }
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assertAll(
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
 }

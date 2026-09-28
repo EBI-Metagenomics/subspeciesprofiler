@@ -1,4 +1,71 @@
 {
+    "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - refine - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_fitmodel.refs:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.npy:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.h5:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_unword_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        "POPPUNK_FITMODEL",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ],
+                "model": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_fitmodel.refs:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.npy:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.dists.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs.h5:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel.refs_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit.png:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_DPGMM_fit_contours.pdf:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.npz:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_fit.pkl:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_graph.gt:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_fitmodel_unword_clusters.csv:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        ]
+                    ]
+                ],
+                "versions_poppunk": [
+                    [
+                        "POPPUNK_FITMODEL",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-09-28T12:03:51.13515"
+    },
     "bacteroides_fragilis - haemophilus_influenzae - escherichia_coli - fitmodel": {
         "content": [
             [
