@@ -2,7 +2,6 @@
 
 import argparse
 import csv
-import itertools
 import re
 import sys
 from collections import Counter
@@ -195,20 +194,20 @@ def make_symmetric_ani_matrix(fastani: pd.DataFrame, genomes: list[str]) -> pd.D
         .mean()
     )
 
-    matrix = pd.DataFrame(np.nan, index=genomes, columns=genomes, dtype=float)
+    # Place every pair by position in one vectorised assignment; pairs involving a genome
+    # outside `genomes` are dropped.
+    index = pd.Index(genomes)
+    i = index.get_indexer(pair_mean["g1"])
+    j = index.get_indexer(pair_mean["g2"])
+    keep = (i >= 0) & (j >= 0)
+    i, j, ani = i[keep], j[keep], pair_mean["ani"].to_numpy(dtype=float)[keep]
 
-    for row in pair_mean.itertuples(index=False):
-        g1 = row.g1
-        g2 = row.g2
-        ani = row.ani
+    values = np.full((len(genomes), len(genomes)), np.nan)
+    values[i, j] = ani
+    values[j, i] = ani
+    np.fill_diagonal(values, 1.0)
 
-        if g1 in matrix.index and g2 in matrix.columns:
-            matrix.loc[g1, g2] = ani
-            matrix.loc[g2, g1] = ani
-
-    np.fill_diagonal(matrix.values, 1.0)
-
-    return matrix
+    return pd.DataFrame(values, index=genomes, columns=genomes)
 
 
 def safe_percentile(values, q):
@@ -294,25 +293,24 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
-    cluster_to_genomes = (
-        merged
+    # One dense ANI array in `merged` row order; each cluster is a set of row positions,
+    # so intra/inter ANI values are numpy blocks rather than per-pair lookups. Clusters
+    # are visited in sorted cluster_id order (as groupby does), which fixes tie-breaks.
+    genome_ids = merged["genome_id"].tolist()
+    ani = ani_matrix.reindex(index=genome_ids, columns=genome_ids).to_numpy(dtype=float)
+    positions = dict(sorted(merged.groupby("cluster_id").indices.items()))
+    n_hq_by_cluster = (
+        merged[merged["quality_status"].eq("HQ")]
         .groupby("cluster_id")["genome_id"]
-        .apply(list)
-        .to_dict()
+        .nunique()
     )
 
     rows = []
 
-    for cluster_id, members in cluster_to_genomes.items():
-        cluster_size = len(members)
+    for cluster_id, idx in positions.items():
+        cluster_size = len(idx)
 
-        n_hq = int(
-            merged.loc[
-                merged["cluster_id"].eq(cluster_id)
-                & merged["quality_status"].eq("HQ"),
-                "genome_id"
-            ].nunique()
-        )
+        n_hq = int(n_hq_by_cluster.get(cluster_id, 0))
 
         hq_ratio = n_hq / cluster_size if cluster_size > 0 else np.nan
 
@@ -340,11 +338,9 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
             })
             continue
 
-        # Intra-cluster ANI values.
-        intra_values = []
-        for g1, g2 in itertools.combinations(members, 2):
-            if g1 in ani_matrix.index and g2 in ani_matrix.columns:
-                intra_values.append(ani_matrix.loc[g1, g2])
+        # Intra-cluster ANI values: each unordered pair once.
+        block = ani[np.ix_(idx, idx)]
+        intra_values = block[np.triu_indices(cluster_size, k=1)]
 
         p5_intra = safe_percentile(intra_values, 5)
         median_intra = safe_percentile(intra_values, 50)
@@ -356,21 +352,16 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
         # tiny_cluster_rate instead), so a lone outlier can't distort the score.
         best_external_cluster = None
         best_external_median = -np.inf
-        best_external_values = []
+        best_external_values = np.array([], dtype=float)
 
-        for other_cluster_id, other_members in cluster_to_genomes.items():
+        rows_of_cluster = ani[idx]
+        for other_cluster_id, other_idx in positions.items():
             if other_cluster_id == cluster_id:
                 continue
-            if len(other_members) < min_comparison_cluster_size:
+            if len(other_idx) < min_comparison_cluster_size:
                 continue
 
-            inter_values = []
-            for g1 in members:
-                for g2 in other_members:
-                    if g1 in ani_matrix.index and g2 in ani_matrix.columns:
-                        inter_values.append(ani_matrix.loc[g1, g2])
-
-            inter_values = np.asarray(inter_values, dtype=float)
+            inter_values = rows_of_cluster[:, other_idx].ravel()
             inter_values = inter_values[~np.isnan(inter_values)]
 
             if len(inter_values) == 0:
@@ -432,102 +423,81 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
     return pd.DataFrame(rows)
 
 
-def calculate_silhouette_for_genome(genome, own_cluster, clusters_by_id, ani_matrix, min_comparison_cluster_size):
+def ani_silhouettes(genomes, cluster_ids, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int):
     """
-    Calculate ANI-based silhouette for one genome.
+    ANI-based silhouette for every genome at once, with distance = 1 - ANI.
 
-    Distance = 1 - ANI.
+    Vectorised over the whole distance matrix: a one-hot genome x cluster matrix turns
+    "mean distance from each genome to each cluster" into one matrix product. Missing
+    (NaN) ANI pairs are left out of each mean rather than counted as zero.
 
-    Returns NaN for singleton clusters or if distances are missing. The nearest
-    other cluster (b) is chosen only among clusters of at least
-    `min_comparison_cluster_size`, so singletons are not treated as competing
+    Per genome, `a` is the mean distance to the other members of its own cluster and `b`
+    the smallest mean distance to another cluster. The silhouette is NaN for singleton
+    genomes and when either mean has no ANI values. `b` is chosen only among clusters of
+    at least `min_comparison_cluster_size`, so singletons are not treated as competing
     clusters (a lone outlier near a real cluster should not tank its silhouette;
-    over-splitting is penalised separately via singleton_rate).
+    over-splitting is penalised separately via singleton_rate). Ties go to the first
+    cluster in sorted cluster_id order.
+
+    Returns (silhouettes, nearest_clusters): a float array and an object array holding
+    the nearest external cluster_id, or NaN where the silhouette is undefined.
     """
-    own_members = [g for g in clusters_by_id[own_cluster] if g != genome]
+    genomes = list(genomes)
+    n = len(genomes)
+    codes, uniques = pd.factorize(pd.Series(cluster_ids), sort=True)
+    k = len(uniques)
 
-    if len(own_members) == 0:
-        return np.nan, np.nan
+    # Distances in the genomes' order; self-pairs are excluded from every mean.
+    dist = 1.0 - ani_matrix.reindex(index=genomes, columns=genomes).to_numpy(dtype=float)
+    np.fill_diagonal(dist, np.nan)
+    present = ~np.isnan(dist)
 
-    own_distances = []
-    for g in own_members:
-        if genome in ani_matrix.index and g in ani_matrix.columns:
-            ani = ani_matrix.loc[genome, g]
-            if not np.isnan(ani):
-                own_distances.append(1.0 - ani)
+    onehot = np.zeros((n, k))
+    onehot[np.arange(n), codes] = 1.0
+    sums = np.where(present, dist, 0.0) @ onehot       # (n, k) summed distance to each cluster
+    counts = present.astype(float) @ onehot            # (n, k) ANI values behind each sum
+    with np.errstate(invalid="ignore", divide="ignore"):
+        mean_to = sums / counts                        # NaN where a cluster has no ANI values
+    sizes = onehot.sum(axis=0)
 
-    if len(own_distances) == 0:
-        return np.nan, np.nan
+    rows = np.arange(n)
+    a = mean_to[rows, codes]
+    a[sizes[codes] <= 1] = np.nan                      # singleton: no same-cluster neighbour
 
-    a = float(np.mean(own_distances))
+    # Candidate clusters for b: not the genome's own, big enough, with ANI values.
+    candidates = np.where(sizes >= min_comparison_cluster_size, mean_to, np.nan)
+    candidates[rows, codes] = np.nan
+    candidates = np.where(np.isnan(candidates), np.inf, candidates)
+    nearest = candidates.argmin(axis=1)                # first minimum = first cluster_id in order
+    b = candidates[rows, nearest]
 
-    nearest_cluster = None
-    b = np.inf
+    defined = ~np.isnan(a) & np.isfinite(b)
+    denom = np.maximum(a, b)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        silhouettes = np.where(denom == 0, 0.0, (b - a) / denom)
+    silhouettes = np.where(defined, silhouettes, np.nan)
 
-    for cluster_id, members in clusters_by_id.items():
-        if cluster_id == own_cluster:
-            continue
-        if len(members) < min_comparison_cluster_size:
-            continue
-
-        distances = []
-        for g in members:
-            if genome in ani_matrix.index and g in ani_matrix.columns:
-                ani = ani_matrix.loc[genome, g]
-                if not np.isnan(ani):
-                    distances.append(1.0 - ani)
-
-        if len(distances) == 0:
-            continue
-
-        mean_dist = float(np.mean(distances))
-        if mean_dist < b:
-            b = mean_dist
-            nearest_cluster = cluster_id
-
-    if nearest_cluster is None or np.isinf(b):
-        return np.nan, np.nan
-
-    denom = max(a, b)
-    if denom == 0:
-        silhouette = 0.0
-    else:
-        silhouette = (b - a) / denom
-
-    return silhouette, nearest_cluster
+    nearest_clusters = np.full(n, np.nan, dtype=object)
+    nearest_clusters[defined] = np.asarray(uniques, dtype=object)[nearest[defined]]
+    return silhouettes, nearest_clusters
 
 
 def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int) -> pd.DataFrame:
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
-    clusters_by_id = (
-        merged
-        .groupby("cluster_id")["genome_id"]
-        .apply(list)
-        .to_dict()
+    silhouettes, nearest_clusters = ani_silhouettes(
+        merged["genome_id"], merged["cluster_id"], ani_matrix, min_comparison_cluster_size,
     )
 
-    rows = []
-
-    for row in merged.itertuples(index=False):
-        silhouette, nearest_cluster = calculate_silhouette_for_genome(
-            row.genome_id,
-            row.cluster_id,
-            clusters_by_id,
-            ani_matrix,
-            min_comparison_cluster_size,
-        )
-
-        rows.append({
-            "genome_id": row.genome_id,
-            "cluster_id": row.cluster_id,
-            "quality_status": row.quality_status,
-            "nearest_external_cluster": nearest_cluster,
-            "silhouette_ANI": silhouette,
-        })
-
-    result = pd.DataFrame(rows)
+    result = pd.DataFrame({
+        "genome_id": merged["genome_id"].to_numpy(),
+        "cluster_id": merged["cluster_id"].to_numpy(),
+        "quality_status": merged["quality_status"].to_numpy(),
+        # a list, so pandas infers the dtype as it did row by row (float64 when all NaN)
+        "nearest_external_cluster": list(nearest_clusters),
+        "silhouette_ANI": silhouettes,
+    })
     # Derive the negative-silhouette flag vectorised, as a nullable boolean, so the
     # column has one clean dtype (True/False/<NA>) rather than mixing Python bool
     # with float NaN (object dtype). NaN silhouettes occur for singleton genomes
@@ -798,16 +768,14 @@ def check_species_ani(ani_matrix, genomes, min_ani):
     Returns a list of offending (g1, g2, ani_or_None) pairs; `None` marks a pair
     missing from FastANI.
     """
-    problems = []
-    n = len(genomes)
-    for i in range(n):
-        for j in range(i + 1, n):
-            g1, g2 = genomes[i], genomes[j]
-            ani = ani_matrix.loc[g1, g2]
-            if np.isnan(ani):
-                problems.append((g1, g2, None))
-            elif ani < min_ani:
-                problems.append((g1, g2, float(ani)))
+    values = ani_matrix.loc[genomes, genomes].to_numpy(dtype=float)
+    i, j = np.triu_indices(len(genomes), k=1)
+    pair_ani = values[i, j]
+    bad = np.flatnonzero(np.isnan(pair_ani) | (pair_ani < min_ani))
+    problems = [
+        (genomes[i[b]], genomes[j[b]], None if np.isnan(pair_ani[b]) else float(pair_ani[b]))
+        for b in bad
+    ]
     return problems
 
 
