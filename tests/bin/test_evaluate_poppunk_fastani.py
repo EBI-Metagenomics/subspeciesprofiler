@@ -361,6 +361,47 @@ def test_cli_network_score_and_column_order(tmp_path):
     assert tm.iloc[0]["poppunk_network_score"] == pytest.approx(0.75)
 
 
+def test_cli_cluster_count_columns(tmp_path):
+    # 3 clusters of 10 / 6 / 4 genomes -> n_clusters 3, all non-singleton, largest = 10/20.
+    sizes = {1: 10, 2: 6, 3: 4}
+    cluster_of = {}
+    for c, n in sizes.items():
+        cluster_of.update({f"c{c}g{i}": c for i in range(n)})
+    label_of = {g: "HQ" for g in cluster_of}
+    _, out = run_cli(tmp_path, cluster_of, label_of)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["n_clusters"] == 3
+    assert tm["n_nonsingleton_clusters"] == 3
+    assert tm["largest_cluster_fraction"] == pytest.approx(0.5)
+    assert not tm["eval_summary"].startswith("over-fragmentation")
+
+
+def test_cli_over_fragmentation_flagged(tmp_path):
+    # Two clean, near-identical triples plus 14 singletons: the non-singleton clusters score
+    # well, but 70% of HQ genomes are singletons -> Weak, flagged as over-fragmentation.
+    cluster_of = {f"t{c}g{i}": c for c in (1, 2) for i in range(3)}
+    cluster_of.update({f"s{i}": 100 + i for i in range(14)})
+    label_of = {g: "HQ" for g in cluster_of}
+    _, out = run_cli(tmp_path, cluster_of, label_of, intra=99.99)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert tm["tool_structure_score_HQ"] >= 0.80
+    assert tm["n_clusters"] == 16
+    assert tm["n_nonsingleton_clusters"] == 2
+    assert tm["eval_summary"].startswith("over-fragmentation")
+    assert "HQ singleton rate" in tm["eval_summary"]
+
+
+def test_cli_weak_structure_not_flagged_as_over_fragmentation(tmp_path):
+    # Clusters overlap on ANI (intra == inter) -> Weak for poor structure, not fragmentation.
+    cluster_of = {f"g{i}": (1 if i <= 6 else 2) for i in range(1, 13)}
+    label_of = {g: "HQ" for g in cluster_of}
+    _, out = run_cli(tmp_path, cluster_of, label_of, intra=98.0, inter=98.0)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert not tm["eval_summary"].startswith("over-fragmentation")
+
+
 def test_cli_mixed_signal_reason(tmp_path):
     # cluster1 size 7 (not tiny) + cluster2 size 4 (tiny) -> tiny_cluster_rate_HQ ~0.36,
     # in the (0.30, 0.40] band between Moderate and Weak -> tool_status = Mixed.

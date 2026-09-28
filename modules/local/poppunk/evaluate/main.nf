@@ -61,8 +61,8 @@ process POPPUNK_EVALUATE {
     def decision   = status == 'Strong' ? 'ACCEPT' : 'TRY_NEXT_MODEL'
     def score      = status == 'Strong' ? '0.85' : ( status == 'Moderate' ? '0.70' : '0.50' )
     """
-    printf 'model\\tpoppunk_network_score\\ttool_status\\ttool_structure_score_HQ\\tdecision\\teval_summary\\n' > ${prefix}.tool_metrics.tsv
-    printf '${model_name}\\t0.9\\t${status}\\t${score}\\t${decision}\\tstub\\n' >> ${prefix}.tool_metrics.tsv
+    printf 'model\\tpoppunk_network_score\\ttool_status\\tn_clusters\\tn_nonsingleton_clusters\\tlargest_cluster_fraction\\ttool_structure_score_HQ\\tdecision\\teval_summary\\n' > ${prefix}.tool_metrics.tsv
+    printf '${model_name}\\t0.9\\t${status}\\t3\\t3\\t0.8\\t${score}\\t${decision}\\tstub\\n' >> ${prefix}.tool_metrics.tsv
     touch ${prefix}.cluster_metrics.tsv
     touch ${prefix}.genome_metrics.tsv
     """

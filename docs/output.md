@@ -50,7 +50,14 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 <details markdown="1">
 <summary>Output files</summary>
 
-- `<species>/poppunk/<species>_model_report.tsv`: the "profiler history" — every PopPUNK model fitted for this species with PopPUNK's own network score (`poppunk_network_score`, the plain score from the fit's network summary), its evaluation verdict (`tool_status`), the structure scores and a plain-text `eval_summary`. The binary `decision` is kept only in the per-fit `evaluate/<model>/*.tool_metrics.tsv`.
+- `<species>/poppunk/<species>_model_report.tsv`: the "profiler history" — every PopPUNK model fitted for this species with:
+  - PopPUNK's own network score (`poppunk_network_score`, the plain score from the fit's network summary). This is context only: it peaks for the most fragmented fits, so it does not feed the verdict;
+  - its evaluation verdict (`tool_status`);
+  - the cluster counts (`n_clusters`, `n_nonsingleton_clusters`, `largest_cluster_fraction`);
+  - the structure scores and a plain-text `eval_summary`.
+
+  The binary `decision` is kept only in the per-fit `evaluate/<model>/*.tool_metrics.tsv`. See the [curation guide](curation.md) for how to read this table and choose a model.
+
 - `<species>/poppunk/createdb/`, `qcdb/`, `quantiles/`: the PopPUNK database, its distance-QC output, and the core-distance quantiles that seed the threshold sweep.
 - `<species>/poppunk/fastani/`: the all-vs-all FastANI distances used to score each model externally.
 - `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`) and the run log (`*_fit.log`).

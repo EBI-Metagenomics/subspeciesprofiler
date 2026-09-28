@@ -24,7 +24,7 @@ nf-test test modules/local/poppunk/fitmodel/tests/main.nf.test --profile docker
 nf-test test --tag poppunk/fitmodel --profile docker
 nf-test test tests/default.nf.test --profile test,docker --update-snapshot
 
-# Python unit tests for the evaluator (40 tests; not run by CI)
+# Python unit tests for the evaluator (43 tests; not run by CI)
 python3 -m pytest tests/bin/test_evaluate_poppunk_fastani.py
 
 # Lint (both run in CI on every PR)
@@ -81,9 +81,9 @@ Two traps in that module: PopPUNK resolves a model as `<model-dir>/<basename(mod
 - **`tool_status`** — audit label: `Strong` / `Moderate` / `Mixed` / `Weak`, from HQ and total structure scores plus singleton / tiny-cluster / negative-silhouette rates.
 - **`decision`** — binary: `ACCEPT` if `tool_status` ∈ `--accept-status` (default `Strong`), else `TRY_NEXT_MODEL`. `ch_accepted` reports every ACCEPT row; `ch_best` is the single top-ranked fit and is the fallback when nothing accepts.
 
-`tool_metrics.tsv` column order is `model`, `poppunk_network_score`, `tool_status`, the scores, `decision`, `eval_summary`. `poppunk_network_score` is PopPUNK's plain network `Score` (not the betweenness variants), parsed from the `<prefix>_fit.log` that `poppunk/fitmodel` saves into every fit dir. `*_model_report.tsv` (built in `workflows/subspeciesprofiler.nf`) is the concatenation of every fit's `tool_metrics.tsv` **minus `decision`**. `decision` stays in `tool_metrics.tsv` because control flow reads it.
+`tool_metrics.tsv` column order is `model`, `poppunk_network_score`, `tool_status`, `n_clusters`, `n_nonsingleton_clusters`, `largest_cluster_fraction`, the scores, `decision`, `eval_summary`. **Never feed `poppunk_network_score` into `tool_status`.** It is `transitivity × (1 − density)`, so it peaks for over-fragmented fits (hundreds of singletons plus tiny near-identical cliques) that the evaluator must reject. A `Weak` fit that fails only on the singleton or tiny-cluster rules while its HQ structure score is ≥ 0.80 gets an `over-fragmentation:` prefix in `eval_summary`. That is a fit-level statement: "no structure" is a species-level conclusion (every fit fails). Don't reword it as strain-level; strains aren't defined here. The curation logic is documented in `docs/curation.md`. `poppunk_network_score` is PopPUNK's plain network `Score` (not the betweenness variants), parsed from the `<prefix>_fit.log` that `poppunk/fitmodel` saves into every fit dir. `*_model_report.tsv` (built in `workflows/subspeciesprofiler.nf`) is the concatenation of every fit's `tool_metrics.tsv` **minus `decision`**. `decision` stays in `tool_metrics.tsv` because control flow reads it.
 
-Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 40 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
+Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 43 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
 
 ### Failure policy
 

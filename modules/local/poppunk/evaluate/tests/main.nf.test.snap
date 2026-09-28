@@ -7,7 +7,7 @@
                         "id": "test",
                         "model": "bgmm_test"
                     },
-                    "test.tool_metrics.tsv:md5,a89427f4224a79c8c81ddaedaf70e2a6"
+                    "test.tool_metrics.tsv:md5,3096445ac0a2a9ba8aa6af916708afa8"
                 ]
             ],
             [
@@ -42,7 +42,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-09-28T12:22:08.468115"
+        "timestamp": "2026-09-28T15:09:30.530743"
     },
     "evaluate clusters - fastani - stub": {
         "content": [
@@ -53,7 +53,7 @@
                             "id": "test",
                             "model": "bgmm_test"
                         },
-                        "test.tool_metrics.tsv:md5,521baa21c5d881e74ae3bed4cf4b5794"
+                        "test.tool_metrics.tsv:md5,7f943fdabdb2f94a80d3ea847a95be51"
                     ]
                 ],
                 "1": [
@@ -105,7 +105,7 @@
                             "id": "test",
                             "model": "bgmm_test"
                         },
-                        "test.tool_metrics.tsv:md5,521baa21c5d881e74ae3bed4cf4b5794"
+                        "test.tool_metrics.tsv:md5,7f943fdabdb2f94a80d3ea847a95be51"
                     ]
                 ],
                 "versions_python": [
@@ -121,6 +121,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-09-28T12:22:12.258311"
+        "timestamp": "2026-09-28T15:09:34.298745"
     }
 }

@@ -629,6 +629,10 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     # "Mixed") so the model-selection loop moves on to the next model.
     n_clusters = int(len(cluster_metrics))
     n_nonsingleton = int((cluster_metrics["cluster_size"] > 1).sum()) if n_clusters else 0
+    n_genomes = int(cluster_metrics["cluster_size"].sum()) if n_clusters else 0
+    largest_cluster_fraction = (
+        float(cluster_metrics["cluster_size"].max()) / n_genomes if n_genomes else np.nan
+    )
     no_hq_structure = bool(np.isnan(tool_structure_score_hq))
 
     reason = None
@@ -693,6 +697,21 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
             if neg_sil_hq > 0.25:
                 fails.append(f"negative-silhouette HQ fraction {neg_sil_hq:.2f} > 0.25")
             reason = "weak clustering: " + ("; ".join(fails) if fails else "below Moderate thresholds")
+            # Over-fragmentation: the fit fails only on the singleton / tiny-cluster rules while
+            # its few multi-genome clusters are clean. Flagged because the structure score and
+            # silhouettes are computed over non-singletons only and would otherwise look strong.
+            # A fit-level statement: it says nothing about whether the species has structure.
+            only_fragmentation = (
+                tool_structure_score_hq >= 0.80
+                and tool_structure_score_total >= 0.55
+                and defective_hq_fraction <= 0.20
+                and not neg_sil_hq > 0.25
+            )
+            if only_fragmentation:
+                reason = (
+                    "over-fragmentation: the few multi-genome clusters are clean, but most HQ "
+                    "genomes are singletons or in tiny clusters; " + reason
+                )
         else:  # Mixed: structure/separation reach Moderate quality, but a
             # fragmentation/misplacement metric sits in the band between the
             # Moderate and Weak thresholds -- genuinely mixed signals (good on some
@@ -719,8 +738,14 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
 
     row = {
         "model": model_name,
+        # PopPUNK's own score, reported for context only: it is transitivity x (1 - density),
+        # so it peaks for many tiny cliques and must never feed tool_status.
         "poppunk_network_score": network_score,
         "tool_status": status,
+
+        "n_clusters": n_clusters,
+        "n_nonsingleton_clusters": n_nonsingleton,
+        "largest_cluster_fraction": largest_cluster_fraction,
 
         "tool_structure_score_HQ": tool_structure_score_hq,
         "tool_structure_score_total": tool_structure_score_total,
