@@ -1,0 +1,9 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # bin/syntracker_apss_clusters.py needs pandas + numpy (numpy pulled by pandas);
+  # same analysis env as poppunk/evaluate, whose normalise_genome_id it imports.
+  - "conda-forge::pandas=1.5.2"

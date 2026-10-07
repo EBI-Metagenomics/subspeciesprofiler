@@ -89,6 +89,51 @@
                 }
             }
         },
+        "syntracker_options": {
+            "title": "SynTracker (synteny) options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Synteny-based clustering with SynTracker, an independent signal scored alongside the PopPUNK fits.",
+            "help_text": "For each species, dRep picks representatives of the HQ genomes (near-identical genomes collapse at 99% ANI), SynTracker scores every representative pair by synteny (APSS) against the representative of the largest dRep cluster, and the APSS is clustered at a sweep of thresholds. Each clustering is scored against FastANI by the same evaluator as the PopPUNK fits and reported as `syntracker_<avg|cc>_apss<t>` rows in the species' model report. APSS is not on the ANI scale: on B. longum, subspecies separated at APSS 0.72-0.80.",
+            "properties": {
+                "skip_syntracker": {
+                    "type": "boolean",
+                    "description": "Skip the SynTracker branch.",
+                    "fa_icon": "fas fa-fast-forward"
+                },
+                "syntracker_max_targets": {
+                    "type": "integer",
+                    "default": 150,
+                    "minimum": 2,
+                    "description": "Maximum number of dRep representatives passed to SynTracker.",
+                    "help_text": "SynTracker's cost grows with the square of the number of targets (about 570 core-hours for 588 genomes). Representatives of the largest dRep clusters are kept first; genomes in the dropped clusters are left out of the SynTracker clusterings, with a warning.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
+                },
+                "syntracker_apss_thresholds": {
+                    "type": "string",
+                    "default": "0.70,0.72,0.74,0.76,0.78,0.80,0.82,0.85,0.90",
+                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
+                    "description": "Comma-separated APSS thresholds; one clustering per value.",
+                    "fa_icon": "fas fa-list-ol"
+                },
+                "syntracker_cluster_method": {
+                    "type": "string",
+                    "default": "average",
+                    "enum": ["average", "connected"],
+                    "description": "How APSS is clustered: average linkage, or single-linkage connected components.",
+                    "help_text": "Average linkage is the default: connected components chain through a few high-APSS pairs between groups, and on real data only recovered the subspecies in a narrow band of thresholds.",
+                    "fa_icon": "fas fa-project-diagram"
+                },
+                "syntracker_regions": {
+                    "type": "string",
+                    "default": "all",
+                    "enum": ["all", "40", "60", "80", "100", "200"],
+                    "description": "Which SynTracker APSS table to cluster: all regions, or N regions subsampled per pair.",
+                    "help_text": "`all` is deterministic. The subsampled tables change from run to run and drop pairs with fewer than N comparable regions.",
+                    "fa_icon": "fas fa-filter"
+                }
+            }
+        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -253,6 +298,9 @@
         },
         {
             "$ref": "#/$defs/poppunk_model_sweep"
+        },
+        {
+            "$ref": "#/$defs/syntracker_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

@@ -1,0 +1,96 @@
+{
+    "syntracker apss - average linkage - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_avg_apss0.70_clusters.csv:md5,52a98f349b50856162810526f6a16165",
+                            "test_syntracker_avg_apss0.80_clusters.csv:md5,52a98f349b50856162810526f6a16165"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python",
+                        "3.11.0"
+                    ]
+                ],
+                "clusters": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_avg_apss0.70_clusters.csv:md5,52a98f349b50856162810526f6a16165",
+                            "test_syntracker_avg_apss0.80_clusters.csv:md5,52a98f349b50856162810526f6a16165"
+                        ]
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python",
+                        "3.11.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-06T15:34:28.394504"
+    },
+    "syntracker apss - average linkage": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_avg_apss0.70_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566",
+                            "test_syntracker_avg_apss0.80_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python",
+                        "3.11.0"
+                    ]
+                ],
+                "clusters": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_avg_apss0.70_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566",
+                            "test_syntracker_avg_apss0.80_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566"
+                        ]
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python",
+                        "3.11.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-06T15:35:01.89758"
+    }
+}

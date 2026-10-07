@@ -278,6 +278,18 @@ def test_cli_all_singletons_is_weak(tmp_path):
     assert "all singletons" in tm["eval_summary"]
 
 
+def test_cli_one_cluster_plus_singletons_is_not_mq_only(tmp_path):
+    # One multi-genome HQ cluster plus a singleton: nothing to separate it from, so Weak,
+    # but it must not be blamed on MQ-only structure.
+    cluster_of = {"g1": 1, "g2": 1, "g3": 1, "g4": 1, "g5": 2}
+    label_of = {g: "HQ" for g in cluster_of}
+    proc, out = run_cli(tmp_path, cluster_of, label_of)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert "one multi-genome cluster plus singletons" in tm["eval_summary"]
+    assert "MQ" not in tm["eval_summary"]
+
+
 def test_cli_mq_only_structure_is_weak(tmp_path):
     # HQ genomes are singletons; only the MQ genomes cluster -> suspect (fragmentation)
     cluster_of = {"g1": 1, "g2": 2, "g3": 3, "g4": 3}

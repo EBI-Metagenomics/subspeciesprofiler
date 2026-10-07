@@ -52,6 +52,16 @@ When several fits are `Strong` or `Moderate`:
 
 The pipeline's own `best_model` follows the same order: `tool_status` first, then the HQ structure score.
 
+## SynTracker rows
+
+Rows named `syntracker_<avg|cc>_apss<t>` come from the SynTracker branch: genomes clustered by **synteny** (average pairwise synteny score, APSS) at threshold `t`, then scored by the same FastANI evaluator. Read them like any other row, with three differences:
+
+- **`poppunk_network_score` is empty.** There is no PopPUNK network behind them.
+- **APSS is not on the ANI scale.** Pairs within a species typically sit around APSS 0.80-0.90; on _B. longum_, subspecies separated at **0.72-0.80**. Higher thresholds fragment the species exactly as low PopPUNK thresholds do, and the same over-fragmentation flag applies.
+- **Coverage can be partial.** SynTracker runs on dRep representatives (capped at `--syntracker_max_targets`); other genomes inherit their representative's cluster, and genomes in clusters dropped by the cap are not scored. The run log warns when that happens.
+
+SynTracker is an **independent** signal: it does not use PopPUNK's k-mer distances. When a SynTracker plateau and a PopPUNK solution agree on the same groups, that is strong evidence the structure is real. Prefer `avg` (average linkage) rows; `cc` (connected components) rows chain through a few high-APSS pairs between groups and are kept only for comparison.
+
 ## Worked examples
 
 These come from a test run on _Bifidobacterium longum_ (568 genomes after QC) and _Eggerthella lenta_ (199 genomes).
@@ -66,7 +76,16 @@ These come from a test run on _Bifidobacterium longum_ (568 genomes after QC) an
 | `threshold_q0.1`–`q0.2`         | 0.34–0.41 | Strong | —                        | —       | Converge on the dbscan solution.                                                                                                                                                      |
 | `refine_from_dbscan_*`          | 0.40      | Strong | —                        | —       | Same solution, but splits off a few genomes to raise the network score (HQ accepted 0.966 vs 1.0).                                                                                    |
 
-**Conclusion:** choose the dbscan solution. It has the cleanest metrics and is stable across the grid, even though its network score is among the lowest in the table.
+SynTracker on the same species (588 genomes, all-regions APSS, scored against the same FastANI):
+
+| Fit                               | Status   | Clusters | Reading                                                                                                                    |
+| --------------------------------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `syntracker_avg_apss0.72`–`0.80`  | Strong   | 4–9      | **The same three groups as dbscan** (544, 22 and 21 genomes; agreement with dbscan ARI 0.98), stable over five thresholds. |
+| `syntracker_avg_apss0.82`, `0.85` | Weak     | 23–144   | **Over-split continuum**: the largest group starts to break up.                                                            |
+| `syntracker_avg_apss0.90`         | Weak     | 426      | **Over-fragmentation.**                                                                                                    |
+| `syntracker_cc_apss0.74`–`0.80`   | Moderate | 3        | Connected components merge two of the groups through a few bridging pairs; only 0.82–0.85 recovers all three.              |
+
+**Conclusion:** choose the dbscan solution, confirmed independently by the SynTracker plateau. It has the cleanest metrics and is stable across the grid, even though its network score is among the lowest in the table.
 
 ### _E. lenta_: no subspecies structure
 

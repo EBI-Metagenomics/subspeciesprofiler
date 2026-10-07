@@ -12,6 +12,7 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
 
 - [Species eligibility](#species-eligibility) - Per-species QC classification and a combined cross-species report
 - [Subspecies clustering](#subspecies-clustering) - PopPUNK database, model sweep, FastANI evaluation and per-model report
+- [SynTracker](#syntracker) - Synteny-based clustering, an independent signal scored like the PopPUNK fits
 - [MultiQC](#multiqc) - Aggregate subspecies dashboard for the whole run
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
 
@@ -22,13 +23,18 @@ Results are organised **species-first**: each species in the samplesheet gets it
 ├── species_eligibility_report.tsv        # combined eligibility, one row per species
 ├── <species>/
 │   ├── speciesqc/                         # this species' eligibility report + QC classification
-│   └── poppunk/
-│       ├── <species>_model_report.tsv     # every model tried + its verdict
-│       ├── createdb/  qcdb/  quantiles/
-│       ├── fastani/
-│       ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
-│       ├── evaluate/<model>/
-│       └── microreact/                    # Strong + Moderate models, one file set each
+│   ├── poppunk/
+│   │   ├── <species>_model_report.tsv     # every model tried (PopPUNK + SynTracker) + its verdict
+│   │   ├── createdb/  qcdb/  quantiles/
+│   │   ├── fastani/
+│   │   ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
+│   │   ├── evaluate/<model>/
+│   │   └── microreact/                    # Strong + Moderate models, one file set each
+│   └── syntracker/
+│       ├── drep/                          # dRep tables/figures: representatives + reference choice
+│       ├── apss/                          # SynTracker APSS tables + its log
+│       ├── clusters/                      # one Taxon,Cluster table per APSS threshold
+│       └── evaluate/<model>/              # FastANI evaluation of each SynTracker clustering
 ├── multiqc/
 └── pipeline_info/
 ```
@@ -73,6 +79,23 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 </details>
 
 [PopPUNK](https://poppunk.readthedocs.io/) builds a genome database and fits candidate clustering models, which are scored against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI) distances to pick a subspecies partition.
+
+### SynTracker
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `<species>/syntracker/drep/`: dRep's tables (`data_tables/*.csv`) and figures for the species' HQ genomes. `Wdb.csv` lists the representative (winner) of each 99%-ANI cluster; `Cdb.csv` the cluster of every genome.
+- `<species>/syntracker/apss/`:
+  - `avg_synteny_scores_all_regions.csv`: the average pairwise synteny score (APSS) of every pair of representatives (`Ref_genome, Sample1, Sample2, APSS, Compared_regions`). This is the table that is clustered by default.
+  - `avg_synteny_scores_<N>_regions.csv` (N = 40, 60, 80, 100, 200): APSS from N regions subsampled per pair; pairs with fewer regions are dropped. These change from run to run.
+  - `SynTracker_log.txt`: SynTracker's own log, with each region's outcome.
+- `<species>/syntracker/clusters/<species>_syntracker_<avg|cc>_apss<t>_clusters.csv`: one `Taxon,Cluster` table per APSS threshold `t` (`--syntracker_apss_thresholds`); `avg` = average linkage (default), `cc` = connected components. Each representative's cluster is passed on to the genomes of its dRep cluster.
+- `<species>/syntracker/evaluate/<model>/`: the FastANI evaluation of each clustering, in the same format as the PopPUNK fits. Each also appears as a `syntracker_<avg|cc>_apss<t>` row in `<species>/poppunk/<species>_model_report.tsv` (with `poppunk_network_score` empty).
+
+</details>
+
+[SynTracker](https://github.com/leylabmpi/SynTracker) compares genomes by **synteny**, the conservation of gene order, in regions of a single reference genome, which makes it independent of PopPUNK's k-mer distances. Its cost grows with the square of the number of genomes, so it runs on [dRep](https://github.com/MrOlm/drep) representatives of the HQ genomes (near-identical genomes collapse at 99% ANI), capped at `--syntracker_max_targets`. The reference is the representative of the largest dRep cluster. Note that APSS is not on the ANI scale: in the _B. longum_ test, subspecies separated at APSS 0.72-0.80. See the [curation guide](curation.md) for reading these rows.
 
 ### MultiQC
 

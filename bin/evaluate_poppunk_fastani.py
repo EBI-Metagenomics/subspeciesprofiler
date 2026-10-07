@@ -642,6 +642,10 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
             reason = "no evaluable HQ structure: single cluster (no partitioning)"
         elif n_nonsingleton == 0:
             reason = "no evaluable HQ structure: all singletons (no cohesive clusters)"
+        elif bool((hq_df["cluster_size"] > 1).any()):
+            # HQ genomes do cluster, but into one group with nothing of comparable size to be
+            # separated from (separation ignores singletons), so it is effectively one cluster.
+            reason = "no evaluable HQ structure: one multi-genome cluster plus singletons (no second group to separate from)"
         else:
             reason = (
                 "no evaluable HQ structure: structure only among MQ genomes, HQ unresolved "

@@ -24,8 +24,8 @@ nf-test test modules/local/poppunk/fitmodel/tests/main.nf.test --profile docker
 nf-test test --tag poppunk/fitmodel --profile docker
 nf-test test tests/default.nf.test --profile test,docker --update-snapshot
 
-# Python unit tests for the evaluator (43 tests; not run by CI)
-python3 -m pytest tests/bin/test_evaluate_poppunk_fastani.py
+# Python unit tests for the evaluator and the APSS clustering (53 tests; not run by CI)
+python3 -m pytest tests/bin
 
 # Lint (both run in CI on every PR)
 prek run --all-files          # or: pre-commit run --all-files
@@ -83,7 +83,7 @@ Two traps in that module: PopPUNK resolves a model as `<model-dir>/<basename(mod
 
 `tool_metrics.tsv` column order is `model`, `poppunk_network_score`, `tool_status`, `n_clusters`, `n_nonsingleton_clusters`, `largest_cluster_fraction`, the scores, `decision`, `eval_summary`. **Never feed `poppunk_network_score` into `tool_status`.** It is `transitivity × (1 − density)`, so it peaks for over-fragmented fits (hundreds of singletons plus tiny near-identical cliques) that the evaluator must reject. A `Weak` fit that fails only on the singleton or tiny-cluster rules while its HQ structure score is ≥ 0.80 gets an `over-fragmentation:` prefix in `eval_summary`. That is a fit-level statement: "no structure" is a species-level conclusion (every fit fails). Don't reword it as strain-level; strains aren't defined here. The curation logic is documented in `docs/curation.md`. `poppunk_network_score` is PopPUNK's plain network `Score` (not the betweenness variants), parsed from the `<prefix>_fit.log` that `poppunk/fitmodel` saves into every fit dir. `*_model_report.tsv` (built in `workflows/subspeciesprofiler.nf`) is the concatenation of every fit's `tool_metrics.tsv` **minus `decision`**. `decision` stays in `tool_metrics.tsv` because control flow reads it.
 
-Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The 43 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
+Scores are **HQ-centric**: `tool_structure_score_HQ` is `NaN` when no HQ genome sits in a scorable cluster, which is forced to `Weak` so it ranks last. The evaluator's 44 pytest cases in `tests/bin/` pin this behaviour (FastANI percent scale, within-species ANI gate, singleton exclusion, degenerate inputs) — run them after touching the evaluator.
 
 ### Failure policy
 
@@ -105,11 +105,27 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 - PRs target `dev`, not `master`.
 - New tool → add to `CITATIONS.md` and `docs/output.md`.
 
+### The SynTracker branch (`SYNTRACKER_METHODS`)
+
+`subworkflows/local/syntracker_methods/main.nf`, an independent non-PopPUNK signal, skipped with `--skip_syntracker`:
+
+1. `DREP_DEREPLICATE` (nf-core, `ext.args '--ignoreGenomeQuality -sa 0.99'`) on the **HQ** genomes only (r-file joined with labels). `--ignoreGenomeQuality` because the nf-core module has no `--genomeInfo` input and dRep would otherwise run CheckM.
+2. Targets = dRep winners (`Wdb.csv`), capped at `--syntracker_max_targets` (largest clusters first, with a `log.warn`); reference = winner of the largest cluster. SynTracker's cost grows with the **square** of the targets (~570 core-hours for 588 B. longum genomes), hence the cap.
+3. `SYNTRACKER_RUN` (`modules/local/syntracker/run`, container-only `quay.io/microbiome-informatics/syntracker:1.4.0_patch1`, **linux/amd64 only**). Always `-mode new`; the task fails if the all-regions APSS table has no pairs (SynTracker reports R failures only in its log).
+4. `SYNTRACKER_CLUSTERS` (`bin/syntracker_apss_clusters.py`): one `Taxon,Cluster` table per `--syntracker_apss_thresholds`, average linkage by default, propagated to dRep cluster members via `Cdb.csv`.
+5. `SYNTRACKER_EVALUATE` = `POPPUNK_EVALUATE` aliased; rows `syntracker_<avg|cc>_apss<t>` join the model report. FastANI comes from `POPPUNK_METHODS.out.ani`.
+
+Hard-won SynTracker facts (do not relearn them):
+
+- **The R stack must stay pinned** (R 4.0.5, DECIPHER 2.18.1, RSQLite). An unpinned current DECIPHER fails `Seqs2DB` on every region (`N function calls resulted in an error`) and SynTracker then crashes in `left_join()`. The image is built from the EBI containers repo, `syntracker/1.4.0_patch1`.
+- **APSS is not on the ANI scale.** On B. longum, subspecies separated at APSS 0.72-0.80; 0.90 fragments the species. **Average linkage, not connected components**: a few high-APSS bridging pairs chain single linkage (it only worked at 0.82-0.85). Average linkage reproduced dbscan's 3 groups (ARI 0.98, rated Strong) across 0.72-0.80.
+- **Never use SynTracker's `-mode continue` in the pipeline.** It loads every finished region into the R parent before forking workers, so continue runs OOM where fresh runs don't; it also renames a region `_done` _before_ saving its result, so a kill can silently lose regions.
+- Sample names: SynTracker names a target by its file basename minus extension; the module stages every target as `<sample>.fasta`, so names reconcile with `normalise_genome_id`.
+- `normalise_genome_id` is imported by `bin/syntracker_apss_clusters.py` from `bin/evaluate_poppunk_fastani.py` (still the single place).
+
 ## Planned work (do NOT "clean these up")
 
 - **`checkm2/predict`** is installed in `modules.json` but unwired _on purpose_. It will be wired behind a flag that generates completeness/contamination when the samplesheet's `qc_csv` is absent. Separate task, not yet started.
-- **`drep/dereplicate`** is likewise installed and unwired _on purpose_. It will pick the representative genome per cluster to use as the SynTracker reference.
-- **SynTracker** (non-PopPUNK synteny signal) is the **next task to pick up**. Planned as an independent branch, with `drep/dereplicate` selecting the representative genome per cluster as its reference. It is not on bioconda and not in nf-core/modules, so it needs a custom `microbiome-informatics/syntracker:1.4.0` container (BLAST+ plus python, r-base=4.0.5, bioconductor-decipher, r-tidyverse, and the GitHub source tree). Full detail in the plan file `~/.claude/plans/we-are-going-to-abstract-hartmanis.md`.
 
 ## Known loose ends
 

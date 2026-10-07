@@ -1,0 +1,100 @@
+name: "syntracker_run"
+description: |
+  Runs SynTracker (synteny-based comparison of closely related genomes) for one species:
+  regions of a single reference genome are located in every target genome by BLAST, and
+  DECIPHER synteny scores each target pair per region. The output is the average pairwise
+  synteny score (APSS) for every target pair. Container-only, on the pinned
+  `syntracker:1.4.0_patch1` image; always a fresh run, and the task fails if no APSS pairs
+  were produced.
+keywords:
+  - syntracker
+  - synteny
+  - apss
+  - strain
+  - subspecies
+tools:
+  - "syntracker":
+      description: "A pipeline for tracking closely related microbial strains using genome synteny."
+      homepage: "https://github.com/leylabmpi/SynTracker"
+      documentation: "https://github.com/leylabmpi/SynTracker/blob/master/README.md"
+      licence: ["BSD-3-Clause"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
+    - reference:
+        type: file
+        description: |
+          The reference genome (FASTA, optionally gzipped), e.g. the dRep representative
+          of the species' largest cluster.
+        pattern: "*.{fa,fna,fasta,fa.gz,fna.gz,fasta.gz}"
+        ontologies: []
+    - targets:
+        type: file
+        description: |
+          Target genomes (FASTA, optionally gzipped). Each is staged as `<sample>.fasta`, and
+          SynTracker names it `<sample>`: the file name without its extension.
+        pattern: "*.{fa,fna,fasta,fa.gz,fna.gz,fasta.gz}"
+        ontologies: []
+
+output:
+  apss:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "syntracker/summary_output/avg_synteny_scores_*.csv":
+          type: file
+          description: |
+            APSS tables (columns Ref_genome, Sample1, Sample2, APSS, Compared_regions):
+            `avg_synteny_scores_all_regions.csv` (all regions, deterministic) and
+            `avg_synteny_scores_<N>_regions.csv` for N = 40, 60, 80, 100, 200 (N regions
+            subsampled per pair; pairs with fewer regions are dropped).
+          pattern: "avg_synteny_scores_*.csv"
+          ontologies: []
+  per_region:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "syntracker/summary_output/synteny_scores_per_region.csv":
+          type: file
+          description: Per-region synteny scores for every pair (large; several GB for ~600 genomes).
+          pattern: "synteny_scores_per_region.csv"
+          ontologies: []
+  log:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "syntracker/SynTracker_log.txt":
+          type: file
+          description: SynTracker's own run log, including per-region success or failure.
+          pattern: "SynTracker_log.txt"
+          ontologies: []
+  versions_syntracker:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "syntracker":
+          type: string
+          description: The name of the tool
+      - "1.4.0":
+          type: string
+          description: The tool version (SynTracker has no version flag; pinned to the container)
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - syntracker:
+          type: string
+          description: The name of the tool
+      - "1.4.0":
+          type: string
+          description: The tool version
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

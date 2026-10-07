@@ -5,6 +5,7 @@
 */
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
 include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
+include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -89,12 +90,22 @@ workflow SUBSPECIESPROFILER {
     }
     POPPUNK_METHODS( ch_poppunk_in )
 
-    // Per-species model report (Phase-4 "profiler history"): append every fitted model's
-    // verdict into one table under that species' poppunk directory. collectFile reads each
-    // per-fit tool_metrics by content, so the identical filenames across fits don't collide.
+    //
+    // SUBWORKFLOW: SynTracker (synteny), an independent non-PopPUNK signal. Its clusterings are
+    // scored by the same evaluator, so they join the PopPUNK fits in the model report.
+    //
+    def ch_tool_metrics = POPPUNK_METHODS.out.tool_metrics
+    if ( !params.skip_syntracker ) {
+        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani )
+        ch_tool_metrics = ch_tool_metrics.mix( SYNTRACKER_METHODS.out.tool_metrics )
+    }
+
+    // Per-species model report (Phase-4 "profiler history"): append every fitted model's verdict
+    // (PopPUNK and SynTracker) into one table under that species' poppunk directory. collectFile
+    // reads each per-fit tool_metrics by content, so identical filenames across fits don't collide.
     // The evaluator's `decision` column is dropped here: it only drives control flow
     // (ch_accepted, the MultiQC best-model table) and would duplicate tool_status in the report.
-    POPPUNK_METHODS.out.tool_metrics
+    ch_tool_metrics
         .collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
             def rows = tsv.readLines().collect { it.split('\t', -1) as List }
             def drop = rows[0].indexOf('decision')

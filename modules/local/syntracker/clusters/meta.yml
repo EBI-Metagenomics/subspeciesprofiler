@@ -1,0 +1,82 @@
+name: "syntracker_clusters"
+description: |
+  Turns SynTracker APSS into one `Taxon,Cluster` table per APSS threshold, via
+  bin/syntracker_apss_clusters.py: average linkage on APSS by default (single-linkage
+  connected components optional). With a dRep Cdb table, each representative's cluster is
+  propagated to its dRep cluster members. The tables have the format of PopPUNK
+  `*_clusters.csv`, so they are scored by poppunk/evaluate like any PopPUNK fit.
+keywords:
+  - syntracker
+  - apss
+  - clustering
+  - subspecies
+tools:
+  - "python":
+      description: "Runs bin/syntracker_apss_clusters.py (pandas/numpy)."
+      homepage: "https://www.python.org/"
+      documentation: "https://pandas.pydata.org/docs/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
+    - apss:
+        type: file
+        description: One SynTracker `avg_synteny_scores_*.csv` table (all-regions by default).
+        pattern: "avg_synteny_scores_*.csv"
+        ontologies: []
+    - labels:
+        type: file
+        description: |
+          Per-genome HQ/MQ labels CSV (`genome,label`) from speciesqc. Without a dRep table,
+          labelled genomes absent from the APSS table are reported as singletons.
+        pattern: "*.csv"
+        ontologies: []
+    - drep_cdb:
+        type: file
+        description: |
+          Optional dRep `Cdb.csv` (genome, secondary_cluster, ...). Pass `[]` to skip.
+        pattern: "Cdb.csv"
+        ontologies: []
+
+output:
+  clusters:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_*_clusters.csv":
+          type: file
+          description: |
+            One `Taxon,Cluster` table per threshold, named
+            `<prefix>_syntracker_<avg|cc>_apss<t>_clusters.csv`; cluster 1 is the largest.
+          pattern: "*_syntracker_*_clusters.csv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

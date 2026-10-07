@@ -18,6 +18,14 @@
 
 > Jain C, Rodriguez-R LM, Phillippy AM, Konstantinidis KT, Aluru S. High throughput ANI analysis of 90K prokaryotic genomes reveals clear species boundaries. Nat Commun. 2018 Nov 30;9(1):5114. doi: 10.1038/s41467-018-07641-9. PubMed PMID: 30504855; PubMed Central PMCID: PMC6269478.
 
+- [dRep](https://pubmed.ncbi.nlm.nih.gov/28742071/)
+
+> Olm MR, Brown CT, Brooks B, Banfield JF. dRep: a tool for fast and accurate genomic comparisons that enables improved genome recovery from metagenomes through de-replication. ISME J. 2017 Dec;11(12):2864-2868. doi: 10.1038/ismej.2017.126. PubMed PMID: 28742071; PubMed Central PMCID: PMC5702732.
+
+- [SynTracker](https://github.com/leylabmpi/SynTracker)
+
+> Enav, H., Paz, I. & Ley, R.E. Strain tracking in complex microbiomes using synteny analysis reveals per-species modes of evolution. Nat Biotechnol 43, 773–783 (2025). https://doi.org/10.1038/s41587-024-02276-2
+
 - [MultiQC](https://pubmed.ncbi.nlm.nih.gov/27312411/)
 
 > Ewels P, Magnusson M, Lundin S, Käller M. MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics. 2016 Oct 1;32(19):3047-8. doi: 10.1093/bioinformatics/btw354. Epub 2016 Jun 16. PubMed PMID: 27312411; PubMed Central PMCID: PMC5039924.

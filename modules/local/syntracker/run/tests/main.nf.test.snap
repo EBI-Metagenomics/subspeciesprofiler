@@ -1,0 +1,115 @@
+{
+    "e_coli - syntracker sample data - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        [
+                            "avg_synteny_scores_100_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_200_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_40_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_60_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_80_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_all_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        "synteny_scores_per_region.csv:md5,c527c80ed34d4f00f1a02dfe108158f4"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        "SynTracker_log.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "3": [
+                    [
+                        "SYNTRACKER_RUN",
+                        "syntracker",
+                        "1.4.0"
+                    ]
+                ],
+                "apss": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        [
+                            "avg_synteny_scores_100_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_200_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_40_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_60_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_80_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_all_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24"
+                        ]
+                    ]
+                ],
+                "log": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        "SynTracker_log.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "per_region": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        "synteny_scores_per_region.csv:md5,c527c80ed34d4f00f1a02dfe108158f4"
+                    ]
+                ],
+                "versions_syntracker": [
+                    [
+                        "SYNTRACKER_RUN",
+                        "syntracker",
+                        "1.4.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-06T15:45:17.148983"
+    },
+    "e_coli - syntracker sample data": {
+        "content": [
+            [
+                "avg_synteny_scores_100_regions.csv",
+                "avg_synteny_scores_200_regions.csv",
+                "avg_synteny_scores_40_regions.csv",
+                "avg_synteny_scores_60_regions.csv",
+                "avg_synteny_scores_80_regions.csv",
+                "avg_synteny_scores_all_regions.csv"
+            ],
+            {
+                "versions_syntracker": [
+                    [
+                        "SYNTRACKER_RUN",
+                        "syntracker",
+                        "1.4.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-06T15:45:12.315711"
+    }
+}

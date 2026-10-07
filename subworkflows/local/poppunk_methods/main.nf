@@ -165,4 +165,5 @@ workflow POPPUNK_METHODS {
     accepted_models = ch_accepted                       // channel: [ val(species_id), [ all ACCEPT rows ] ]
     best_model      = ch_best                           // channel: [ val(species_id), map(best row) ]
     microreact      = POPPUNK_VISUALISE.out.microreact  // channel: [ val(meta), path(.microreact) ]  (Strong/Moderate fits)
+    ani             = FASTANI_ALLVSALL.out.ani          // channel: [ val(meta), path(ani) ]  (reused by SYNTRACKER_METHODS)
 }

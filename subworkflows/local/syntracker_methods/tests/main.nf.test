@@ -1,0 +1,59 @@
+nextflow_workflow {
+
+    name "Test Subworkflow SYNTRACKER_METHODS"
+    script "../main.nf"
+    workflow "SYNTRACKER_METHODS"
+
+    tag "subworkflows"
+    tag "subworkflows_local"
+    tag "syntracker_methods"
+
+    // Stub run: verifies the wiring (HQ selection -> dRep -> reference/targets -> SynTracker ->
+    // APSS clustering sweep -> evaluation). Scientific behaviour is covered by the module tests
+    // and tests/bin/test_syntracker_apss_clusters.py.
+    test("drep -> syntracker -> apss sweep -> evaluate - wiring - stub") {
+
+        options "-stub"
+
+        when {
+            params {
+                syntracker_apss_thresholds = '0.72,0.80'
+            }
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'test' ],
+                    [
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome2.fna.gz", checkIfExists: true)
+                    ],
+                    file("${projectDir}/tests/fixtures/syntracker/rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/labels_species.csv", checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true)
+                ])
+                """
+            }
+        }
+
+        then {
+            def thresholds = [ '0.72', '0.80' ]
+            assertAll(
+                { assert workflow.success },
+                // one reference genome per species
+                { assert workflow.out.reference.size() == 1 },
+                // one clustering table per APSS threshold, each evaluated once
+                { assert workflow.out.clusters.size() == 1 },
+                { assert workflow.out.clusters.get(0).get(1).size() == thresholds.size() },
+                { assert workflow.out.tool_metrics.size() == thresholds.size() },
+                // model names carry the method and threshold, e.g. syntracker_avg_apss0.72
+                { assert workflow.out.tool_metrics.collect { it[0].model }.toSet() ==
+                         thresholds.collect { "syntracker_avg_apss${it}" }.toSet() }
+            )
+        }
+
+    }
+
+}
