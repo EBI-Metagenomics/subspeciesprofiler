@@ -1,19 +1,22 @@
 //
 // SYNTRACKER_METHODS: synteny-based clustering for one eligible species, independent of PopPUNK.
 //
-// 1. dRep dereplicates the species' HQ genomes at a strict secondary ANI (ext.args, -sa 0.99), so
-//    near-identical genomes collapse to one representative.
-// 2. The representatives are SynTracker's targets, capped at --syntracker_max_targets (largest
-//    dRep clusters first): SynTracker's cost grows with the square of the target count. The
-//    winner of the largest dRep cluster is the single reference genome.
-// 3. SynTracker scores every target pair (APSS); SYNTRACKER_CLUSTERS turns the APSS into one
-//    Taxon,Cluster table per threshold and propagates each representative's cluster to its
-//    dRep cluster members.
+// 1. dRep (with the HQ genomes' completeness/contamination, -sa 0.95) picks the SynTracker
+//    reference: normally one representative per species; if the species splits at 95% ANI, the
+//    representative with the highest N50 (least fragmented) is used, with a warning.
+// 2. Every HQ genome is a SynTracker target (no dereplication), capped at
+//    --syntracker_max_targets by N50 (least fragmented first): SynTracker's cost grows with the
+//    square of the target count, and contig breaks look like synteny breaks.
+// 3. SynTracker scores every target pair (APSS). SYNTRACKER_CLUSTERS picks one subsampling depth
+//    (--syntracker_regions, `auto` = the highest before retention falls off a cliff) and runs
+//    Leiden on the APSS graph pruned at each --syntracker_min_apss, at each
+//    --syntracker_resolutions: one Taxon,Cluster table per combination.
 // 4. Every table is scored against FastANI by the same evaluator as the PopPUNK fits, so the
-//    SynTracker rows land in the species' model report (model `syntracker_<avg|cc>_apss<t>`).
+//    SynTracker rows land in the species' model report
+//    (model `syntracker_leiden_n<n>_apss<t>_r<res>`).
 //
 
-include { DREP_DEREPLICATE                        } from '../../../modules/nf-core/drep/dereplicate/main'
+include { DREP_DEREPLICATE                        } from '../../../modules/local/drep/dereplicate/main'
 include { SYNTRACKER_RUN                          } from '../../../modules/local/syntracker/run/main'
 include { SYNTRACKER_CLUSTERS                     } from '../../../modules/local/syntracker/clusters/main'
 include { POPPUNK_EVALUATE as SYNTRACKER_EVALUATE } from '../../../modules/local/poppunk/evaluate/main'
@@ -21,8 +24,9 @@ include { POPPUNK_EVALUATE as SYNTRACKER_EVALUATE } from '../../../modules/local
 workflow SYNTRACKER_METHODS {
 
     take:
-    ch_input // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]  (as POPPUNK_METHODS)
-    ch_ani   // channel: [ val(meta), path(ani) ]  all-vs-all FastANI, from POPPUNK_METHODS
+    ch_input      // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]  (as POPPUNK_METHODS)
+    ch_ani        // channel: [ val(meta), path(ani) ]  all-vs-all FastANI, from POPPUNK_METHODS
+    ch_genomeinfo // channel: [ val(meta), path(genomeinfo) ]  dRep --genomeInfo for the HQ genomes, from SPECIESQC
 
     main:
 
@@ -35,61 +39,86 @@ workflow SYNTRACKER_METHODS {
             .collect { row -> file(row[1]).name } as Set
         [ meta, [ genomes ].flatten().findAll { genome -> genome.name in hq_files } ]
     }
-    DREP_DEREPLICATE( ch_hq, [ [], [] ] )
+    DREP_DEREPLICATE(
+        ch_hq
+            .map { meta, hq -> [ meta.id, meta, hq ] }
+            .join( ch_genomeinfo.map { meta, info -> [ meta.id, info ] } )
+            .map { id, meta, hq, info -> [ meta, hq, info ] }
+    )
 
-    // Reference and targets from dRep's tables: Wdb = winner per secondary cluster,
-    // Cdb = cluster membership (also passed on for propagation).
+    // Reference = the dRep winner with the highest N50; targets = every HQ genome, least
+    // fragmented first when capped. N50 comes from dRep's genomeInformation.csv
+    // (genome,completeness,contamination,length,N50,centrality), keyed by file name.
     def max_targets = params.syntracker_max_targets as int
     ch_selected = DREP_DEREPLICATE.out.summary_tables
-        .join( DREP_DEREPLICATE.out.fastas )
-        .map { meta, tables, fastas ->
-            def table    = { name -> [ tables ].flatten().find { it.name == name } }
-            def rows     = { name -> table(name)?.size() ? table(name).splitCsv(header: true) : [] }
-            def fasta_of = [ fastas ].flatten().collectEntries { [ it.name, it ] }
-            def size     = rows('Cdb.csv').countBy { it.secondary_cluster }
-            def winners  = rows('Wdb.csv').sort { a, b ->
-                (size[b.cluster] <=> size[a.cluster]) ?: ((b.score as double) <=> (a.score as double)) ?: (a.genome <=> b.genome)
-            }*.genome
+        .map { meta, tables -> [ meta.id, meta, tables ] }
+        .join( ch_hq.map { meta, hq -> [ meta.id, hq ] } )
+        .map { id, meta, tables, hq ->
+            def table   = { name -> [ tables ].flatten().find { it.name == name } }
+            def rows    = { name -> table.call(name)?.size() ? table.call(name).splitCsv(header: true) : [] }
+            def n50     = rows.call('genomeInformation.csv').collectEntries { [ it.genome, (it.N50 ?: 0) as double ] }
+            def score   = rows.call('Wdb.csv').collectEntries { [ it.genome, (it.score ?: 0) as double ] }
+            def by_frag = { a, b -> (n50[b] ?: 0d) <=> (n50[a] ?: 0d) ?: (score[b] ?: 0d) <=> (score[a] ?: 0d) ?: a <=> b }
+            def hq_of   = [ hq ].flatten().collectEntries { [ it.name, it ] }
+
+            def winners = score.keySet().findAll { it in hq_of }.sort(false, by_frag)
             if ( !winners ) {
-                // dRep tables without rows (e.g. the module's -stub): take its FASTAs in name order.
-                winners = fasta_of.keySet().sort()
+                // dRep tables without rows: fall back to the least fragmented HQ genome.
+                winners = hq_of.keySet().sort(false, by_frag).take(1)
             }
-            def kept = winners.take(max_targets)
-            if ( winners.size() > max_targets ) {
-                def wdb_cluster = rows('Wdb.csv').collectEntries { [ it.genome, it.cluster ] }
-                def dropped = winners.drop(max_targets).sum { size[wdb_cluster[it]] ?: 1 }
-                log.warn("Species '${meta.id}': ${winners.size()} dRep representatives > --syntracker_max_targets (${max_targets}); " +
-                    "SynTracker runs on the ${max_targets} largest clusters, leaving ${dropped} genome(s) unclustered.")
+            if ( winners.size() > 1 ) {
+                log.warn("Species '${meta.id}': ${winners.size()} dRep representatives at 95% ANI; " +
+                    "SynTracker reference = ${winners[0]} (highest N50).")
             }
-            def cdb = size ? table('Cdb.csv') : []  // only propagate from a real cluster table
-            [ meta, fasta_of[kept[0]], kept.collect { fasta_of[it] }, cdb ]
+            def reference = winners[0]
+
+            def targets = hq_of.keySet().sort(false, by_frag)
+            if ( targets.size() > max_targets ) {
+                // keep the reference among the targets
+                def kept = ( [ reference ] + targets.findAll { it != reference } ).take(max_targets)
+                log.warn("Species '${meta.id}': ${targets.size()} HQ genomes > --syntracker_max_targets (${max_targets}); " +
+                    "SynTracker runs on the ${max_targets} with the highest N50, leaving ${targets.size() - max_targets} genome(s) unclustered.")
+                targets = kept
+            }
+            [ meta, hq_of[reference], targets.collect { hq_of[it] } ]
         }
-        .filter { meta, reference, targets, cdb ->
+        .filter { meta, reference, targets ->
             def ok = targets.size() >= 2
             if ( !ok ) {
-                log.warn("Species '${meta.id}': fewer than 2 dRep representatives; skipping SynTracker.")
+                log.warn("Species '${meta.id}': fewer than 2 HQ genomes; skipping SynTracker.")
             }
             ok
         }
 
-    SYNTRACKER_RUN( ch_selected.map { meta, reference, targets, cdb -> [ meta, reference, targets ] } )
+    SYNTRACKER_RUN( ch_selected )
 
-    // The APSS table to cluster: all regions (deterministic) or one subsampled level.
-    def apss_name = "avg_synteny_scores_${params.syntracker_regions}_regions.csv"
-    ch_clusters_in = SYNTRACKER_RUN.out.apss
-        .map { meta, files -> [ meta.id, meta, [ files ].flatten().find { it.name == apss_name } ] }
-        .filter { id, meta, apss ->
-            if ( apss == null ) {
-                log.warn("Species '${meta.id}': SynTracker produced no ${apss_name}; skipping its clustering.")
-            }
-            apss != null
+    // The APSS table(s) to cluster: every per-n table for `auto`, else the one requested depth.
+    def regions = params.syntracker_regions.toString()
+    def wanted  = { name ->
+        regions == 'auto' ? ( name ==~ /avg_synteny_scores_\d+_regions\.csv/ ) : name == "avg_synteny_scores_${regions}_regions.csv"
+    }
+    // Target names for the clustering graph: SynTracker names a target by its file basename minus
+    // extension (the module stages every target as <sample>.fasta), as normalise_genome_id does.
+    ch_targets = ch_selected
+        .collectFile { item ->
+            def (meta, reference, targets) = item
+            def names = targets.collect { it.name.replaceFirst(/\.gz$/, '').replaceFirst(/\.[^.]+$/, '') }
+            [ "${meta.id}_targets.txt", names.join('\n') + '\n' ]
         }
-        .join( ch_input.map { meta, genomes, rfile, labels -> [ meta.id, labels ] } )
-        .join( ch_selected.map { meta, reference, targets, cdb -> [ meta.id, cdb ] } )
-        .map { id, meta, apss, labels, cdb -> [ meta, apss, labels, cdb ] }
+        .map { f -> [ f.name - '_targets.txt', f ] }
+    ch_clusters_in = SYNTRACKER_RUN.out.apss
+        .map { meta, files -> [ meta.id, meta, [ files ].flatten().findAll { wanted.call(it.name) } ] }
+        .filter { id, meta, apss ->
+            if ( !apss ) {
+                log.warn("Species '${meta.id}': SynTracker produced no APSS table for --syntracker_regions ${regions}; skipping its clustering.")
+            }
+            apss as boolean
+        }
+        .join( ch_targets )
+        .map { id, meta, apss, targets -> [ meta, apss, targets ] }
     SYNTRACKER_CLUSTERS( ch_clusters_in )
 
-    // One evaluation per threshold: meta.model is the table name minus '<id>_' and '_clusters.csv'.
+    // One evaluation per table: meta.model is the table name minus '<id>_' and '_clusters.csv'.
     ch_eval_in = SYNTRACKER_CLUSTERS.out.clusters
         .flatMap { meta, tables ->
             [ tables ].flatten().collect { table ->
@@ -106,5 +135,7 @@ workflow SYNTRACKER_METHODS {
     tool_metrics = SYNTRACKER_EVALUATE.out.tool_metrics                                          // channel: [ val(meta), path(tool_metrics.tsv) ]
     apss         = SYNTRACKER_RUN.out.apss                                                       // channel: [ val(meta), [ avg_synteny_scores_*.csv ] ]
     clusters     = SYNTRACKER_CLUSTERS.out.clusters                                              // channel: [ val(meta), [ *_clusters.csv ] ]
-    reference    = ch_selected.map { meta, reference, targets, cdb -> [ meta, reference ] }      // channel: [ val(meta), path(reference fasta) ]
+    qc           = SYNTRACKER_CLUSTERS.out.qc                                                    // channel: [ val(meta), [ *_cluster_qc.tsv ] ]
+    retention    = SYNTRACKER_CLUSTERS.out.retention                                             // channel: [ val(meta), [ *_depth_retention.{tsv,png} ] ]
+    reference    = ch_selected.map { meta, reference, targets -> [ meta, reference ] }           // channel: [ val(meta), path(reference fasta) ]
 }

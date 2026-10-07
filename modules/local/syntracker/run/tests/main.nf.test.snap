@@ -9,10 +9,10 @@
                         },
                         [
                             "avg_synteny_scores_100_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_200_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_40_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_60_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_80_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_200_regions.csv:md5,751ba6c2cc95f60af5e66f8d1be0d936",
+                            "avg_synteny_scores_40_regions.csv:md5,a07513e62d3ac5d8e63e80b7ef9534d8",
+                            "avg_synteny_scores_60_regions.csv:md5,d5201285594aed4e814636ab218e4e1c",
+                            "avg_synteny_scores_80_regions.csv:md5,8847eeacdda82d297b4cf9c55e5e0d71",
                             "avg_synteny_scores_all_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24"
                         ]
                     ]
@@ -47,10 +47,10 @@
                         },
                         [
                             "avg_synteny_scores_100_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_200_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_40_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_60_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
-                            "avg_synteny_scores_80_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24",
+                            "avg_synteny_scores_200_regions.csv:md5,751ba6c2cc95f60af5e66f8d1be0d936",
+                            "avg_synteny_scores_40_regions.csv:md5,a07513e62d3ac5d8e63e80b7ef9534d8",
+                            "avg_synteny_scores_60_regions.csv:md5,d5201285594aed4e814636ab218e4e1c",
+                            "avg_synteny_scores_80_regions.csv:md5,8847eeacdda82d297b4cf9c55e5e0d71",
                             "avg_synteny_scores_all_regions.csv:md5,99862f12fc1707acf1b1b7b7ef6c3d24"
                         ]
                     ]
@@ -84,7 +84,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-06T15:45:17.148983"
+        "timestamp": "2026-10-07T15:15:57.234479"
     },
     "e_coli - syntracker sample data": {
         "content": [

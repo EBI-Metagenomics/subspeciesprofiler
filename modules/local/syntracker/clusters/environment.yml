@@ -4,6 +4,11 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  # bin/syntracker_apss_clusters.py needs pandas + numpy (numpy pulled by pandas);
-  # same analysis env as poppunk/evaluate, whose normalise_genome_id it imports.
-  - "conda-forge::pandas=1.5.2"
+  # bin/syntracker_apss_clusters.py: pandas (+numpy), python-igraph (Leiden), matplotlib (depth
+  # retention plot). pandas < 3: evaluate_poppunk_fastani.py, whose normalise_genome_id it imports,
+  # breaks under pandas 3's copy-on-write. procps-ng gives Nextflow `ps` (linux-only package).
+  - "conda-forge::matplotlib-base=3.10.0"
+  - "conda-forge::pandas=2.2.0"
+  - "conda-forge::procps-ng=4.0.6"
+  - "conda-forge::python-igraph=1.0.0"
+  - "conda-forge::python=3.12.0"

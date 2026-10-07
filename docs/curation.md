@@ -54,13 +54,13 @@ The pipeline's own `best_model` follows the same order: `tool_status` first, the
 
 ## SynTracker rows
 
-Rows named `syntracker_<avg|cc>_apss<t>` come from the SynTracker branch: genomes clustered by **synteny** (average pairwise synteny score, APSS) at threshold `t`, then scored by the same FastANI evaluator. Read them like any other row, with three differences:
+Rows named `syntracker_leiden_n<N>_apss<t>_r<res>` come from the SynTracker branch: HQ genomes clustered by **synteny** (average pairwise synteny score, APSS, at subsampling depth `N`) into Leiden communities of the APSS graph pruned at `t`, with resolution `res`, then scored by the same FastANI evaluator. Read them like any other row, with three differences:
 
 - **`poppunk_network_score` is empty.** There is no PopPUNK network behind them.
-- **APSS is not on the ANI scale.** Pairs within a species typically sit around APSS 0.80-0.90; on _B. longum_, subspecies separated at **0.72-0.80**. Higher thresholds fragment the species exactly as low PopPUNK thresholds do, and the same over-fragmentation flag applies.
-- **Coverage can be partial.** SynTracker runs on dRep representatives (capped at `--syntracker_max_targets`); other genomes inherit their representative's cluster, and genomes in clusters dropped by the cap are not scored. The run log warns when that happens.
+- **APSS is not on the ANI scale.** Pairs within a species typically sit around APSS 0.80-0.90; on _B. longum_, subspecies separated at **0.72-0.80** (with the earlier average-linkage method). A high floor leaves targets without edges, which become singletons, so the same over-fragmentation flag applies; higher resolutions split communities further.
+- **Coverage can be partial.** Only HQ genomes are targets, capped at `--syntracker_max_targets` by N50; MQ genomes and genomes dropped by the cap are absent from the tables and not scored. The run log warns when the cap applies. The per-cluster QC table flags clusters of two genomes or fewer as `low_confidence`.
 
-SynTracker is an **independent** signal: it does not use PopPUNK's k-mer distances. When a SynTracker plateau and a PopPUNK solution agree on the same groups, that is strong evidence the structure is real. Prefer `avg` (average linkage) rows; `cc` (connected components) rows chain through a few high-APSS pairs between groups and are kept only for comparison.
+SynTracker is an **independent** signal: it does not use PopPUNK's k-mer distances. When a SynTracker plateau and a PopPUNK solution agree on the same groups, that is strong evidence the structure is real.
 
 ## Worked examples
 
@@ -76,7 +76,7 @@ These come from a test run on _Bifidobacterium longum_ (568 genomes after QC) an
 | `threshold_q0.1`–`q0.2`         | 0.34–0.41 | Strong | —                        | —       | Converge on the dbscan solution.                                                                                                                                                      |
 | `refine_from_dbscan_*`          | 0.40      | Strong | —                        | —       | Same solution, but splits off a few genomes to raise the network score (HQ accepted 0.966 vs 1.0).                                                                                    |
 
-SynTracker on the same species (588 genomes, all-regions APSS, scored against the same FastANI):
+SynTracker on the same species, with the **earlier method** (dRep 99% representatives, average linkage or connected components on all-regions APSS; 588 genomes, scored against the same FastANI). The current Leiden method has not been run on this species yet:
 
 | Fit                               | Status   | Clusters | Reading                                                                                                                    |
 | --------------------------------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |

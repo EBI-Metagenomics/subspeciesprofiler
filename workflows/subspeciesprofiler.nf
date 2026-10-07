@@ -96,7 +96,7 @@ workflow SUBSPECIESPROFILER {
     //
     def ch_tool_metrics = POPPUNK_METHODS.out.tool_metrics
     if ( !params.skip_syntracker ) {
-        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani )
+        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani, SPECIESQC.out.genomeinfo )
         ch_tool_metrics = ch_tool_metrics.mix( SYNTRACKER_METHODS.out.tool_metrics )
     }
 

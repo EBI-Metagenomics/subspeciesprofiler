@@ -29,24 +29,21 @@ input:
         type: map
         description: |
           Groovy Map containing sample information
-          e.g. `[ id:'sample1', single_end:false ]`
+          e.g. `[ id:'sample1' ]`
     - fastas:
         type: file
         description: List of FASTA files to dereplicate
         pattern: "*.{fasta,fa,fna,fas}"
         ontologies:
           - edam: http://edamontology.org/format_1929 # FASTA
-  - - meta2:
-        type: map
+    - genome_info:
+        type: file
         description: |
-          Groovy Map containing sample information
-          e.g. `[ id:'sample1', single_end:false ]`
-    - drep_work:
-        type: directory
-        description: Optional existing dRep working directory containing pre-computed
-          clustering results (e.g. output from dRep compare)
+          dRep `--genomeInfo` CSV (`genome,completeness,contamination`), `genome` being each FASTA's
+          file name. Must list every input genome.
+        pattern: "*.csv"
         ontologies:
-          - edam: "http://edamontology.org/data_1049" ## Directory name
+          - edam: "http://edamontology.org/format_3752" ## CSV
 output:
   fastas:
     - - meta:
@@ -122,4 +119,4 @@ topics:
 authors:
   - "@jfy133"
 maintainers:
-  - "@jfy133"
+  - "@Ales-ibt"

@@ -10,11 +10,6 @@
                         "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"]
                     },
-                    "drep/dereplicate": {
-                        "branch": "master",
-                        "git_sha": "8ca8bd0c61624d88233c8b14920d36d73181d722",
-                        "installed_by": ["modules"]
-                    },
                     "multiqc": {
                         "branch": "master",
                         "git_sha": "af27af1be706e6a2bb8fe454175b0cdf77f47b49",

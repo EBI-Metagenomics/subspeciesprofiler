@@ -1,0 +1,3 @@
+genome,completeness,contamination
+genome.fasta,99.0,0.5
+genome.fa,98.0,0.8

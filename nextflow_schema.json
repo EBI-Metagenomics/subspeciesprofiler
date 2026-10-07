@@ -94,7 +94,7 @@
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Synteny-based clustering with SynTracker, an independent signal scored alongside the PopPUNK fits.",
-            "help_text": "For each species, dRep picks representatives of the HQ genomes (near-identical genomes collapse at 99% ANI), SynTracker scores every representative pair by synteny (APSS) against the representative of the largest dRep cluster, and the APSS is clustered at a sweep of thresholds. Each clustering is scored against FastANI by the same evaluator as the PopPUNK fits and reported as `syntracker_<avg|cc>_apss<t>` rows in the species' model report. APSS is not on the ANI scale: on B. longum, subspecies separated at APSS 0.72-0.80.",
+            "help_text": "For each species, dRep (with the HQ genomes' completeness/contamination, 95% ANI) picks the SynTracker reference: normally one representative per species, else the one with the highest N50. Every HQ genome is a SynTracker target (least fragmented first when capped). SynTracker scores every target pair by synteny (APSS); one subsampling depth is chosen, the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored against FastANI by the same evaluator as the PopPUNK fits and reported as `syntracker_leiden_n<n>_apss<t>_r<res>` rows in the species' model report. APSS is not on the ANI scale.",
             "properties": {
                 "skip_syntracker": {
                     "type": "boolean",
@@ -105,32 +105,46 @@
                     "type": "integer",
                     "default": 150,
                     "minimum": 2,
-                    "description": "Maximum number of dRep representatives passed to SynTracker.",
-                    "help_text": "SynTracker's cost grows with the square of the number of targets (about 570 core-hours for 588 genomes). Representatives of the largest dRep clusters are kept first; genomes in the dropped clusters are left out of the SynTracker clusterings, with a warning.",
+                    "description": "Maximum number of HQ genomes passed to SynTracker as targets.",
+                    "help_text": "SynTracker's cost grows with the square of the number of targets (about 570 core-hours for 588 genomes). The genomes with the highest N50 are kept (the reference always is); the others are left out of the SynTracker clusterings, with a warning.",
                     "fa_icon": "fas fa-compress-arrows-alt"
-                },
-                "syntracker_apss_thresholds": {
-                    "type": "string",
-                    "default": "0.70,0.72,0.74,0.76,0.78,0.80,0.82,0.85,0.90",
-                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
-                    "description": "Comma-separated APSS thresholds; one clustering per value.",
-                    "fa_icon": "fas fa-list-ol"
-                },
-                "syntracker_cluster_method": {
-                    "type": "string",
-                    "default": "average",
-                    "enum": ["average", "connected"],
-                    "description": "How APSS is clustered: average linkage, or single-linkage connected components.",
-                    "help_text": "Average linkage is the default: connected components chain through a few high-APSS pairs between groups, and on real data only recovered the subspecies in a narrow band of thresholds.",
-                    "fa_icon": "fas fa-project-diagram"
                 },
                 "syntracker_regions": {
                     "type": "string",
-                    "default": "all",
-                    "enum": ["all", "40", "60", "80", "100", "200"],
-                    "description": "Which SynTracker APSS table to cluster: all regions, or N regions subsampled per pair.",
-                    "help_text": "`all` is deterministic. The subsampled tables change from run to run and drop pairs with fewer than N comparable regions.",
+                    "default": "auto",
+                    "enum": ["auto", "all", "40", "60", "80", "100", "200"],
+                    "description": "Which SynTracker APSS table to cluster: `auto`, a subsampling depth N, or all regions.",
+                    "help_text": "`auto` takes the highest depth N before the targets or pairs retained drop below `--syntracker_min_retention` of the lowest N (the retention cliff), and writes a retention table and plot. Subsampled tables change from run to run and only hold pairs with at least N comparable regions. `all` is deterministic but averages each pair over a different number of regions.",
                     "fa_icon": "fas fa-filter"
+                },
+                "syntracker_min_retention": {
+                    "type": "number",
+                    "default": 0.9,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "With `--syntracker_regions auto`: fraction of the lowest depth's retained targets and pairs a deeper table must keep.",
+                    "fa_icon": "fas fa-percentage"
+                },
+                "syntracker_min_apss": {
+                    "type": "string",
+                    "default": "0.70,0.72,0.75,0.78,0.80,0.85",
+                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
+                    "description": "Comma-separated APSS edge-pruning floors; one Leiden clustering per value and resolution.",
+                    "help_text": "Edges (target pairs) with APSS below the floor are removed before community detection. The SynTracker paper's network analysis used 0.75.",
+                    "fa_icon": "fas fa-cut"
+                },
+                "syntracker_resolutions": {
+                    "type": "string",
+                    "default": "0.5,1.0,2.0",
+                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
+                    "description": "Comma-separated Leiden (modularity) resolutions; higher values give more, smaller clusters.",
+                    "fa_icon": "fas fa-sliders-h"
+                },
+                "syntracker_seed": {
+                    "type": "integer",
+                    "default": 42,
+                    "description": "Random seed for Leiden.",
+                    "fa_icon": "fas fa-random"
                 }
             }
         },

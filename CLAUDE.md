@@ -24,7 +24,8 @@ nf-test test modules/local/poppunk/fitmodel/tests/main.nf.test --profile docker
 nf-test test --tag poppunk/fitmodel --profile docker
 nf-test test tests/default.nf.test --profile test,docker --update-snapshot
 
-# Python unit tests for the evaluator and the APSS clustering (53 tests; not run by CI)
+# Python unit tests for the evaluator, the QC script and the APSS clustering (not run by CI;
+# the SynTracker tests need python-igraph + matplotlib and are skipped without them)
 python3 -m pytest tests/bin
 
 # Lint (both run in CI on every PR)
@@ -107,21 +108,24 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 
 ### The SynTracker branch (`SYNTRACKER_METHODS`)
 
-`subworkflows/local/syntracker_methods/main.nf`, an independent non-PopPUNK signal, skipped with `--skip_syntracker`:
+`subworkflows/local/syntracker_methods/main.nf`, an independent non-PopPUNK signal, skipped with `--skip_syntracker`. SynTracker separates genomes by gene **arrangement**, so it can split genomes of near-identical ANI; the design avoids collapsing or labelling genomes by ANI before SynTracker sees them.
 
-1. `DREP_DEREPLICATE` (nf-core, `ext.args '--ignoreGenomeQuality -sa 0.99'`) on the **HQ** genomes only (r-file joined with labels). `--ignoreGenomeQuality` because the nf-core module has no `--genomeInfo` input and dRep would otherwise run CheckM.
-2. Targets = dRep winners (`Wdb.csv`), capped at `--syntracker_max_targets` (largest clusters first, with a `log.warn`); reference = winner of the largest cluster. SynTracker's cost grows with the **square** of the targets (~570 core-hours for 588 B. longum genomes), hence the cap.
+1. `DREP_DEREPLICATE` (**local** `modules/local/drep/dereplicate`, a copy of the nf-core module with a `genome_info` input; `ext.args '-sa 0.95'`) on the **HQ** genomes, with `--genomeInfo` from `SPECIESQC.out.genomeinfo` (`genome,completeness,contamination`, filename with extension). dRep only picks the **reference**: normally one representative per species; if several, the highest N50 from `data_tables/genomeInformation.csv` (`genome,completeness,contamination,length,N50,centrality`), with a `log.warn`.
+2. Targets = **every HQ genome** (no dereplication, no propagation), capped at `--syntracker_max_targets` by N50 (reference always kept, `log.warn`). SynTracker's cost grows with the **square** of the targets (~570 core-hours for 588 B. longum genomes).
 3. `SYNTRACKER_RUN` (`modules/local/syntracker/run`, container-only `quay.io/microbiome-informatics/syntracker:1.4.0_patch1`, **linux/amd64 only**). Always `-mode new`; the task fails if the all-regions APSS table has no pairs (SynTracker reports R failures only in its log).
-4. `SYNTRACKER_CLUSTERS` (`bin/syntracker_apss_clusters.py`): one `Taxon,Cluster` table per `--syntracker_apss_thresholds`, average linkage by default, propagated to dRep cluster members via `Cdb.csv`.
-5. `SYNTRACKER_EVALUATE` = `POPPUNK_EVALUATE` aliased; rows `syntracker_<avg|cc>_apss<t>` join the model report. FastANI comes from `POPPUNK_METHODS.out.ani`.
+4. `SYNTRACKER_CLUSTERS` (`bin/syntracker_apss_clusters.py`), the SynTracker paper's recipe: one depth (`--syntracker_regions auto` = highest N before targets/pairs retained drop below `--syntracker_min_retention` of the lowest N, with a retention TSV/PNG), one reference (asserted), `Compared_regions >= N` asserted on per-N tables (not a filter), an igraph graph of the targets pruned at each `--syntracker_min_apss`, Leiden (modularity, weights = raw APSS, seeded) at each `--syntracker_resolutions`. A target without edges is a singleton; non-targets (MQ, capped) are absent. Plus a per-cluster QC table.
+5. `SYNTRACKER_EVALUATE` = `POPPUNK_EVALUATE` aliased; rows `syntracker_leiden_n<N>_apss<t>_r<res>` join the model report. FastANI comes from `POPPUNK_METHODS.out.ani`.
 
 Hard-won SynTracker facts (do not relearn them):
 
 - **The R stack must stay pinned** (R 4.0.5, DECIPHER 2.18.1, RSQLite). An unpinned current DECIPHER fails `Seqs2DB` on every region (`N function calls resulted in an error`) and SynTracker then crashes in `left_join()`. The image is built from the EBI containers repo, `syntracker/1.4.0_patch1`.
-- **APSS is not on the ANI scale.** On B. longum, subspecies separated at APSS 0.72-0.80; 0.90 fragments the species. **Average linkage, not connected components**: a few high-APSS bridging pairs chain single linkage (it only worked at 0.82-0.85). Average linkage reproduced dbscan's 3 groups (ARI 0.98, rated Strong) across 0.72-0.80.
+- **APSS is not on the ANI scale.** On B. longum (earlier method: average linkage on all-regions APSS of dRep 0.99 representatives), subspecies separated at APSS 0.72-0.80 and 0.90 fragmented the species; that reproduced dbscan's 3 groups (ARI 0.98). Single linkage chained through a few high-APSS bridging pairs. The Leiden method has not been validated on real data yet.
 - **Never use SynTracker's `-mode continue` in the pipeline.** It loads every finished region into the R parent before forking workers, so continue runs OOM where fresh runs don't; it also renames a region `_done` _before_ saving its result, so a kill can silently lose regions.
 - Sample names: SynTracker names a target by its file basename minus extension; the module stages every target as `<sample>.fasta`, so names reconcile with `normalise_genome_id`.
-- `normalise_genome_id` is imported by `bin/syntracker_apss_clusters.py` from `bin/evaluate_poppunk_fastani.py` (still the single place).
+- `normalise_genome_id` is imported by `bin/syntracker_apss_clusters.py` from `bin/evaluate_poppunk_fastani.py` (still the single place). The clusters env pins **pandas < 3**: the evaluator breaks under pandas 3's copy-on-write (`underlying array is read-only` in `test_check_species_ani_all_close_passes`).
+- `procps-ng` is linux-only on conda-forge, so the clusters `environment.yml` cannot be solved on macOS; tests there need a local env with pandas, python-igraph and matplotlib.
+
+Follow-up (documented, not implemented): after pruning, every edge weight lies in `[min_apss, 1]`, so modularity is driven mostly by which edges exist. Rescaling to `(APSS − min_apss)/(1 − min_apss)` restores the dynamic range; planned as a flag, raw APSS stays the default.
 
 ## Planned work (do NOT "clean these up")
 

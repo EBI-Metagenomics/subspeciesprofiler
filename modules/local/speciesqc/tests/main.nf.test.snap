@@ -22,7 +22,15 @@
                     {
                         "id": "E_coli"
                     },
-                    "E_coli_labels.csv:md5,c8cc3d355202bbf8f56ed78476ae92b7"
+                    "E_coli_labels.csv:md5,1665500306e78391c1c8f68336228bb1"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_genomeinfo.csv:md5,8e0b79dc235bc361ea1486a86db1e0b5"
                 ]
             ]
         ],
@@ -30,7 +38,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-08T15:40:58.001271"
+        "timestamp": "2026-10-07T15:23:32.076142"
     },
     "species qc - csv": {
         "content": [
@@ -57,12 +65,20 @@
                     },
                     "E_coli_labels.csv:md5,c8cc3d355202bbf8f56ed78476ae92b7"
                 ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_genomeinfo.csv:md5,4e2cf1598c2973f40da9543ce6034aca"
+                ]
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-09-28T11:59:14.021135"
+        "timestamp": "2026-10-07T15:07:30.200119"
     }
 }

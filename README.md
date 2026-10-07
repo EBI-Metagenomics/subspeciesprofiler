@@ -26,7 +26,7 @@ Given, per species, a directory of assembled genomes and a per-genome completene
 1. **Classifies** each genome as HQ / MQ / DISCARDED from its completeness/contamination and decides whether the species group is eligible for subspecies clustering (`speciesqc`).
 2. Builds and QCs a **[PopPUNK](https://poppunk.bacpop.org)** database from the HQ/MQ genomes and derives a **core-distance threshold sweep** from the observed distance distribution.
 3. Fits PopPUNK clustering models and **scores each against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI)**, then selects the model(s) that best recover the ANI-defined subspecies structure.
-4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on [dRep](https://github.com/MrOlm/drep) representatives of the HQ genomes, and scores those clusterings against FastANI in the same way, so they appear next to the PopPUNK fits.
+4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the HQ genomes against a [dRep](https://github.com/MrOlm/drep)-chosen reference, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings against FastANI in the same way, so they appear next to the PopPUNK fits.
 
 Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
 
@@ -112,7 +112,7 @@ Results are organised per species under `<outdir>/`:
 | `poppunk/<species>/fastani/`          | The all-vs-all ANI (`*.ani.txt`).                                                                                                                                          |
 | `poppunk/<species>/fitmodel/<model>/` | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model.                                                                      |
 | `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `poppunk_network_score`, `tool_status`, scores, `decision`, `eval_summary`) plus per-cluster and per-genome metrics. |
-| `<species>/syntracker/`               | SynTracker branch: dRep tables, APSS tables, one `Taxon,Cluster` table per APSS threshold, and their FastANI evaluations.                                                  |
+| `<species>/syntracker/`               | SynTracker branch: dRep tables, APSS tables, one `Taxon,Cluster` table per APSS floor × resolution, and their FastANI evaluations.                                         |
 
 To see the results of an example test run with a full size dataset refer to the [results](https://github.com/ebi-metagenomics/subspeciesprofiler) tab on the nf-core website pipeline page.
 For more details about the output files and reports, please refer to the

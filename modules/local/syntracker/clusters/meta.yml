@@ -1,10 +1,11 @@
 name: "syntracker_clusters"
 description: |
-  Turns SynTracker APSS into one `Taxon,Cluster` table per APSS threshold, via
-  bin/syntracker_apss_clusters.py: average linkage on APSS by default (single-linkage
-  connected components optional). With a dRep Cdb table, each representative's cluster is
-  propagated to its dRep cluster members. The tables have the format of PopPUNK
-  `*_clusters.csv`, so they are scored by poppunk/evaluate like any PopPUNK fit.
+  Turns SynTracker APSS into de novo subspecies clusters with bin/syntracker_apss_clusters.py,
+  following the SynTracker paper's network analysis: one subsampling depth (chosen at the
+  retention cliff with `--depth auto`), an APSS-weighted graph of the targets pruned at
+  `min_apss`, and Leiden communities (modularity), one `Taxon,Cluster` table per
+  (min_apss, resolution). The tables have the format of PopPUNK `*_clusters.csv`, so they are
+  scored by poppunk/evaluate like any PopPUNK fit.
 keywords:
   - syntracker
   - apss
@@ -12,7 +13,7 @@ keywords:
   - subspecies
 tools:
   - "python":
-      description: "Runs bin/syntracker_apss_clusters.py (pandas/numpy)."
+      description: "Runs bin/syntracker_apss_clusters.py (pandas, python-igraph, matplotlib)."
       homepage: "https://www.python.org/"
       documentation: "https://pandas.pydata.org/docs/"
       licence: ["PSF-2.0"]
@@ -25,21 +26,15 @@ input:
           Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
     - apss:
         type: file
-        description: One SynTracker `avg_synteny_scores_*.csv` table (all-regions by default).
-        pattern: "avg_synteny_scores_*.csv"
-        ontologies: []
-    - labels:
-        type: file
         description: |
-          Per-genome HQ/MQ labels CSV (`genome,label`) from speciesqc. Without a dRep table,
-          labelled genomes absent from the APSS table are reported as singletons.
-        pattern: "*.csv"
+          SynTracker `avg_synteny_scores_<n|all>_regions.csv` table(s) from one run: every per-n
+          table for `--depth auto`, or the single table of a fixed depth.
+        pattern: "avg_synteny_scores_*_regions.csv"
         ontologies: []
-    - drep_cdb:
+    - targets:
         type: file
-        description: |
-          Optional dRep `Cdb.csv` (genome, secondary_cluster, ...). Pass `[]` to skip.
-        pattern: "Cdb.csv"
+        description: SynTracker target sample names, one per line; every target is a graph node.
+        pattern: "*.txt"
         ontologies: []
 
 output:
@@ -50,9 +45,31 @@ output:
       - "*_syntracker_*_clusters.csv":
           type: file
           description: |
-            One `Taxon,Cluster` table per threshold, named
-            `<prefix>_syntracker_<avg|cc>_apss<t>_clusters.csv`; cluster 1 is the largest.
+            One `Taxon,Cluster` table per (min_apss, resolution), named
+            `<prefix>_syntracker_leiden_n<n>_apss<t>_r<res>_clusters.csv`; cluster 1 is the largest.
           pattern: "*_syntracker_*_clusters.csv"
+          ontologies: []
+  qc:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_*_cluster_qc.tsv":
+          type: file
+          description: |
+            Per-cluster QC for each table: size, mean intra-cluster APSS, max inter-cluster APSS,
+            low_confidence (size <= 2), reference genome and depth.
+          pattern: "*_syntracker_*_cluster_qc.tsv"
+          ontologies: []
+  retention:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_depth_retention.{tsv,png}":
+          type: file
+          description: |
+            Retained targets and pairs per subsampling depth, with the chosen depth (TSV and
+            plot). Only written with `--depth auto`.
+          pattern: "*_syntracker_depth_retention.{tsv,png}"
           ontologies: []
   versions_python:
     - - "${task.process}":
@@ -62,6 +79,16 @@ output:
           type: string
           description: The name of the tool
       - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+  versions_igraph:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python-igraph":
+          type: string
+          description: The name of the tool
+      - "python -c 'import igraph; print(igraph.__version__)'":
           type: eval
           description: The expression to obtain the version of the tool
 
@@ -74,6 +101,15 @@ topics:
           type: string
           description: The name of the tool
       - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python-igraph:
+          type: string
+          description: The name of the tool
+      - python -c 'import igraph; print(igraph.__version__)':
           type: eval
           description: The expression to obtain the version of the tool
 authors:

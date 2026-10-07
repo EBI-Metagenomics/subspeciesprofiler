@@ -1,0 +1,10 @@
+genomeA1
+genomeA2
+genomeA3
+genomeA4
+genomeA5
+genomeB1
+genomeB2
+genomeB3
+genomeB4
+genomeC1

@@ -14,6 +14,7 @@ process SPECIESQC {
     tuple val(meta), path("*_spp_eligibility_report.tsv"), emit: report
     tuple val(meta), path("*_rfile.tsv")                 , emit: rfile
     tuple val(meta), path("*_labels.csv")                , emit: labels
+    tuple val(meta), path("*_genomeinfo.csv")            , emit: genomeinfo
     tuple val("${task.process}"), val('python'), eval("python --version | sed 's/Python //'"), topic: versions
 
     when:
@@ -31,6 +32,7 @@ process SPECIESQC {
         --output ${prefix}_spp_eligibility_report.tsv \\
         --rfile_output ${prefix}_rfile.tsv \\
         --labels_output ${prefix}_labels.csv \\
+        --genomeinfo_output ${prefix}_genomeinfo.csv \\
         ${args}
     """
 
@@ -41,6 +43,8 @@ process SPECIESQC {
     printf '${meta.id}\\tSTRONG\\t80\\t40\\t100.0\\t0.667\\t120\\t5\\n' >> ${prefix}_spp_eligibility_report.tsv
     printf 'genome1\\t./genomes/genome1.fna.gz\\n' > ${prefix}_rfile.tsv
     printf 'genome2\\t./genomes/genome2.fna.gz\\n' >> ${prefix}_rfile.tsv
-    printf 'genome,label\\ngenome1,HQ\\ngenome2,MQ\\n' > ${prefix}_labels.csv
+    # both genomes HQ, so stub runs reach the SynTracker branch (it needs at least 2 HQ genomes)
+    printf 'genome,label\\ngenome1,HQ\\ngenome2,HQ\\n' > ${prefix}_labels.csv
+    printf 'genome,completeness,contamination\\ngenome1.fna.gz,99.5,0.5\\ngenome2.fna.gz,98.2,0.8\\n' > ${prefix}_genomeinfo.csv
     """
 }

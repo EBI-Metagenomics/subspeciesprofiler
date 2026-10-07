@@ -1,41 +1,44 @@
 {
-    "syntracker apss - average linkage - stub": {
+    "syntracker apss - auto depth - leiden": {
         "content": [
-            {
-                "0": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
                     [
-                        {
-                            "id": "test"
-                        },
-                        [
-                            "test_syntracker_avg_apss0.70_clusters.csv:md5,52a98f349b50856162810526f6a16165",
-                            "test_syntracker_avg_apss0.80_clusters.csv:md5,52a98f349b50856162810526f6a16165"
-                        ]
+                        "test_syntracker_leiden_n60_apss0.70_r1.0_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566",
+                        "test_syntracker_leiden_n60_apss0.80_r1.0_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566"
                     ]
-                ],
-                "1": [
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    [
+                        "test_syntracker_leiden_n60_apss0.70_r1.0_cluster_qc.tsv:md5,c4ed34e3a42ae0a57523dc0fa9288ffb",
+                        "test_syntracker_leiden_n60_apss0.80_r1.0_cluster_qc.tsv:md5,c4ed34e3a42ae0a57523dc0fa9288ffb"
+                    ]
+                ]
+            ],
+            [
+                "test_syntracker_depth_retention.tsv:md5,6e110ae1b8f951c0e78d2172a30bd2e6"
+            ],
+            {
+                "versions_igraph": [
                     [
                         "SYNTRACKER_CLUSTERS",
-                        "python",
-                        "3.11.0"
-                    ]
-                ],
-                "clusters": [
-                    [
-                        {
-                            "id": "test"
-                        },
-                        [
-                            "test_syntracker_avg_apss0.70_clusters.csv:md5,52a98f349b50856162810526f6a16165",
-                            "test_syntracker_avg_apss0.80_clusters.csv:md5,52a98f349b50856162810526f6a16165"
-                        ]
+                        "python-igraph",
+                        "1.0.0"
                     ]
                 ],
                 "versions_python": [
                     [
                         "SYNTRACKER_CLUSTERS",
                         "python",
-                        "3.11.0"
+                        "3.12.15"
                     ]
                 ]
             }
@@ -44,9 +47,9 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-06T15:34:28.394504"
+        "timestamp": "2026-10-07T15:08:05.355548"
     },
-    "syntracker apss - average linkage": {
+    "syntracker apss - auto depth - leiden - stub": {
         "content": [
             {
                 "0": [
@@ -55,16 +58,45 @@
                             "id": "test"
                         },
                         [
-                            "test_syntracker_avg_apss0.70_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566",
-                            "test_syntracker_avg_apss0.80_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566"
+                            "test_syntracker_leiden_n40_apss0.70_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11",
+                            "test_syntracker_leiden_n40_apss0.80_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11"
                         ]
                     ]
                 ],
                 "1": [
                     [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_leiden_n40_apss0.70_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211",
+                            "test_syntracker_leiden_n40_apss0.80_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211"
+                        ]
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_depth_retention.png:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_syntracker_depth_retention.tsv:md5,63fa2fca13a192802df1c8a587116415"
+                        ]
+                    ]
+                ],
+                "3": [
+                    [
                         "SYNTRACKER_CLUSTERS",
                         "python",
-                        "3.11.0"
+                        "3.12.15"
+                    ]
+                ],
+                "4": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python-igraph",
+                        "1.0.0"
                     ]
                 ],
                 "clusters": [
@@ -73,16 +105,45 @@
                             "id": "test"
                         },
                         [
-                            "test_syntracker_avg_apss0.70_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566",
-                            "test_syntracker_avg_apss0.80_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566"
+                            "test_syntracker_leiden_n40_apss0.70_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11",
+                            "test_syntracker_leiden_n40_apss0.80_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11"
                         ]
+                    ]
+                ],
+                "qc": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_leiden_n40_apss0.70_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211",
+                            "test_syntracker_leiden_n40_apss0.80_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211"
+                        ]
+                    ]
+                ],
+                "retention": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "test_syntracker_depth_retention.png:md5,d41d8cd98f00b204e9800998ecf8427e",
+                            "test_syntracker_depth_retention.tsv:md5,63fa2fca13a192802df1c8a587116415"
+                        ]
+                    ]
+                ],
+                "versions_igraph": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python-igraph",
+                        "1.0.0"
                     ]
                 ],
                 "versions_python": [
                     [
                         "SYNTRACKER_CLUSTERS",
                         "python",
-                        "3.11.0"
+                        "3.12.15"
                     ]
                 ]
             }
@@ -91,6 +152,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-06T15:35:01.89758"
+        "timestamp": "2026-10-07T15:08:08.809394"
     }
 }

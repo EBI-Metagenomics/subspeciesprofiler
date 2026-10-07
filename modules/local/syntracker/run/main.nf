@@ -77,7 +77,8 @@ process SYNTRACKER_RUN {
                 printf "\\"stub_ref\\",\\"%s\\",\\"%s\\",0.95,100\\n", s[i], s[j]
          }' samples.txt >> syntracker/summary_output/avg_synteny_scores_all_regions.csv
     for n in 40 60 80 100 200; do
-        cp syntracker/summary_output/avg_synteny_scores_all_regions.csv syntracker/summary_output/avg_synteny_scores_\${n}_regions.csv
+        # per-n tables: every pair compared on exactly n regions, as SynTracker writes them
+        awk -F, -v OFS=, -v n=\$n 'NR > 1 { \$NF = n } 1' syntracker/summary_output/avg_synteny_scores_all_regions.csv > syntracker/summary_output/avg_synteny_scores_\${n}_regions.csv
     done
     echo '"Ref_genome","Sample1","Sample2","Region","Length1","Length2","Overlap","Blocks","Synteny_score"' > syntracker/summary_output/synteny_scores_per_region.csv
     touch syntracker/SynTracker_log.txt

@@ -67,6 +67,18 @@ output:
             Per-genome quality labels CSV (`genome,label`) for the HQ/MQ genomes,
             consumed by the ANI cluster-evaluation step.
           pattern: "*_labels.csv"
+  genomeinfo:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing species information
+            e.g. `[ id:'Escherichia_coli' ]`
+      - "*_genomeinfo.csv":
+          type: file
+          description: |
+            dRep `--genomeInfo` CSV (`genome,completeness,contamination`) for the HQ genomes,
+            `genome` being the assembly filename with extension.
+          pattern: "*_genomeinfo.csv"
 
 topics:
   versions:
