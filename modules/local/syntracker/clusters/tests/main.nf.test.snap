@@ -38,7 +38,7 @@
                     [
                         "SYNTRACKER_CLUSTERS",
                         "python",
-                        "3.12.15"
+                        "3.12.0"
                     ]
                 ]
             }
@@ -47,7 +47,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-07T15:08:05.355548"
+        "timestamp": "2026-10-07T16:04:08.389656"
     },
     "syntracker apss - auto depth - leiden - stub": {
         "content": [
@@ -89,7 +89,7 @@
                     [
                         "SYNTRACKER_CLUSTERS",
                         "python",
-                        "3.12.15"
+                        "3.12.0"
                     ]
                 ],
                 "4": [
@@ -143,7 +143,7 @@
                     [
                         "SYNTRACKER_CLUSTERS",
                         "python",
-                        "3.12.15"
+                        "3.12.0"
                     ]
                 ]
             }
@@ -152,6 +152,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-07T15:08:08.809394"
+        "timestamp": "2026-10-07T16:04:12.981613"
     }
 }
