@@ -24,17 +24,18 @@ Results are organised **species-first**: each species in the samplesheet gets it
 ├── <species>/
 │   ├── speciesqc/                         # this species' eligibility report + QC classification
 │   ├── poppunk/
-│   │   ├── <species>_model_report.tsv     # every model tried (PopPUNK + SynTracker) + its verdict
+│   │   ├── <species>_model_report.tsv     # every PopPUNK model tried + its verdict
 │   │   ├── createdb/  qcdb/  quantiles/
 │   │   ├── fastani/
 │   │   ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
 │   │   ├── evaluate/<model>/
 │   │   └── microreact/                    # Strong + Moderate models, one file set each
 │   └── syntracker/
-│       ├── drep/                          # dRep tables/figures: reference choice
+│       ├── <species>_syntracker_model_report.tsv  # every SynTracker clustering + its verdict
+│       ├── selection/                     # reference and target choice
 │       ├── apss/                          # SynTracker APSS tables + its log
-│       ├── clusters/                      # one Taxon,Cluster table (+ QC) per min_apss x resolution
-│       └── evaluate/<model>/              # FastANI evaluation of each SynTracker clustering
+│       ├── clusters/                      # one Taxon,Cluster table per min_apss x resolution, coverage, noise
+│       └── evaluate/<model>/              # APSS (+ ANI concordance) evaluation of each clustering
 ├── multiqc/
 └── pipeline_info/
 ```
@@ -85,20 +86,23 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 <details markdown="1">
 <summary>Output files</summary>
 
-- `<species>/syntracker/drep/`: dRep's tables (`data_tables/*.csv`) and figures for the species' HQ genomes at 95% ANI, with their completeness/contamination. `Wdb.csv` lists the representative(s), normally one; `genomeInformation.csv` holds each genome's N50, which picks the reference when there are several.
+- `<species>/syntracker/<species>_syntracker_model_report.tsv`: one row per SynTracker clustering (`syntracker_leiden_apss<t>_r<res>`): its verdict in APSS space (`tool_status`, structure scores, silhouettes, singleton rates), the APSS standard error used as the gap margin (`apss_se`), the same partition scored in ANI space (`median_silhouette_ANI_HQ`, `negative_silhouette_ANI_HQ_fraction`, `ani_separated_fraction`) and the resulting `signal` (`synteny_and_ani`, `synteny_only` or `none`). It has its own columns, separate from the PopPUNK model report.
+- `<species>/syntracker/selection/<species>_syntracker_selection.tsv`: every HQ genome with its N50, its centrality (mean FastANI to the other HQ genomes) and its role: `reference`, `target`, or `capped` (left out by `--syntracker_max_targets`). The `*_reference.txt` and `*_targets.txt` files list the chosen genomes.
 - `<species>/syntracker/apss/`:
-  - `avg_synteny_scores_<N>_regions.csv` (N = 40, 60, 80, 100, 200): the average pairwise synteny score (APSS) of every pair of HQ genomes, from N regions subsampled per pair (`Ref_genome, Sample1, Sample2, APSS, Compared_regions`); pairs with fewer than N regions are absent. These change from run to run.
-  - `avg_synteny_scores_all_regions.csv`: APSS over all regions of each pair; deterministic, but each pair is averaged over a different number of regions.
+  - `avg_synteny_scores_all_regions.csv`: the average pairwise synteny score (APSS) of every pair of targets over all the regions they share (`Ref_genome, Sample1, Sample2, APSS, Compared_regions`). This is the table that is clustered and evaluated.
+  - `avg_synteny_scores_<N>_regions.csv` (N = 40, 60, 80, 100, 200): APSS from N regions subsampled per pair; pairs with fewer than N regions are absent. SynTracker fixes the subsampling seed, so these are reproducible, but they are noisy (sampling noise about 0.23/sqrt(N)); only the 40-region table is used, to estimate that noise.
   - `SynTracker_log.txt`: SynTracker's own log, with each region's outcome.
 - `<species>/syntracker/clusters/`:
-  - `<species>_syntracker_depth_retention.{tsv,png}`: for `--syntracker_regions auto`, the targets and pairs retained at each depth N and the depth chosen (the highest before retention falls below `--syntracker_min_retention` of the lowest N).
-  - `<species>_syntracker_leiden_n<N>_apss<t>_r<res>_clusters.csv`: one `Taxon,Cluster` table per APSS floor `t` (`--syntracker_min_apss`) and Leiden resolution `res` (`--syntracker_resolutions`); cluster 1 is the largest. A target with no pair at or above `t` is a singleton.
-  - `<species>_syntracker_leiden_n<N>_apss<t>_r<res>_cluster_qc.tsv`: per cluster, its size, mean APSS within (cohesion), highest APSS to another cluster (separation) and `low_confidence` (two genomes or fewer).
-- `<species>/syntracker/evaluate/<model>/`: the FastANI evaluation of each clustering, in the same format as the PopPUNK fits. Each also appears as a `syntracker_leiden_n<N>_apss<t>_r<res>` row in `<species>/poppunk/<species>_model_report.tsv` (with `poppunk_network_score` empty).
+  - `<species>_syntracker_leiden_apss<t>_r<res>_clusters.csv`: one `Taxon,Cluster` table per APSS floor `t` (`--syntracker_min_apss`) and Leiden resolution `res` (`--syntracker_resolutions`); cluster 1 is the largest. A target with no pair at or above `t` is a singleton.
+  - `<species>_syntracker_genome_coverage.tsv`: each target's median number of regions per pair, relative to the species median, and its status; `low_coverage` targets (below `--syntracker_min_genome_coverage`) are left out of the clusterings.
+  - `<species>_syntracker_noise.tsv`: the per-region synteny-score SD, the median regions per pair and the resulting APSS standard error.
+- `<species>/syntracker/evaluate/<model>/`: the evaluation of each clustering (`*.tool_metrics.tsv`, `*.cluster_metrics.tsv` with `*_APSS` columns and Cliff's delta, `*.genome_metrics.tsv` with `silhouette_APSS`).
 
 </details>
 
-[SynTracker](https://github.com/leylabmpi/SynTracker) compares genomes by **synteny**, the arrangement of genes, in regions of a single reference genome, which makes it independent of PopPUNK's k-mer distances and able to separate genomes of near-identical ANI that differ by rearrangements. The reference is picked by [dRep](https://github.com/MrOlm/drep) at 95% ANI, using the HQ genomes' completeness and contamination; if the species splits into several representatives, the one with the highest N50 is used. Every HQ genome is a target; SynTracker's cost grows with the square of their number, so above `--syntracker_max_targets` only the genomes with the highest N50 are kept (contig breaks look like synteny breaks). The APSS of one subsampling depth is turned into clusters as in the SynTracker paper's network analysis: an APSS-weighted graph of the targets, pruned at the APSS floor, partitioned into Leiden (modularity) communities. APSS is not on the ANI scale. See the [curation guide](curation.md) for reading these rows.
+[SynTracker](https://github.com/leylabmpi/SynTracker) compares genomes by **synteny**, the arrangement of genes, in regions of a single reference genome, which makes it independent of PopPUNK's k-mer distances and able to separate genomes of near-identical ANI that differ by rearrangements. APSS is close to 1 minus the share of 5-kb windows that a pair has broken into more than one synteny block.
+
+The reference is the most central HQ genome (highest mean FastANI to the other HQ genomes) among those with N50 of at least `--syntracker_ref_min_n50`: a target loses regions the further it is from the reference, and a central reference spreads that loss evenly across lineages. Every HQ genome is a target; SynTracker's cost grows with the square of their number, so above `--syntracker_max_targets` only the genomes with the highest N50 are kept. The all-regions APSS is turned into clusters as in the SynTracker paper's network analysis: an APSS-weighted graph of the targets, pruned at the APSS floor, partitioned into Leiden (modularity) communities. Each clustering is scored in APSS space, with a gap margin of twice the APSS standard error, and in ANI space for concordance. See the [curation guide](curation.md) for reading these rows.
 
 ### MultiQC
 

@@ -10,19 +10,18 @@ nextflow_process {
     tag "syntracker"
     tag "syntracker/clusters"
 
-    // Fixture: groups A (5 genomes) and B (4) with one high-APSS bridging pair between them, at
-    // depths 40 and 60 (all 36 pairs) and 80 (B genomes lost: the retention cliff), plus the
-    // all-regions table (ignored by --depth auto). genomeC1 is a target without any pair.
-    test("syntracker apss - auto depth - leiden") {
+    // Fixture: groups A (5 genomes) and B (4) with one high-APSS bridging pair between them, all
+    // pairs on 120 regions (all-regions table), and the 40-region table for the noise estimate.
+    // genomeC1 is a target without any pair: low coverage, so it is excluded.
+    test("syntracker apss - all regions - leiden") {
 
         when {
             process {
                 """
                 input[0] = [
                     [ id:'test' ],
-                    [ 40, 60, 80, 'all' ].collect { n ->
-                        file("${projectDir}/tests/fixtures/syntracker/avg_synteny_scores_\${n}_regions.csv", checkIfExists: true)
-                    },
+                    file("${projectDir}/tests/fixtures/syntracker/avg_synteny_scores_all_regions.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/avg_synteny_scores_40_regions.csv", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/syntracker/targets.txt", checkIfExists: true)
                 ]
                 """
@@ -34,21 +33,22 @@ nextflow_process {
             def tables = process.out.clusters[0][1].collectEntries { f ->
                 [ file(f.toString()).name, path(f.toString()).readLines().drop(1)*.tokenize(',') ]
             }
-            def at80   = tables['test_syntracker_leiden_n60_apss0.80_r1.0_clusters.csv'].collectEntries { [ it[0], it[1] ] }
+            def at80     = tables['test_syntracker_leiden_apss0.80_r1.0_clusters.csv'].collectEntries { [ it[0], it[1] ] }
+            def coverage = path(process.out.coverage[0][1].toString()).readLines().drop(1)*.tokenize('\t').collectEntries { [ it[0], it[-1] ] }
             assertAll(
                 { assert process.success },
-                // depth 60 chosen: the highest before the cliff at 80
-                { assert tables.keySet() == [ 'test_syntracker_leiden_n60_apss0.70_r1.0_clusters.csv',
-                                              'test_syntracker_leiden_n60_apss0.80_r1.0_clusters.csv' ] as Set },
+                { assert tables.keySet() == [ 'test_syntracker_leiden_apss0.70_r1.0_clusters.csv',
+                                              'test_syntracker_leiden_apss0.80_r1.0_clusters.csv' ] as Set },
                 // the bridging pair does not merge the groups
                 { assert at80['genomeA1'] != at80['genomeB1'] },
                 { assert at80['genomeA1'] == at80['genomeA5'] },
-                // a target without APSS pairs is a singleton
-                { assert at80.findAll { k, v -> v == at80['genomeC1'] }.size() == 1 },
+                // a target without pairs has no coverage and is left out of the clusterings
+                { assert coverage['genomeC1'] == 'low_coverage' },
+                { assert !at80.containsKey('genomeC1') },
                 { assert snapshot(
                     process.out.clusters,
-                    process.out.qc,
-                    process.out.retention[0][1].findAll { file(it.toString()).name.endsWith('.tsv') },
+                    process.out.coverage,
+                    process.out.noise,
                     process.out.findAll { key, val -> key.startsWith('versions') }
                 ).match() }
             )
@@ -56,7 +56,7 @@ nextflow_process {
 
     }
 
-    test("syntracker apss - auto depth - leiden - stub") {
+    test("syntracker apss - all regions - leiden - stub") {
 
         options "-stub"
 
@@ -65,9 +65,8 @@ nextflow_process {
                 """
                 input[0] = [
                     [ id:'test' ],
-                    [ 40, 60, 80 ].collect { n ->
-                        file("${projectDir}/tests/fixtures/syntracker/avg_synteny_scores_\${n}_regions.csv", checkIfExists: true)
-                    },
+                    file("${projectDir}/tests/fixtures/syntracker/avg_synteny_scores_all_regions.csv", checkIfExists: true),
+                    [],
                     file("${projectDir}/tests/fixtures/syntracker/targets.txt", checkIfExists: true)
                 ]
                 """

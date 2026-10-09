@@ -94,26 +94,27 @@ workflow SUBSPECIESPROFILER {
     // SUBWORKFLOW: SynTracker (synteny), an independent non-PopPUNK signal. Its clusterings are
     // scored by the same evaluator, so they join the PopPUNK fits in the model report.
     //
-    def ch_tool_metrics = POPPUNK_METHODS.out.tool_metrics
-    if ( !params.skip_syntracker ) {
-        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani, SPECIESQC.out.genomeinfo )
-        ch_tool_metrics = ch_tool_metrics.mix( SYNTRACKER_METHODS.out.tool_metrics )
-    }
-
-    // Per-species model report (Phase-4 "profiler history"): append every fitted model's verdict
-    // (PopPUNK and SynTracker) into one table under that species' poppunk directory. collectFile
-    // reads each per-fit tool_metrics by content, so identical filenames across fits don't collide.
-    // The evaluator's `decision` column is dropped here: it only drives control flow
-    // (ch_accepted, the MultiQC best-model table) and would duplicate tool_status in the report.
-    ch_tool_metrics
-        .collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
+    // Per-species model reports (Phase-4 "profiler history"): every fitted model's verdict, one
+    // table per branch, since PopPUNK fits (scored in ANI space) and SynTracker clusterings (scored
+    // in APSS space, with ANI concordance) have different columns. collectFile reads each per-fit
+    // tool_metrics by content, so identical filenames across fits don't collide. The evaluator's
+    // `decision` column is dropped: it only drives control flow (ch_accepted, the MultiQC
+    // best-model table) and would duplicate tool_status in the report.
+    def model_report = { ch, branch, suffix ->
+        ch.collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
             def rows = tsv.readLines().collect { it.split('\t', -1) as List }
             def drop = rows[0].indexOf('decision')
             if ( drop >= 0 ) {
                 rows.each { it.remove(drop as int) }
             }
-            [ "${meta.id}/poppunk/${meta.id}_model_report.tsv", rows*.join('\t').join('\n') + '\n' ]
+            [ "${meta.id}/${branch}/${meta.id}_${suffix}.tsv", rows*.join('\t').join('\n') + '\n' ]
         }
+    }
+    model_report.call( POPPUNK_METHODS.out.tool_metrics, 'poppunk', 'model_report' )
+    if ( !params.skip_syntracker ) {
+        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani )
+        model_report.call( SYNTRACKER_METHODS.out.tool_metrics, 'syntracker', 'syntracker_model_report' )
+    }
 
     //
     // Collate and save software versions

@@ -39,9 +39,6 @@ covering the HQ/MQ genomes (DISCARDED excluded):
       `sample_name<TAB><genomes_prefix>/<filename>` (default prefix `./genomes`,
       matching the `stageAs: 'genomes'` used by the poppunk/createdb module).
     - a labels CSV (`genome,label`) consumed by the ANI evaluator.
-and, optionally, a dRep `--genomeInfo` CSV for the HQ genomes only
-(`genome,completeness,contamination`, `genome` = the assembly filename with
-extension, as dRep names genomes by their file basename).
 
 The classification thresholds and labelling rules are kept in sync with
 `bin/spp_species_eligibility.py`.
@@ -161,8 +158,8 @@ def resolve_columns(fieldnames):
 def count_qc(qc_csv, min_comp, hq_comp, hq_cont, max_cont):
     """Classify every genome; return counts and the per-genome HQ/MQ rows.
 
-    Per-genome rows are tuples of (sample_name, filename, label, completeness,
-    contamination) for HQ/MQ genomes only (DISCARDED excluded).
+    Per-genome rows are tuples of (sample_name, filename, label) for HQ/MQ
+    genomes only (DISCARDED excluded).
     """
     n_hq = n_mq = n_disc = 0
     passing = []
@@ -179,8 +176,7 @@ def count_qc(qc_csv, min_comp, hq_comp, hq_cont, max_cont):
                 n_disc += 1
                 continue
             filename = row.get(genome_col)
-            passing.append((strip_fasta_ext(filename), filename, label,
-                            float(row.get(comp_col)), float(row.get(cont_col))))
+            passing.append((strip_fasta_ext(filename), filename, label))
     return n_hq, n_mq, n_disc, passing
 
 
@@ -204,9 +200,6 @@ def main():
     parser.add_argument("--labels_output",
                         help="Output labels CSV (genome,label for HQ/MQ genomes) for the "
                              "ANI evaluator. If omitted, no labels file is written.")
-    parser.add_argument("--genomeinfo_output",
-                        help="Output dRep --genomeInfo CSV (genome,completeness,contamination for "
-                             "HQ genomes, genome = filename with extension). If omitted, none is written.")
     parser.add_argument("--genomes_prefix", default="./genomes",
                         help="Path prefix written before each filename in the r-file; must match "
                              "the poppunk/createdb `stageAs` directory (default: ./genomes).")
@@ -229,23 +222,15 @@ def main():
         # csv default "\r\n") so a trailing CR never corrupts the genome paths.
         with open(args.rfile_output, "w", newline="") as rf:
             writer = csv.writer(rf, delimiter="\t", lineterminator="\n")
-            for sample_name, filename, _label, _comp, _cont in passing:
+            for sample_name, filename, _label in passing:
                 writer.writerow([sample_name, f"{prefix}/{filename}"])
 
     if args.labels_output:
         with open(args.labels_output, "w", newline="") as lf:
             writer = csv.writer(lf, lineterminator="\n")
             writer.writerow(["genome", "label"])
-            for sample_name, _filename, label, _comp, _cont in passing:
+            for sample_name, _filename, label in passing:
                 writer.writerow([sample_name, label])
-
-    if args.genomeinfo_output:
-        with open(args.genomeinfo_output, "w", newline="") as gf:
-            writer = csv.writer(gf, lineterminator="\n")
-            writer.writerow(["genome", "completeness", "contamination"])
-            for _sample_name, filename, label, comp, cont in passing:
-                if label == "HQ":
-                    writer.writerow([os.path.basename(filename), comp, cont])
 
     columns = [
         "species_name", "spp_label", "n_hq", "n_mq", "n_eff",
@@ -271,8 +256,6 @@ def main():
         print(f"PopPUNK r-file written to: {args.rfile_output} ({n_passing} HQ/MQ genomes)", file=sys.stderr)
     if args.labels_output:
         print(f"Labels written to: {args.labels_output}", file=sys.stderr)
-    if args.genomeinfo_output:
-        print(f"dRep genome info written to: {args.genomeinfo_output} ({n_hq} HQ genomes)", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -46,6 +46,13 @@ input:
         description: |
           Per-genome HQ/MQ labels CSV (`genome,label`) from the speciesqc module.
         pattern: "*.csv"
+    - apss:
+        type: file
+        description: |
+          `[]` for PopPUNK fits (scored in ANI space). For a SynTracker clustering: the
+          all-regions APSS table (`*_regions.csv`) and the clustering step's noise table
+          (`*_noise.tsv`); the clustering is then scored in APSS space, with ANI concordance.
+        pattern: "*.{csv,tsv}"
 
 output:
   tool_metrics:

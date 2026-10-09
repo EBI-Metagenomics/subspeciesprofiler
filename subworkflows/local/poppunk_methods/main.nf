@@ -93,7 +93,7 @@ workflow POPPUNK_METHODS {
         .map { meta, model -> [ meta.id, meta, model ] }
         .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
         .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
-        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
+        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels, [] ] }
     POPPUNK_EVALUATE( ch_eval_in )
 
     // ---- Standard refinement of every dbscan fit (ungated) ----
@@ -111,7 +111,7 @@ workflow POPPUNK_METHODS {
         .map { meta, model -> [ meta.id, meta, model ] }
         .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
         .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
-        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
+        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels, [] ] }
     POPPUNK_EVALUATE_DBSCAN_REFINE( ch_refine_eval_in )
 
     // ---- Final selection over the swept + dbscan-refined fits ----

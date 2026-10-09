@@ -1,0 +1,4 @@
+genome1.fna	genome1.fna	100	300	300
+genome1.fna	genome2.fna	98.5	290	300
+genome2.fna	genome1.fna	98.4	290	300
+genome2.fna	genome2.fna	100	300	300

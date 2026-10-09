@@ -1,0 +1,88 @@
+name: "syntracker_select"
+description: |
+  Chooses the SynTracker reference and targets for one species with bin/syntracker_select.py:
+  the reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those
+  with N50 above a floor; the targets are every HQ genome, the highest-N50 ones first when capped.
+keywords:
+  - syntracker
+  - reference
+  - centrality
+  - n50
+tools:
+  - "python":
+      description: "Runs bin/syntracker_select.py (pandas)."
+      homepage: "https://www.python.org/"
+      documentation: "https://pandas.pydata.org/docs/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
+    - ani:
+        type: file
+        description: All-vs-all FastANI output of the species (percent ANI).
+        pattern: "*.txt"
+        ontologies: []
+    - stats:
+        type: file
+        description: "`seqkit stats --all --tabular` of the HQ genomes (one row per FASTA, with N50)."
+        pattern: "*.tsv"
+        ontologies: []
+
+output:
+  reference:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_reference.txt":
+          type: file
+          description: The reference genome's file name.
+          pattern: "*_syntracker_reference.txt"
+          ontologies: []
+  targets:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_targets.txt":
+          type: file
+          description: The target genomes' file names, one per line, reference first.
+          pattern: "*_syntracker_targets.txt"
+          ontologies: []
+  selection:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_selection.tsv":
+          type: file
+          description: Per HQ genome, its N50, centrality and role (reference, target or capped).
+          pattern: "*_syntracker_selection.tsv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

@@ -494,3 +494,129 @@ def test_is_negative_silhouette_is_nullable_boolean(mod):
     assert str(gm["is_negative_silhouette"].dtype) == "boolean"
     # the singleton's flag is <NA>, not False
     assert pd.isna(gm.set_index("genome_id").loc["g5", "is_negative_silhouette"])
+
+
+# --------------------------------------------------------------------------- #
+# APSS space (SynTracker clusterings): gap margin, weights, concordance
+# --------------------------------------------------------------------------- #
+
+def write_apss(path, cluster_of, intra=0.92, inter=0.70, regions=300, overrides=None):
+    """All-regions APSS table from {genome: cluster}; overrides: {(a, b): (apss, regions)}."""
+    overrides = overrides or {}
+    genomes = list(cluster_of)
+    with open(path, "w") as fh:
+        fh.write('"Ref_genome","Sample1","Sample2","APSS","Compared_regions"\n')
+        for i, a in enumerate(genomes):
+            for b in genomes[i + 1:]:
+                apss, reg = overrides.get((a, b), overrides.get((b, a), (
+                    intra if cluster_of[a] == cluster_of[b] else inter, regions)))
+                fh.write(f'"ref","{a}","{b}",{apss},{reg}\n')
+
+
+def run_apss(tmp_path, cluster_of, ani_intra=99.5, ani_inter=96.0, apss_kwargs=None, extra_args=(), tag="apss"):
+    d = tmp_path / tag
+    d.mkdir(exist_ok=True)
+    write_apss(d / "avg_synteny_scores_all_regions.csv", cluster_of, **(apss_kwargs or {}))
+    return run_cli(tmp_path, cluster_of, {g: "HQ" for g in cluster_of}, tag=tag, intra=ani_intra, inter=ani_inter,
+                   extra_args=["--distance", "apss", "--apss", str(d / "avg_synteny_scores_all_regions.csv"), *extra_args])
+
+
+SIX_SIX = {**{f"a{i}": "A" for i in range(6)}, **{f"b{i}": "B" for i in range(6)}}
+
+
+def test_score_gap_uses_the_given_floor(mod):
+    assert mod.score_gap(0.01, 0.05) == 1.0                  # ANI floor 0.002
+    assert mod.score_gap(0.01, 0.05, floor=0.03) == 0.7      # below the APSS margin, median gap clears it
+    assert mod.score_gap(0.01, 0.02, floor=0.03) == 0.0
+    assert mod.score_gap(-0.01, 0.05, floor=0.03) == 0.4
+
+
+def test_cliffs_delta(mod):
+    assert mod.cliffs_delta([3, 4, 5], [0, 1, 2]) == 1.0
+    assert mod.cliffs_delta([0, 1, 2], [3, 4, 5]) == -1.0
+    assert mod.cliffs_delta([1, 2], [1, 2]) == 0.0
+    assert mod.cliffs_delta([2, 3], [1, 2]) == pytest.approx(0.75)  # 3 of 4 pairs greater, none smaller
+    assert np.isnan(mod.cliffs_delta([], [1.0]))
+
+
+def test_apss_weights_leave_cohesion_unscored(mod):
+    cluster_of = SIX_SIX
+    clusters = pd.DataFrame({"genome_id": list(cluster_of), "cluster_id": list(cluster_of.values())})
+    meta = pd.DataFrame({"genome_id": list(cluster_of), "quality_status": "HQ"})
+    # APSS-like values far below every ANI cohesion anchor: ANI scoring would give cohesion 0
+    m = ani_matrix_from(cluster_of, intra=0.90, inter=0.70)
+    cm = mod.evaluate_clusters(clusters, meta, m, 2, space="APSS", gap_floor=0.03, weights=mod.APSS_WEIGHTS)
+    assert cm["cohesion_score"].isna().all()
+    assert "p5_intra_APSS" in cm.columns and "cliffs_delta" in cm.columns
+    assert cm["cluster_structure_score"].tolist() == pytest.approx([1.0, 1.0])
+    assert cm["cliffs_delta"].tolist() == pytest.approx([1.0, 1.0])
+
+
+def test_cli_apss_clean_split_concordant_with_ani(tmp_path):
+    proc, out = run_apss(tmp_path, SIX_SIX)
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Strong"
+    assert tm["signal"] == "synteny_and_ani"
+    assert tm["ani_separated_fraction"] == 1.0
+    cols = list(read_metrics(out, "tool_metrics").columns)
+    assert "poppunk_network_score" not in cols
+    assert cols[-7:] == ["apss_se", "median_silhouette_ANI_HQ", "negative_silhouette_ANI_HQ_fraction",
+                         "ani_separated_fraction", "signal", "decision", "eval_summary"]
+    assert "silhouette_APSS" in read_metrics(out, "genome_metrics").columns
+
+
+def test_cli_apss_split_invisible_in_ani_is_synteny_only(tmp_path):
+    # same ANI everywhere (no ANI structure), clear APSS split
+    proc, out = run_apss(tmp_path, SIX_SIX, ani_intra=98.5, ani_inter=98.5)
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Strong"
+    assert tm["signal"] == "synteny_only"
+
+
+def test_cli_apss_gap_below_noise_is_not_strong(tmp_path):
+    # APSS groups only 0.01 apart, below 2x the standard error (~0.026 at 300 regions)
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"intra": 0.85, "inter": 0.84})
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    cm = read_metrics(out, "cluster_metrics")
+    assert (cm["gap_score"] < 1.0).all()
+    assert tm["tool_status"] != "Strong"
+    assert tm["apss_se"] == pytest.approx(0.226 / np.sqrt(300))
+
+
+def test_cli_apss_noise_table_sets_the_margin(tmp_path):
+    d = tmp_path / "noise"
+    d.mkdir()
+    (d / "n.tsv").write_text("region_sd\tmedian_regions\tapss_se\n0.2\t300\t0.001\n")
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"intra": 0.85, "inter": 0.84},
+                         extra_args=["--apss-noise", str(d / "n.tsv")], tag="noise_run")
+    assert proc.returncode == 0, proc.stderr
+    assert read_metrics(out, "tool_metrics").iloc[0]["apss_se"] == pytest.approx(0.001)
+    assert (read_metrics(out, "cluster_metrics")["gap_score"] == 1.0).all()   # 0.01 > 2 x 0.001
+
+
+def test_cli_apss_pairs_below_min_regions_are_missing(tmp_path):
+    # a0's six cross-group pairs look like a merge but are on too few regions: ignored
+    overrides = {("a0", f"b{i}"): (0.95, 20) for i in range(6)}
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"overrides": overrides})
+    assert proc.returncode == 0, proc.stderr
+    assert read_metrics(out, "tool_metrics").iloc[0]["tool_status"] == "Strong"
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"overrides": overrides},
+                         extra_args=["--min-regions", "10"], tag="kept")
+    assert read_metrics(out, "cluster_metrics")["tail_gap"].lt(0).all()
+
+
+def test_cli_apss_unclean_partition_has_no_signal(tmp_path):
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"intra": 0.84, "inter": 0.84})
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert tm["signal"] == "none"
+
+
+def test_cli_apss_requires_the_table(tmp_path):
+    proc, _ = run_cli(tmp_path, SIX_SIX, {g: "HQ" for g in SIX_SIX}, extra_args=["--distance", "apss"])
+    assert proc.returncode != 0
+    assert "--apss" in proc.stderr

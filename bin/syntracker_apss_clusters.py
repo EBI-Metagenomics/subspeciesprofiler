@@ -7,104 +7,69 @@ against one reference genome into `Taxon,Cluster` tables, one per
 (min_apss, resolution) point of a sweep, in the format of PopPUNK's
 `*_clusters.csv` so poppunk/evaluate scores them like any PopPUNK fit.
 
-Recipe (SynTracker paper's network analysis):
-  0. One APSS table at one subsampling depth `n` (`avg_synteny_scores_<n>_regions.csv`);
-     depths are never mixed, and one table holds exactly one reference genome.
-     With `--depth auto` the depth is chosen from the data: for each `n`, count the
-     targets with at least one pair and the pairs; take the highest `n` reached before
-     either count drops below `--min-retention` x its value at the lowest `n` (the
-     cliff). The retention table and plot record the choice.
-  1. Clean the pair list: drop missing APSS, keep one row per unordered pair. In a
-     per-`n` table every pair must have `Compared_regions >= n` (SynTracker only reports
-     pairs with at least `n` regions); that is asserted, not filtered.
-  2. Build a graph: one node per SynTracker target, one edge per pair, weight = APSS.
-     A pair SynTracker could not compare is a missing edge, not a fake distance.
-  3. Prune edges with APSS < min_apss.
-  4. Leiden community detection (modularity, weights = APSS, `resolution`, fixed seed).
-     Each community is one cluster.
-  5. A target left without edges is its own cluster (singleton). Genomes that were not
-     SynTracker targets are absent from the tables.
-  6. Cluster 1 is the largest. A per-cluster QC table gives size, mean intra-cluster
-     APSS (cohesion), max inter-cluster APSS (separation) and `low_confidence` (size <= 2),
-     both computed on the cleaned, unpruned pairs.
+Input is the all-regions APSS table (`avg_synteny_scores_all_regions.csv`): each pair's
+mean synteny score over every region both genomes share. It is deterministic and the
+most precise: SynTracker's subsampled tables (n = 40 ... 200 regions per pair) add noise
+of about 0.23/sqrt(n) to every pair, which on E. lenta was as large as the real spread
+between pairs at n = 40.
 
-Known limitation (follow-up): after pruning every weight lies in [min_apss, 1], so
-modularity is driven mostly by which edges exist. Rescaling the weights to
-(APSS - min_apss) / (1 - min_apss) would restore their dynamic range; not done here.
+Steps:
+  1. Read the pairs (one reference genome asserted), keep one row per unordered pair and
+     drop pairs compared on fewer than --min-regions regions.
+  2. Genome coverage: each target's median Compared_regions over its pairs. Targets
+     below --min-genome-coverage x the species median are excluded (`low_coverage`):
+     a genome keeps fewer regions when it is fragmented or far from the reference, and
+     the regions it keeps are not a random sample, which biases its APSS.
+  3. Graph: one node per remaining target, one edge per pair, weight = APSS; edges with
+     APSS < min_apss are pruned. Leiden (modularity, weights = APSS, `resolution`, fixed
+     seed) gives the clusters; a target left without edges is a singleton.
+  4. Noise: the per-region synteny-score SD, estimated from the difference between a
+     subsampled table (--apss-subsampled, n regions per pair) and the all-regions table,
+     whose variance is SD^2 (1/n - 1/R); the APSS standard error of a typical pair is
+     SD / sqrt(median regions per pair). The evaluator uses it as the gap margin.
+
+Outputs (`<p>` = --out-prefix):
+  <p>_syntracker_leiden_apss<t>_r<res>_clusters.csv   Taxon,Cluster (cluster 1 = largest)
+  <p>_syntracker_genome_coverage.tsv                   genome, median_regions, relative_coverage, status
+  <p>_syntracker_noise.tsv                             region_sd, median_regions, apss_se, ...
 
 APSS input columns (SynTracker 1.4.0): Ref_genome, Sample1, Sample2, APSS,
-Compared_regions. Sample names are SynTracker's target file basenames without
-extension; all names are reconciled with `normalise_genome_id` from
+Compared_regions. Names are reconciled with `normalise_genome_id` from
 `evaluate_poppunk_fastani.py`, the single place that defines the convention.
-
-Outputs (per species, `<p>` = --out-prefix):
-  <p>_syntracker_leiden_n<n>_apss<t>_r<res>_clusters.csv    Taxon,Cluster
-  <p>_syntracker_leiden_n<n>_apss<t>_r<res>_cluster_qc.tsv  per-cluster QC
-  <p>_syntracker_depth_retention.tsv / .png                 depth choice (always written)
 
 Usage:
     syntracker_apss_clusters.py \
-        --apss        avg_synteny_scores_40_regions.csv avg_synteny_scores_60_regions.csv ... \
-        --targets     targets.txt \
-        --depth       auto \
-        --min-apss    0.70,0.75,0.80 \
-        --resolutions 0.5,1.0,2.0 \
-        --out-prefix  B_longum
+        --apss avg_synteny_scores_all_regions.csv --apss-subsampled avg_synteny_scores_40_regions.csv \
+        --targets targets.txt --min-apss 0.70,0.75,0.80 --resolutions 0.5,1.0,2.0 --out-prefix B_longum
 """
 
 import argparse
 import random
-import re
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from evaluate_poppunk_fastani import normalise_genome_id
 
-DEPTH_RE = re.compile(r"avg_synteny_scores_(\d+|all)_regions\.csv$")
+DEFAULT_REGION_SD = 0.226  # per-region synteny-score SD measured on E. lenta (0.226) and B. longum (0.227)
 
 
-def table_depth(path: str):
-    """Subsampling depth from a SynTracker APSS file name: an int, or 'all'."""
-    m = DEPTH_RE.search(Path(path).name)
-    if not m:
-        sys.exit(f"ERROR: '{path}' is not a SynTracker avg_synteny_scores_<n|all>_regions.csv table")
-    return m.group(1) if m.group(1) == "all" else int(m.group(1))
-
-
-def read_pairs(path: str, depth, allow_empty: bool = False) -> pd.DataFrame:
-    """
-    Cleaned pair list (g1 < g2, apss) from one APSS table.
-
-    Asserts one reference genome and, for a per-`n` table, Compared_regions >= n.
-    """
+def read_pairs(path: str) -> pd.DataFrame:
+    """Pairs (g1 < g2, apss, regions) from one APSS table; one reference genome asserted."""
     try:
         df = pd.read_csv(path)
     except (FileNotFoundError, pd.errors.EmptyDataError) as err:
         sys.exit(f"ERROR: cannot read APSS file '{path}': {err}")
-    missing = {"Sample1", "Sample2", "APSS"} - set(df.columns)
-    if depth != "all":
-        missing |= {"Compared_regions"} - set(df.columns)
+    missing = {"Sample1", "Sample2", "APSS", "Compared_regions"} - set(df.columns)
     if missing:
         sys.exit(f"ERROR: APSS file '{path}' lacks columns {sorted(missing)}; found {list(df.columns)}")
-    if df.empty and not allow_empty:
+    if df.empty:
         sys.exit(f"ERROR: APSS file '{path}' has no pairs (did SynTracker's synteny step fail?)")
-
     if "Ref_genome" in df.columns and df["Ref_genome"].nunique() > 1:
-        sys.exit(
-            f"ERROR: APSS file '{path}' mixes {df['Ref_genome'].nunique()} reference genomes; "
-            "clusters are only meaningful within one reference, so cluster each one separately."
-        )
-    if depth != "all":
-        regions = pd.to_numeric(df["Compared_regions"], errors="coerce")
-        short = df[~(regions >= depth)]
-        if not short.empty:
-            sys.exit(
-                f"ERROR: APSS file '{path}' is the {depth}-region table but {len(short)} pair(s) have "
-                f"Compared_regions < {depth} (e.g. {short.iloc[0]['Sample1']} vs {short.iloc[0]['Sample2']}); "
-                "this table is not what SynTracker writes for that depth."
-            )
+        sys.exit(f"ERROR: APSS file '{path}' mixes {df['Ref_genome'].nunique()} reference genomes; "
+                 "clusters are only meaningful within one reference.")
 
     s1 = df["Sample1"].map(normalise_genome_id)
     s2 = df["Sample2"].map(normalise_genome_id)
@@ -112,77 +77,48 @@ def read_pairs(path: str, depth, allow_empty: bool = False) -> pd.DataFrame:
         "g1": s1.where(s1 <= s2, s2),
         "g2": s2.where(s1 <= s2, s1),
         "apss": pd.to_numeric(df["APSS"], errors="coerce"),
+        "regions": pd.to_numeric(df["Compared_regions"], errors="coerce"),
     })
-    pairs = pairs[pairs["g1"] != pairs["g2"]].dropna(subset=["apss"])
+    pairs = pairs[pairs["g1"] != pairs["g2"]].dropna(subset=["apss", "regions"])
     return pairs.drop_duplicates(subset=["g1", "g2"], keep="first").reset_index(drop=True)
 
 
-def restrict_to_targets(pairs: pd.DataFrame, targets: list, path: str) -> pd.DataFrame:
-    keep = pairs["g1"].isin(targets) & pairs["g2"].isin(targets)
-    if not keep.all():
-        print(f"WARNING: {int((~keep).sum())} pair(s) in '{path}' involve non-target genomes; ignored.",
-              file=sys.stderr)
-    return pairs[keep].reset_index(drop=True)
+def genome_coverage(pairs: pd.DataFrame, targets: list, min_relative: float) -> pd.DataFrame:
+    """Each target's median Compared_regions over its pairs, relative to the species median."""
+    both = pd.concat([pairs[["g1", "regions"]].rename(columns={"g1": "genome"}),
+                      pairs[["g2", "regions"]].rename(columns={"g2": "genome"})])
+    median = both.groupby("genome")["regions"].median().reindex(targets)
+    species = float(median.median()) if median.notna().any() else np.nan
+    cov = pd.DataFrame({"genome": targets, "median_regions": median.to_numpy()})
+    cov["relative_coverage"] = cov["median_regions"] / species
+    low = cov["relative_coverage"].isna() | (cov["relative_coverage"] < min_relative)
+    cov["status"] = np.where(low, "low_coverage", "ok")
+    return cov
 
 
-def retention(pairs: pd.DataFrame) -> tuple:
-    """(targets with at least one pair, pairs)."""
-    return len(set(pairs["g1"]) | set(pairs["g2"])), len(pairs)
-
-
-def select_depth(tables: dict, n_targets: int, min_retention: float, out_prefix: str) -> int:
-    """
-    Highest per-`n` depth before retention falls off a cliff; writes the retention TSV and plot.
-
-    tables: {n: cleaned pairs}. Depths are walked upwards from the lowest; the walk stops at
-    the first depth where retained targets or pairs drop below min_retention x the lowest
-    depth's value.
-    """
-    depths = sorted(tables)
-    counts = {n: retention(tables[n]) for n in depths}
-    base_samples, base_pairs = counts[depths[0]]
-    if base_pairs == 0:
-        sys.exit(f"ERROR: no APSS pairs at any subsampling depth ({', '.join(map(str, depths))})")
-
-    chosen = depths[0]
-    for n in depths[1:]:
-        samples, pairs = counts[n]
-        if samples < min_retention * base_samples or pairs < min_retention * base_pairs:
-            break
-        chosen = n
-
-    rows = [
-        {"n": n, "retained_samples": counts[n][0], "retained_pairs": counts[n][1],
-         "total_targets": n_targets, "selected": n == chosen}
-        for n in depths
-    ]
-    pd.DataFrame(rows).to_csv(f"{out_prefix}_syntracker_depth_retention.tsv", sep="\t", index=False)
-    plot_retention(rows, n_targets, chosen, min_retention, f"{out_prefix}_syntracker_depth_retention.png")
-    print(f"depth: n={chosen} chosen from {depths} (min retention {min_retention} of n={depths[0]})",
-          file=sys.stderr)
-    return chosen
-
-
-def plot_retention(rows: list, n_targets: int, chosen: int, min_retention: float, path: str):
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    possible = max(n_targets * (n_targets - 1) / 2, 1)
-    xs = [r["n"] for r in rows]
-    fig, ax = plt.subplots(figsize=(5, 3.5))
-    ax.plot(xs, [r["retained_samples"] / max(n_targets, 1) for r in rows], marker="o", label="targets with >= 1 pair")
-    ax.plot(xs, [r["retained_pairs"] / possible for r in rows], marker="s", label="pairs (of all target pairs)")
-    ax.axvline(chosen, color="grey", linestyle="--", label=f"chosen n = {chosen}")
-    ax.set_xlabel("regions subsampled per pair (n)")
-    ax.set_ylabel("fraction retained")
-    ax.set_ylim(0, 1.05)
-    ax.set_xticks(xs)
-    ax.set_title(f"SynTracker depth retention (cliff: < {min_retention:g} of lowest n)", fontsize=9)
-    ax.legend(fontsize=8)
-    fig.tight_layout()
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
+def estimate_noise(pairs: pd.DataFrame, subsampled_path) -> dict:
+    """Per-region SD from a subsampled table vs the all-regions table, and the typical pair's APSS SE."""
+    median_regions = float(pairs["regions"].median())
+    region_sd, source, n = DEFAULT_REGION_SD, "default", np.nan
+    if subsampled_path:
+        sub = read_pairs(subsampled_path)
+        n = float(sub["regions"].median())
+        both = sub.merge(pairs, on=["g1", "g2"], suffixes=("_n", "_all"))
+        both = both[both["regions_all"] > both["regions_n"]]
+        scale = (1.0 / both["regions_n"] - 1.0 / both["regions_all"]).mean()
+        estimate = float(np.sqrt((both["apss_n"] - both["apss_all"]).var() / scale)) if len(both) >= 10 and scale > 0 else np.nan
+        if np.isfinite(estimate) and estimate > 0:
+            region_sd, source = estimate, Path(subsampled_path).name
+        else:
+            print(f"WARNING: too few pairs to estimate the per-region SD from '{subsampled_path}'; "
+                  f"using the default {DEFAULT_REGION_SD}.", file=sys.stderr)
+    return {
+        "region_sd": region_sd,
+        "median_regions": median_regions,
+        "apss_se": region_sd / np.sqrt(median_regions),
+        "sd_source": source,
+        "subsampled_n": n,
+    }
 
 
 def leiden(pairs: pd.DataFrame, targets: list, min_apss: float, resolution: float, seed: int) -> list:
@@ -209,28 +145,6 @@ def renumber(genomes, labels) -> dict:
     return {genome: cid for cid, members in enumerate(ordered, start=1) for genome in members}
 
 
-def cluster_qc(assignment: dict, pairs: pd.DataFrame, reference: str, depth) -> pd.DataFrame:
-    """Per cluster: size, mean intra-cluster APSS, max inter-cluster APSS, low_confidence."""
-    c1 = pairs["g1"].map(assignment)
-    c2 = pairs["g2"].map(assignment)
-    intra = pairs[c1 == c2].groupby(c1[c1 == c2])["apss"].mean()
-    inter = pd.concat([
-        pd.Series(pairs["apss"][c1 != c2].values, index=c1[c1 != c2].values),
-        pd.Series(pairs["apss"][c1 != c2].values, index=c2[c1 != c2].values),
-    ])
-    inter = inter.groupby(level=0).max() if not inter.empty else pd.Series(dtype=float)
-    sizes = pd.Series(assignment).value_counts().sort_index()
-    return pd.DataFrame({
-        "cluster": sizes.index,
-        "size": sizes.values,
-        "mean_intra_apss": [intra.get(c, float("nan")) for c in sizes.index],
-        "max_inter_apss": [inter.get(c, float("nan")) for c in sizes.index],
-        "low_confidence": sizes.values <= 2,
-        "reference_genome": reference,
-        "n": depth,
-    })
-
-
 def parse_floats(text: str, name: str) -> list:
     tokens = [t.strip() for t in text.split(",") if t.strip()]
     try:
@@ -242,22 +156,20 @@ def parse_floats(text: str, name: str) -> list:
     return values
 
 
-def read_reference(path: str) -> str:
-    df = pd.read_csv(path, usecols=lambda c: c == "Ref_genome")
-    return str(df["Ref_genome"].iloc[0]) if "Ref_genome" in df.columns and not df.empty else ""
-
-
 def main():
-    parser = argparse.ArgumentParser(description="Cluster SynTracker targets from APSS with Leiden over a parameter sweep.")
-    parser.add_argument("--apss", required=True, nargs="+",
-                        help="SynTracker avg_synteny_scores_<n|all>_regions.csv table(s) from one run.")
+    parser = argparse.ArgumentParser(description="Cluster SynTracker targets from all-regions APSS with Leiden over a parameter sweep.")
+    parser.add_argument("--apss", required=True, help="SynTracker avg_synteny_scores_all_regions.csv.")
+    parser.add_argument("--apss-subsampled", default=None,
+                        help="A subsampled table (avg_synteny_scores_<n>_regions.csv) from the same run, "
+                             f"used only to estimate the per-region score SD (default {DEFAULT_REGION_SD} without it).")
     parser.add_argument("--targets", default=None,
-                        help="SynTracker target names, one per line; every target becomes a node. "
+                        help="SynTracker target names, one per line; every target is a graph node. "
                              "Default: the genomes in the APSS table.")
-    parser.add_argument("--depth", default="auto",
-                        help="'auto' (choose from the per-n tables), a per-n depth (40, 60, ...) or 'all'.")
-    parser.add_argument("--min-retention", type=float, default=0.9,
-                        help="Auto depth: retained targets and pairs must stay >= this fraction of the lowest n.")
+    parser.add_argument("--min-regions", type=int, default=100,
+                        help="Drop pairs compared on fewer regions (default 100).")
+    parser.add_argument("--min-genome-coverage", type=float, default=0.5,
+                        help="Exclude targets whose median regions per pair is below this fraction of "
+                             "the species median (default 0.5).")
     parser.add_argument("--min-apss", default="0.75", help="Comma-separated edge-pruning floors (default 0.75).")
     parser.add_argument("--resolutions", default="1.0", help="Comma-separated Leiden resolutions (default 1.0).")
     parser.add_argument("--seed", type=int, default=42, help="Leiden random seed.")
@@ -266,59 +178,52 @@ def main():
 
     floors = parse_floats(args.min_apss, "--min-apss")
     resolutions = parse_floats(args.resolutions, "--resolutions")
-    if not 0 < args.min_retention <= 1:
-        sys.exit(f"ERROR: --min-retention must be in (0, 1], got {args.min_retention}")
+    if not 0 <= args.min_genome_coverage <= 1:
+        sys.exit(f"ERROR: --min-genome-coverage must be in [0, 1], got {args.min_genome_coverage}")
 
-    by_depth = {}
-    for path in args.apss:
-        depth = table_depth(path)
-        if depth in by_depth:
-            sys.exit(f"ERROR: two APSS tables for depth {depth}: '{by_depth[depth]}' and '{path}'")
-        by_depth[depth] = path
-
-    targets = None
+    pairs = read_pairs(args.apss)
     if args.targets:
         targets = sorted({normalise_genome_id(line.strip()) for line in open(args.targets) if line.strip()})
-
-    if args.depth == "auto":
-        per_n = {n: p for n, p in by_depth.items() if n != "all"}
-        if not per_n:
-            sys.exit("ERROR: --depth auto needs the per-n tables (avg_synteny_scores_<n>_regions.csv)")
-        tables = {n: read_pairs(p, n, allow_empty=True) for n, p in per_n.items()}
-        if targets is None:
-            targets = sorted(set().union(*[set(t["g1"]) | set(t["g2"]) for t in tables.values()]))
-        tables = {n: restrict_to_targets(t, targets, per_n[n]) for n, t in tables.items()}
-        depth = select_depth(tables, len(targets), args.min_retention, args.out_prefix)
-        pairs = tables[depth]
     else:
-        depth = args.depth if args.depth == "all" else int(args.depth)
-        if depth not in by_depth:
-            sys.exit(f"ERROR: --depth {args.depth} but no avg_synteny_scores_{depth}_regions.csv among --apss")
-        pairs = read_pairs(by_depth[depth], depth)
-        if targets is None:
-            targets = sorted(set(pairs["g1"]) | set(pairs["g2"]))
-        pairs = restrict_to_targets(pairs, targets, by_depth[depth])
+        targets = sorted(set(pairs["g1"]) | set(pairs["g2"]))
+    outside = ~(pairs["g1"].isin(targets) & pairs["g2"].isin(targets))
+    if outside.any():
+        print(f"WARNING: {int(outside.sum())} pair(s) involve non-target genomes; ignored.", file=sys.stderr)
+        pairs = pairs[~outside]
+
+    noise = estimate_noise(pairs, args.apss_subsampled)
+    short = pairs["regions"] < args.min_regions
+    print(f"pairs: {len(pairs)}, {int(short.sum())} below {args.min_regions} regions dropped", file=sys.stderr)
+    pairs = pairs[~short]
     if pairs.empty:
-        sys.exit(f"ERROR: no APSS pairs between targets at depth {depth}")
-    reference = read_reference(by_depth[depth])
+        sys.exit(f"ERROR: no APSS pairs with at least {args.min_regions} regions")
+
+    cov = genome_coverage(pairs, targets, args.min_genome_coverage)
+    cov.to_csv(f"{args.out_prefix}_syntracker_genome_coverage.tsv", sep="\t", index=False, float_format="%.4f")
+    kept = cov.loc[cov["status"].eq("ok"), "genome"].tolist()
+    if len(kept) < len(targets):
+        print(f"WARNING: {len(targets) - len(kept)} low-coverage target(s) excluded: "
+              f"{', '.join(cov.loc[cov['status'].ne('ok'), 'genome'][:10])}", file=sys.stderr)
+    if len(kept) < 2:
+        sys.exit("ERROR: fewer than 2 targets with enough coverage to cluster")
+    pairs = pairs[pairs["g1"].isin(kept) & pairs["g2"].isin(kept)]
+
+    noise["n_pairs"] = len(pairs)
+    noise["n_targets"] = len(targets)
+    noise["n_low_coverage"] = len(targets) - len(kept)
+    pd.DataFrame([noise]).to_csv(f"{args.out_prefix}_syntracker_noise.tsv", sep="\t", index=False, float_format="%.5f")
+    print(f"noise: per-region SD {noise['region_sd']:.3f} ({noise['sd_source']}), "
+          f"APSS SE {noise['apss_se']:.4f} at {noise['median_regions']:.0f} regions", file=sys.stderr)
 
     for t_token, t_value in floors:
         for r_token, r_value in resolutions:
-            labels = leiden(pairs, targets, t_value, r_value, args.seed)
-            assignment = renumber(targets, labels)
-            model = f"syntracker_leiden_n{depth}_apss{t_token}_r{r_token}"
-
+            assignment = renumber(kept, leiden(pairs, kept, t_value, r_value, args.seed))
+            model = f"syntracker_leiden_apss{t_token}_r{r_token}"
             out = pd.DataFrame(sorted(assignment.items()), columns=["Taxon", "Cluster"])
             out.to_csv(f"{args.out_prefix}_{model}_clusters.csv", index=False)
-            qc = cluster_qc(assignment, pairs, reference, depth)
-            qc.to_csv(f"{args.out_prefix}_{model}_cluster_qc.tsv", sep="\t", index=False)
-
             sizes = out["Cluster"].value_counts()
-            print(
-                f"{model}: {len(sizes)} clusters, {int((sizes == 1).sum())} singletons, "
-                f"largest {list(sizes.head(4))}, {len(out)} genomes",
-                file=sys.stderr,
-            )
+            print(f"{model}: {len(sizes)} clusters, {int((sizes == 1).sum())} singletons, "
+                  f"largest {list(sizes.head(4))}, {len(out)} genomes", file=sys.stderr)
 
 
 if __name__ == "__main__":

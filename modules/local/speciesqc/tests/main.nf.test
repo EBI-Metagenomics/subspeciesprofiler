@@ -27,8 +27,7 @@ nextflow_process {
                 { assert snapshot(
                     process.out.report,
                     process.out.rfile,
-                    process.out.labels,
-                    process.out.genomeinfo
+                    process.out.labels
                 ).match() }
             )
         }
@@ -56,8 +55,7 @@ nextflow_process {
                 { assert snapshot(
                     process.out.report,
                     process.out.rfile,
-                    process.out.labels,
-                    process.out.genomeinfo
+                    process.out.labels
                 ).match() }
             )
         }

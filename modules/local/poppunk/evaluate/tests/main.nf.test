@@ -18,7 +18,8 @@ nextflow_process {
                     [ id:'test', model:'bgmm_test' ],
                     file("${projectDir}/tests/fixtures/eval/model", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true),
-                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true),
+                    []
                 ]
                 """
             }
@@ -55,7 +56,8 @@ nextflow_process {
                     [ id:'test', model:'bgmm_test' ],
                     file("${projectDir}/tests/fixtures/eval/model", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true),
-                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true),
+                    []
                 ]
                 """
             }
@@ -70,4 +72,38 @@ nextflow_process {
 
     }
 
+
+    test("evaluate clusters - apss") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', model:'syntracker_leiden_apss0.75_r0.5' ],
+                    file("${projectDir}/tests/fixtures/eval/model/test_clusters.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true),
+                    [ file("${projectDir}/tests/fixtures/eval/avg_synteny_scores_all_regions.csv", checkIfExists: true) ]
+                ]
+                """
+            }
+        }
+
+        then {
+            def header = path(process.out.tool_metrics[0][1].toString()).readLines()[0].tokenize('\t')
+            assertAll(
+                { assert process.success },
+                // APSS rows: no PopPUNK network score; noise and ANI-concordance columns before decision
+                { assert !header.contains('poppunk_network_score') },
+                { assert header[-7..-1] == [ 'apss_se', 'median_silhouette_ANI_HQ', 'negative_silhouette_ANI_HQ_fraction',
+                                             'ani_separated_fraction', 'signal', 'decision', 'eval_summary' ] },
+                { assert snapshot(
+                    process.out.tool_metrics,
+                    process.out.cluster_metrics,
+                    process.out.genome_metrics
+                ).match() }
+            )
+        }
+
+    }
 }

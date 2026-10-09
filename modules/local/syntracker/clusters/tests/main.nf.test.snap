@@ -1,55 +1,5 @@
 {
-    "syntracker apss - auto depth - leiden": {
-        "content": [
-            [
-                [
-                    {
-                        "id": "test"
-                    },
-                    [
-                        "test_syntracker_leiden_n60_apss0.70_r1.0_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566",
-                        "test_syntracker_leiden_n60_apss0.80_r1.0_clusters.csv:md5,cb4d1127f99bf26b6273d46e64d8d566"
-                    ]
-                ]
-            ],
-            [
-                [
-                    {
-                        "id": "test"
-                    },
-                    [
-                        "test_syntracker_leiden_n60_apss0.70_r1.0_cluster_qc.tsv:md5,c4ed34e3a42ae0a57523dc0fa9288ffb",
-                        "test_syntracker_leiden_n60_apss0.80_r1.0_cluster_qc.tsv:md5,c4ed34e3a42ae0a57523dc0fa9288ffb"
-                    ]
-                ]
-            ],
-            [
-                "test_syntracker_depth_retention.tsv:md5,6e110ae1b8f951c0e78d2172a30bd2e6"
-            ],
-            {
-                "versions_igraph": [
-                    [
-                        "SYNTRACKER_CLUSTERS",
-                        "python-igraph",
-                        "1.0.0"
-                    ]
-                ],
-                "versions_python": [
-                    [
-                        "SYNTRACKER_CLUSTERS",
-                        "python",
-                        "3.12.0"
-                    ]
-                ]
-            }
-        ],
-        "meta": {
-            "nf-test": "0.9.3",
-            "nextflow": "25.04.7"
-        },
-        "timestamp": "2026-10-07T16:04:08.389656"
-    },
-    "syntracker apss - auto depth - leiden - stub": {
+    "syntracker apss - all regions - leiden - stub": {
         "content": [
             {
                 "0": [
@@ -58,8 +8,8 @@
                             "id": "test"
                         },
                         [
-                            "test_syntracker_leiden_n40_apss0.70_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11",
-                            "test_syntracker_leiden_n40_apss0.80_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11"
+                            "test_syntracker_leiden_apss0.70_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11",
+                            "test_syntracker_leiden_apss0.80_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11"
                         ]
                     ]
                 ],
@@ -68,10 +18,7 @@
                         {
                             "id": "test"
                         },
-                        [
-                            "test_syntracker_leiden_n40_apss0.70_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211",
-                            "test_syntracker_leiden_n40_apss0.80_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211"
-                        ]
+                        "test_syntracker_genome_coverage.tsv:md5,d7b6b52e7de66e72616ab35640f2ee6c"
                     ]
                 ],
                 "2": [
@@ -79,10 +26,7 @@
                         {
                             "id": "test"
                         },
-                        [
-                            "test_syntracker_depth_retention.png:md5,d41d8cd98f00b204e9800998ecf8427e",
-                            "test_syntracker_depth_retention.tsv:md5,63fa2fca13a192802df1c8a587116415"
-                        ]
+                        "test_syntracker_noise.tsv:md5,58c694b1342470e65d6243b15f999aac"
                     ]
                 ],
                 "3": [
@@ -105,31 +49,25 @@
                             "id": "test"
                         },
                         [
-                            "test_syntracker_leiden_n40_apss0.70_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11",
-                            "test_syntracker_leiden_n40_apss0.80_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11"
+                            "test_syntracker_leiden_apss0.70_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11",
+                            "test_syntracker_leiden_apss0.80_r1.0_clusters.csv:md5,dca6142f4281a38b464c7332bd355e11"
                         ]
                     ]
                 ],
-                "qc": [
+                "coverage": [
                     [
                         {
                             "id": "test"
                         },
-                        [
-                            "test_syntracker_leiden_n40_apss0.70_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211",
-                            "test_syntracker_leiden_n40_apss0.80_r1.0_cluster_qc.tsv:md5,fd5a653579b5cf86255804b98dd1c211"
-                        ]
+                        "test_syntracker_genome_coverage.tsv:md5,d7b6b52e7de66e72616ab35640f2ee6c"
                     ]
                 ],
-                "retention": [
+                "noise": [
                     [
                         {
                             "id": "test"
                         },
-                        [
-                            "test_syntracker_depth_retention.png:md5,d41d8cd98f00b204e9800998ecf8427e",
-                            "test_syntracker_depth_retention.tsv:md5,63fa2fca13a192802df1c8a587116415"
-                        ]
+                        "test_syntracker_noise.tsv:md5,58c694b1342470e65d6243b15f999aac"
                     ]
                 ],
                 "versions_igraph": [
@@ -152,6 +90,58 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-07T16:04:12.981613"
+        "timestamp": "2026-10-09T14:19:36.151125"
+    },
+    "syntracker apss - all regions - leiden": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    [
+                        "test_syntracker_leiden_apss0.70_r1.0_clusters.csv:md5,c46da66153be60c7ab94192254138515",
+                        "test_syntracker_leiden_apss0.80_r1.0_clusters.csv:md5,c46da66153be60c7ab94192254138515"
+                    ]
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_syntracker_genome_coverage.tsv:md5,2e1041a1c36ce8d6f59c67b949e85aa7"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_syntracker_noise.tsv:md5,b217110d19c4ea15839887171b4de772"
+                ]
+            ],
+            {
+                "versions_igraph": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python-igraph",
+                        "1.0.0"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_CLUSTERS",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-09T14:19:31.296408"
     }
 }

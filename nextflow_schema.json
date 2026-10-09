@@ -94,7 +94,7 @@
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Synteny-based clustering with SynTracker, an independent signal scored alongside the PopPUNK fits.",
-            "help_text": "For each species, dRep (with the HQ genomes' completeness/contamination, 95% ANI) picks the SynTracker reference: normally one representative per species, else the one with the highest N50. Every HQ genome is a SynTracker target (least fragmented first when capped). SynTracker scores every target pair by synteny (APSS); one subsampling depth is chosen, the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored against FastANI by the same evaluator as the PopPUNK fits and reported as `syntracker_leiden_n<n>_apss<t>_r<res>` rows in the species' model report. APSS is not on the ANI scale.",
+            "help_text": "For each species, the SynTracker reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those with N50 >= `--syntracker_ref_min_n50`; every HQ genome is a target (highest N50 first when capped). SynTracker scores every target pair by synteny (APSS, all regions). Pairs on fewer than `--syntracker_min_regions` regions and low-coverage genomes are left out; the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored in APSS space (gap margin = 2x the APSS standard error) and in ANI space (concordance), and reported as a `syntracker_leiden_apss<t>_r<res>` row in the species' SynTracker model report.",
             "properties": {
                 "skip_syntracker": {
                     "type": "boolean",
@@ -109,20 +109,29 @@
                     "help_text": "SynTracker's cost grows with the square of the number of targets (about 570 core-hours for 588 genomes). The genomes with the highest N50 are kept (the reference always is); the others are left out of the SynTracker clusterings, with a warning.",
                     "fa_icon": "fas fa-compress-arrows-alt"
                 },
-                "syntracker_regions": {
-                    "type": "string",
-                    "default": "auto",
-                    "enum": ["auto", "all", "40", "60", "80", "100", "200"],
-                    "description": "Which SynTracker APSS table to cluster: `auto`, a subsampling depth N, or all regions.",
-                    "help_text": "`auto` takes the highest depth N before the targets or pairs retained drop below `--syntracker_min_retention` of the lowest N (the retention cliff), and writes a retention table and plot. Subsampled tables change from run to run and only hold pairs with at least N comparable regions. `all` is deterministic but averages each pair over a different number of regions.",
+                "syntracker_ref_min_n50": {
+                    "type": "integer",
+                    "default": 100000,
+                    "minimum": 0,
+                    "description": "Minimum N50 of the SynTracker reference genome.",
+                    "help_text": "The reference is the most central HQ genome (mean FastANI) among those above this N50; centrality spreads the loss of regions evenly across lineages, the floor keeps a fragmented genome from being chosen.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
+                "syntracker_min_regions": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "description": "Minimum number of regions a pair must be compared on to be used.",
+                    "help_text": "The APSS of a pair has a standard error of about 0.23/sqrt(regions); 100 regions gives ~0.02.",
                     "fa_icon": "fas fa-filter"
                 },
-                "syntracker_min_retention": {
+                "syntracker_min_genome_coverage": {
                     "type": "number",
-                    "default": 0.9,
+                    "default": 0.4,
                     "minimum": 0,
                     "maximum": 1,
-                    "description": "With `--syntracker_regions auto`: fraction of the lowest depth's retained targets and pairs a deeper table must keep.",
+                    "description": "Exclude targets whose median regions per pair is below this fraction of the species median.",
+                    "help_text": "Genomes keep fewer regions when fragmented or far from the reference, and the regions they keep are biased. 0.4 removes very fragmented genomes while keeping distant subspecies (in B. longum, 0.5 started removing members of a minority subspecies).",
                     "fa_icon": "fas fa-percentage"
                 },
                 "syntracker_min_apss": {
@@ -135,10 +144,11 @@
                 },
                 "syntracker_resolutions": {
                     "type": "string",
-                    "default": "0.5,1.0,2.0",
+                    "default": "0.25,0.5,1.0",
                     "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
                     "description": "Comma-separated Leiden (modularity) resolutions; higher values give more, smaller clusters.",
-                    "fa_icon": "fas fa-sliders-h"
+                    "fa_icon": "fas fa-sliders-h",
+                    "help_text": "On B. longum, 0.25-0.5 recovered the three subspecies (ARI 0.98 with dbscan); 1.0 over-split the main group."
                 },
                 "syntracker_seed": {
                     "type": "integer",

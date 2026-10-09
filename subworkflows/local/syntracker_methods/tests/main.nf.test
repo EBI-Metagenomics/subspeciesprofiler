@@ -8,16 +8,15 @@ nextflow_workflow {
     tag "subworkflows_local"
     tag "syntracker_methods"
 
-    // Stub run: verifies the wiring (HQ selection -> dRep reference -> all-HQ targets -> SynTracker
-    // -> Leiden sweep -> evaluation). Scientific behaviour is covered by the module tests and
-    // tests/bin/test_syntracker_apss_clusters.py.
-    test("drep reference -> syntracker -> leiden sweep -> evaluate - wiring - stub") {
+    // Stub run: verifies the wiring (HQ genomes -> seqkit N50 + FastANI centrality -> reference and
+    // targets -> SynTracker -> Leiden sweep -> APSS evaluation). Scientific behaviour is covered by
+    // the module tests and tests/bin/test_syntracker_*.py.
+    test("select reference -> syntracker -> leiden sweep -> apss evaluate - wiring - stub") {
 
         options "-stub"
 
         when {
             params {
-                syntracker_regions     = 'auto'
                 syntracker_min_apss    = '0.72,0.80'
                 syntracker_resolutions = '0.5,1.0'
             }
@@ -36,30 +35,27 @@ nextflow_workflow {
                     [ id:'test' ],
                     file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true)
                 ])
-                input[2] = Channel.of([
-                    [ id:'test' ],
-                    file("${projectDir}/tests/fixtures/syntracker/genomeinfo.csv", checkIfExists: true)
-                ])
                 """
             }
         }
 
         then {
-            // the stub chooses n40 under --syntracker_regions auto
-            def models = [ '0.72', '0.80' ].collectMany { t -> [ '0.5', '1.0' ].collect { r -> "syntracker_leiden_n40_apss${t}_r${r}" } }
+            def models = [ '0.72', '0.80' ].collectMany { t -> [ '0.5', '1.0' ].collect { r -> "syntracker_leiden_apss${t}_r${r}" } }
             assertAll(
                 { assert workflow.success },
-                // one reference genome per species: the dRep winner (stub: genome1)
+                // one reference genome per species (stub: the first HQ genome)
                 { assert workflow.out.reference.size() == 1 },
                 { assert workflow.out.reference.get(0).get(1).toString().endsWith('genome1.fna.gz') },
-                // one clustering table per (min_apss, resolution), each evaluated once
+                { assert workflow.out.selection.size() == 1 },
+                // one clustering table per (min_apss, resolution), each evaluated once in APSS space
                 { assert workflow.out.clusters.size() == 1 },
                 { assert workflow.out.clusters.get(0).get(1).size() == models.size() },
-                { assert workflow.out.qc.get(0).get(1).size() == models.size() },
-                { assert workflow.out.retention.size() == 1 },
+                { assert workflow.out.coverage.size() == 1 },
+                { assert workflow.out.noise.size() == 1 },
                 { assert workflow.out.tool_metrics.size() == models.size() },
-                // model names carry the depth, floor and resolution
                 { assert workflow.out.tool_metrics.collect { it[0].model }.toSet() == models.toSet() },
+                // APSS rows carry the ANI-concordance signal
+                { assert workflow.out.tool_metrics.collect { path(it[1].toString()).readLines()[0].tokenize('\t') }.every { 'signal' in it } },
                 // every HQ genome is a target (no dereplication)
                 { assert path(workflow.out.clusters.get(0).get(1)[0].toString()).readLines().drop(1)*.tokenize(',')*.get(0) == [ 'genome1', 'genome2' ] }
             )

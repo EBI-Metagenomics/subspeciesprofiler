@@ -28,8 +28,8 @@ input:
     - reference:
         type: file
         description: |
-          The reference genome (FASTA, optionally gzipped), e.g. the dRep representative
-          of the species' largest cluster.
+          The reference genome (FASTA, optionally gzipped), e.g. the most central HQ genome
+          of the species (syntracker/select).
         pattern: "*.{fa,fna,fasta,fa.gz,fna.gz,fasta.gz}"
         ontologies: []
     - targets:

@@ -8,7 +8,10 @@ process POPPUNK_EVALUATE {
         'quay.io/biocontainers/pandas:1.5.2' }"
 
     input:
-    tuple val(meta), path(model), path(fastani), path(labels)
+    // apss = [] for PopPUNK fits (scored in ANI space); for SynTracker clusterings, the
+    //        all-regions APSS table and the clustering step's noise table (scored in APSS
+    //        space, with ANI concordance)
+    tuple val(meta), path(model), path(fastani), path(labels), path(apss)
 
     output:
     tuple val(meta), path("*.tool_metrics.tsv")   , emit: tool_metrics
@@ -25,6 +28,10 @@ process POPPUNK_EVALUATE {
     def args       = task.ext.args ?: ''
     def prefix     = task.ext.prefix ?: "${meta.id}"
     def model_name = meta.model ?: meta.id
+    def apss_files = apss ? [ apss ].flatten() : []
+    def apss_table = apss_files.find { it.name.endsWith('_regions.csv') }
+    def apss_noise = apss_files.find { it.name.endsWith('_noise.tsv') }
+    def apss_args  = apss_table ? "--distance apss --apss ${apss_table}" + ( apss_noise ? " --apss-noise ${apss_noise}" : '' ) : ''
     """
     # `model` is either a fit directory (PopPUNK writes <p>_clusters.csv + <p>_unword_clusters.csv;
     # evaluate the former) or a single Taxon,Cluster clusters CSV (e.g. one multi-boundary position).
@@ -46,6 +53,7 @@ process POPPUNK_EVALUATE {
         --model-name '${model_name}' \\
         --out-prefix ${prefix} \\
         \$fit_log_arg \\
+        ${apss_args} \\
         ${args}
     """
 
@@ -60,9 +68,21 @@ process POPPUNK_EVALUATE {
                    : 'Weak'
     def decision   = status == 'Strong' ? 'ACCEPT' : 'TRY_NEXT_MODEL'
     def score      = status == 'Strong' ? '0.85' : ( status == 'Moderate' ? '0.70' : '0.50' )
+    // APSS (SynTracker) rows have their own columns: no network score, plus noise and the ANI
+    // concordance signal. Resolution 0.5 points are Strong / synteny_and_ani, the rest Weak / none,
+    // so stub reports carry both verdicts.
+    def apss_mode  = apss ? true : false
+    def st_status  = model_name.endsWith('_r0.5') ? 'Strong' : 'Weak'
+    def st_signal  = st_status == 'Strong' ? 'synteny_and_ani' : 'none'
+    def header     = apss_mode
+        ? 'model\\ttool_status\\tn_clusters\\tn_nonsingleton_clusters\\tlargest_cluster_fraction\\ttool_structure_score_HQ\\tapss_se\\tani_separated_fraction\\tsignal\\tdecision\\teval_summary'
+        : 'model\\tpoppunk_network_score\\ttool_status\\tn_clusters\\tn_nonsingleton_clusters\\tlargest_cluster_fraction\\ttool_structure_score_HQ\\tdecision\\teval_summary'
+    def row        = apss_mode
+        ? "${model_name}\\t${st_status}\\t3\\t3\\t0.8\\t${st_status == 'Strong' ? '0.85' : '0.50'}\\t0.012\\t${st_status == 'Strong' ? '1.0' : '0.0'}\\t${st_signal}\\t${st_status == 'Strong' ? 'ACCEPT' : 'TRY_NEXT_MODEL'}\\tstub"
+        : "${model_name}\\t0.9\\t${status}\\t3\\t3\\t0.8\\t${score}\\t${decision}\\tstub"
     """
-    printf 'model\\tpoppunk_network_score\\ttool_status\\tn_clusters\\tn_nonsingleton_clusters\\tlargest_cluster_fraction\\ttool_structure_score_HQ\\tdecision\\teval_summary\\n' > ${prefix}.tool_metrics.tsv
-    printf '${model_name}\\t0.9\\t${status}\\t3\\t3\\t0.8\\t${score}\\t${decision}\\tstub\\n' >> ${prefix}.tool_metrics.tsv
+    printf '${header}\\n' > ${prefix}.tool_metrics.tsv
+    printf '${row}\\n' >> ${prefix}.tool_metrics.tsv
     touch ${prefix}.cluster_metrics.tsv
     touch ${prefix}.genome_metrics.tsv
     """

@@ -8,7 +8,7 @@ process SYNTRACKER_RUN {
     container "quay.io/microbiome-informatics/syntracker:1.4.0_patch1"
 
     input:
-    // reference = the single reference genome (one dRep representative per species)
+    // reference = the single reference genome (the most central HQ genome, from syntracker/select)
     // targets   = the genomes to compare; SynTracker names each by its file basename
     tuple val(meta), path(reference, stageAs: 'ref_in/*'), path(targets, stageAs: 'targets_in/*')
 

@@ -1,0 +1,148 @@
+{
+    "syntracker select - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_reference.txt:md5,d715ec7f618260a01d4fa13376ed7fe4"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_targets.txt:md5,a04bc3f9b4d70482e9734628977cce12"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_selection.tsv:md5,f21897076df2e05c95ed3481d86e77dd"
+                    ]
+                ],
+                "3": [
+                    [
+                        "SYNTRACKER_SELECT",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "reference": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_reference.txt:md5,d715ec7f618260a01d4fa13376ed7fe4"
+                    ]
+                ],
+                "selection": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_selection.tsv:md5,f21897076df2e05c95ed3481d86e77dd"
+                    ]
+                ],
+                "targets": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_targets.txt:md5,a04bc3f9b4d70482e9734628977cce12"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_SELECT",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-09T14:20:43.572514"
+    },
+    "syntracker select - centrality with N50 floor": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_reference.txt:md5,d715ec7f618260a01d4fa13376ed7fe4"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_targets.txt:md5,a04bc3f9b4d70482e9734628977cce12"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_selection.tsv:md5,89ab3d453089bd74df49312827d68e77"
+                    ]
+                ],
+                "3": [
+                    [
+                        "SYNTRACKER_SELECT",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "reference": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_reference.txt:md5,d715ec7f618260a01d4fa13376ed7fe4"
+                    ]
+                ],
+                "selection": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_selection.tsv:md5,89ab3d453089bd74df49312827d68e77"
+                    ]
+                ],
+                "targets": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_targets.txt:md5,a04bc3f9b4d70482e9734628977cce12"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_SELECT",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-09T14:20:39.777895"
+    }
+}

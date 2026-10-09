@@ -54,13 +54,15 @@ The pipeline's own `best_model` follows the same order: `tool_status` first, the
 
 ## SynTracker rows
 
-Rows named `syntracker_leiden_n<N>_apss<t>_r<res>` come from the SynTracker branch: HQ genomes clustered by **synteny** (average pairwise synteny score, APSS, at subsampling depth `N`) into Leiden communities of the APSS graph pruned at `t`, with resolution `res`, then scored by the same FastANI evaluator. Read them like any other row, with three differences:
+SynTracker clusterings have their own table, `<species>/syntracker/<species>_syntracker_model_report.tsv`, one row per `syntracker_leiden_apss<t>_r<res>`: HQ genomes clustered by **synteny** (all-regions average pairwise synteny score, APSS) into Leiden communities of the APSS graph pruned at `t`, with resolution `res`.
 
-- **`poppunk_network_score` is empty.** There is no PopPUNK network behind them.
-- **APSS is not on the ANI scale.** Pairs within a species typically sit around APSS 0.80-0.90; on _B. longum_, subspecies separated at **0.72-0.80** (with the earlier average-linkage method). A high floor leaves targets without edges, which become singletons, so the same over-fragmentation flag applies; higher resolutions split communities further.
-- **Coverage can be partial.** Only HQ genomes are targets, capped at `--syntracker_max_targets` by N50; MQ genomes and genomes dropped by the cap are absent from the tables and not scored. The run log warns when the cap applies. The per-cluster QC table flags clusters of two genomes or fewer as `low_confidence`.
-
-SynTracker is an **independent** signal: it does not use PopPUNK's k-mer distances. When a SynTracker plateau and a PopPUNK solution agree on the same groups, that is strong evidence the structure is real.
+- **`tool_status` is measured in APSS space.** The same gap / overlap / silhouette logic as for PopPUNK fits, with two changes: a cluster's gap counts only when it exceeds **twice the APSS standard error** (`apss_se`, the measurement noise of a typical pair), and cohesion is not scored (the within-cluster APSS 5th percentile is ~0.81 in a species with clear subspecies and in one without, so it does not discriminate).
+- **Because Leiden builds the clusters on that same APSS graph, a clean APSS score shows the partition is well separated in synteny, not on its own that subspecies exist.** Read it together with **`signal`**, which scores the same partition in ANI space:
+  - `synteny_and_ani`: clean in APSS, and at least half of the clustered HQ genomes sit in clusters separated in ANI too. Subspecies structure seen by both signals.
+  - `synteny_only`: clean in APSS but overlapping in ANI. Candidate groups that differ in **gene arrangement** at similar ANI; check them before calling them subspecies (assembly fragmentation can also break synteny).
+  - `none`: not clean in APSS.
+- **Coverage is partial by design.** Only HQ genomes are targets, capped at `--syntracker_max_targets` by N50; targets with too few regions (`--syntracker_min_genome_coverage`, see `clusters/*_genome_coverage.tsv`) are left out, because a genome keeps fewer regions when it is fragmented or far from the reference and the regions it keeps bias its APSS. Pairs on fewer than `--syntracker_min_regions` regions are ignored.
+- **Read the sweep for a plateau.** On real data the low resolutions (0.25-0.5) recover subspecies; resolution 1.0 tends to split the main group, which the evaluator rejects (negative silhouettes).
 
 ## Worked examples
 
@@ -76,14 +78,15 @@ These come from a test run on _Bifidobacterium longum_ (568 genomes after QC) an
 | `threshold_q0.1`–`q0.2`         | 0.34–0.41 | Strong | —                        | —       | Converge on the dbscan solution.                                                                                                                                                      |
 | `refine_from_dbscan_*`          | 0.40      | Strong | —                        | —       | Same solution, but splits off a few genomes to raise the network score (HQ accepted 0.966 vs 1.0).                                                                                    |
 
-SynTracker on the same species, with the **earlier method** (dRep 99% representatives, average linkage or connected components on all-regions APSS; 588 genomes, scored against the same FastANI). The current Leiden method has not been run on this species yet:
+SynTracker on the same species (588 genomes; 20 low-coverage genomes left out; APSS standard error 0.014). From an offline run of the pipeline's clustering and evaluation scripts on the existing SynTracker output:
 
-| Fit                               | Status   | Clusters | Reading                                                                                                                    |
-| --------------------------------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `syntracker_avg_apss0.72`–`0.80`  | Strong   | 4–9      | **The same three groups as dbscan** (544, 22 and 21 genomes; agreement with dbscan ARI 0.98), stable over five thresholds. |
-| `syntracker_avg_apss0.82`, `0.85` | Weak     | 23–144   | **Over-split continuum**: the largest group starts to break up.                                                            |
-| `syntracker_avg_apss0.90`         | Weak     | 426      | **Over-fragmentation.**                                                                                                    |
-| `syntracker_cc_apss0.74`–`0.80`   | Moderate | 3        | Connected components merge two of the groups through a few bridging pairs; only 0.82–0.85 recovers all three.              |
+| Fit                                                  | Status | Signal            | Clusters (sizes)   | Reading                                                                                               |
+| ---------------------------------------------------- | ------ | ----------------- | ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `syntracker_leiden_apss0.75`–`0.80`, `r0.25`, `r0.5` | Strong | `synteny_and_ani` | 530, 16, 14, 1     | **The same three groups as dbscan** (agreement with dbscan ARI 0.98), stable over six sweep points.   |
+| `syntracker_leiden_apss0.70`–`0.72`, `r0.25`, `r0.5` | Strong | `synteny_and_ani` | 546, 14, 1         | Coarser: the two minority groups merged (ARI 0.62).                                                   |
+| `syntracker_leiden_apss*_r1.0`                       | Weak   | `none`            | e.g. 345, 185, ... | **Over-split**: Leiden cuts the main group in two; up to 69% of HQ genomes get a negative silhouette. |
+
+The dbscan partition itself, scored in APSS space, is Strong / `synteny_and_ani`: within-group APSS above every between-group value (tail gap +0.077, Cliff's delta 1.0).
 
 **Conclusion:** choose the dbscan solution, confirmed independently by the SynTracker plateau. It has the cleanest metrics and is stable across the grid, even though its network score is among the lowest in the table.
 
@@ -94,4 +97,6 @@ SynTracker on the same species, with the **earlier method** (dRep 99% representa
 | `bgmm_K10`, `threshold_q0.002`          | 0.85–0.997 | Weak   | 159–176 (12–25)          | 0.04      | **Over-fragmentation**, as above.                                                                                                                       |
 | `threshold_q0.02`, `dbscan_D3_mcp0.005` | 0.03–0.72  | Weak   | 83–89 (6–25)             | 0.18–0.40 | Coarser cuts, but the large clusters are **Defective**: intra-cluster p5 ANI ~98.6% against nearest-cluster p95 ANI ~98.9–99.1%, overlapping by 65–97%. |
 
-**Conclusion:** no fit separates the genomes. Fine cutoffs over-fragment, and coarse cutoffs merge overlapping groups, because the species is an ANI continuum (~98.2–99.1%). Report _E. lenta_ as having no subspecies structure at this sampling.
+SynTracker on the same species (199 genomes; 4 low-coverage genomes, with N50 of about 7 kb, left out; APSS standard error 0.012): all 21 sweep points are **Weak / `none`**. At low resolution Leiden returns one cluster (no partitioning); at resolution 1.0 it splits the species in two along the ANI gradient, but the groups overlap in APSS (within-group 5th percentile ~0.81 against nearest-group 95th percentile ~0.88). APSS follows ANI here (rank correlation 0.72), and what is left after removing the ANI trend tracks assembly fragmentation, not a synteny signal.
+
+**Conclusion:** no fit separates the genomes. Fine cutoffs over-fragment, and coarse cutoffs merge overlapping groups, because the species is an ANI continuum (~98.2–99.1%); synteny shows no extra structure. Report _E. lenta_ as having no subspecies structure at this sampling.

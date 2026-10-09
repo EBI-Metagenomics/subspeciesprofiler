@@ -1,0 +1,64 @@
+nextflow_process {
+
+    name "Test Process SYNTRACKER_SELECT"
+    script "../main.nf"
+    process "SYNTRACKER_SELECT"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_local"
+    tag "syntracker"
+    tag "syntracker/select"
+
+    // Fixture: genome1 (N50 250 kb) and genome2 (N50 30 kb, below the 100 kb floor).
+    test("syntracker select - centrality with N50 floor") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/syntracker/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/seqkit_stats.tsv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert path(process.out.reference[0][1].toString()).readLines() == [ 'genome1.fna.gz' ] },
+                { assert path(process.out.targets[0][1].toString()).readLines() == [ 'genome1.fna.gz', 'genome2.fna.gz' ] },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("syntracker select - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/syntracker/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/seqkit_stats.tsv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

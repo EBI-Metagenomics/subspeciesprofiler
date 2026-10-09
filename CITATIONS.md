@@ -18,9 +18,9 @@
 
 > Jain C, Rodriguez-R LM, Phillippy AM, Konstantinidis KT, Aluru S. High throughput ANI analysis of 90K prokaryotic genomes reveals clear species boundaries. Nat Commun. 2018 Nov 30;9(1):5114. doi: 10.1038/s41467-018-07641-9. PubMed PMID: 30504855; PubMed Central PMCID: PMC6269478.
 
-- [dRep](https://pubmed.ncbi.nlm.nih.gov/28742071/)
+- [SeqKit](https://doi.org/10.1002/imt2.191)
 
-> Olm MR, Brown CT, Brooks B, Banfield JF. dRep: a tool for fast and accurate genomic comparisons that enables improved genome recovery from metagenomes through de-replication. ISME J. 2017 Dec;11(12):2864-2868. doi: 10.1038/ismej.2017.126. PubMed PMID: 28742071; PubMed Central PMCID: PMC5702732.
+> Shen W, Sipos B, Zhao L. SeqKit2: A Swiss army knife for sequence and alignment processing. iMeta. 2024;3(3):e191. doi: 10.1002/imt2.191.
 
 - [SynTracker](https://github.com/leylabmpi/SynTracker)
 
