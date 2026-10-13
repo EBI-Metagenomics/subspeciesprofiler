@@ -106,7 +106,7 @@
                     "default": 150,
                     "minimum": 2,
                     "description": "Maximum number of HQ genomes passed to SynTracker as targets.",
-                    "help_text": "SynTracker's cost grows with the square of the number of targets (about 570 core-hours for 588 genomes). The genomes with the highest N50 are kept (the reference always is); the others are left out of the SynTracker clusterings, with a warning.",
+                    "help_text": "SynTracker's cost grows with the square of the number of targets: about 40-85 core-hours at 150 targets (B. longum, B. fragilis), about 8x that for B. fragilis's 435 HQ genomes. The genomes with the highest N50 are kept (the reference always is); the others are left out of the SynTracker clusterings, with a warning. Capping can split clonal groups: in B. fragilis, 21 of 150 targets lost every clonal partner to the cap.",
                     "fa_icon": "fas fa-compress-arrows-alt"
                 },
                 "syntracker_ref_min_n50": {
@@ -136,11 +136,25 @@
                 },
                 "syntracker_min_apss": {
                     "type": "string",
-                    "default": "0.70,0.72,0.75,0.78,0.80,0.85",
-                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
-                    "description": "Comma-separated APSS edge-pruning floors; one Leiden clustering per value and resolution.",
-                    "help_text": "Edges (target pairs) with APSS below the floor are removed before community detection. The SynTracker paper's network analysis used 0.75.",
+                    "default": "auto",
+                    "pattern": "^(auto|[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*)$",
+                    "description": "APSS edge-pruning floors: `auto` (evenly spaced over the species' APSS range) or comma-separated values; one Leiden clustering per floor and resolution.",
+                    "help_text": "Species differ in where their APSS sits (B. longum subspecies separate at 0.70-0.80; B. fragilis has a median of 0.92), so by default the floors are `--syntracker_apss_steps` values evenly spaced between the `--syntracker_apss_range` percentiles of the species' own APSS. Evenly spaced, not at quantiles: the separations sought are gaps, which hold almost no pairs.",
                     "fa_icon": "fas fa-cut"
+                },
+                "syntracker_apss_range": {
+                    "type": "string",
+                    "default": "0.01,0.99",
+                    "pattern": "^[0-9]*\\.?[0-9]+,[0-9]*\\.?[0-9]+$",
+                    "description": "With `--syntracker_min_apss auto`: the two percentiles of the species' APSS values that bound the floors.",
+                    "fa_icon": "fas fa-arrows-alt-h"
+                },
+                "syntracker_apss_steps": {
+                    "type": "integer",
+                    "default": 8,
+                    "minimum": 1,
+                    "description": "With `--syntracker_min_apss auto`: number of evenly spaced floors.",
+                    "fa_icon": "fas fa-list-ol"
                 },
                 "syntracker_resolutions": {
                     "type": "string",

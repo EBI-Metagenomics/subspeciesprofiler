@@ -8,7 +8,8 @@
 // 2. SynTracker scores every target pair (APSS) over the reference's regions.
 // 3. SYNTRACKER_CLUSTERS clusters the all-regions APSS: pairs on fewer than
 //    --syntracker_min_regions regions are dropped, low-coverage targets excluded, and Leiden runs
-//    on the APSS graph pruned at each --syntracker_min_apss, at each --syntracker_resolutions.
+//    on the APSS graph pruned at each floor (`--syntracker_min_apss auto`: evenly spaced over the
+//    species' own APSS range), at each --syntracker_resolutions.
 // 4. Every table is scored in APSS space by the evaluator (gap margin = 2x the APSS standard error,
 //    estimated from the 40-region table), together with its ANI concordance; the rows go to the
 //    species' SynTracker model report (model `syntracker_leiden_apss<t>_r<res>`).
@@ -100,6 +101,7 @@ workflow SYNTRACKER_METHODS {
     clusters     = SYNTRACKER_CLUSTERS.out.clusters                              // channel: [ val(meta), [ *_clusters.csv ] ]
     coverage     = SYNTRACKER_CLUSTERS.out.coverage                              // channel: [ val(meta), path(*_genome_coverage.tsv) ]
     noise        = SYNTRACKER_CLUSTERS.out.noise                                 // channel: [ val(meta), path(*_noise.tsv) ]
+    floors       = SYNTRACKER_CLUSTERS.out.floors                                // channel: [ val(meta), path(*_floors.tsv) ]
     selection    = SYNTRACKER_SELECT.out.selection                               // channel: [ val(meta), path(*_selection.tsv) ]
     reference    = ch_selected.map { meta, reference, targets -> [ meta, reference ] } // channel: [ val(meta), path(reference fasta) ]
 }

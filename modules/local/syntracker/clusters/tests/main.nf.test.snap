@@ -31,12 +31,20 @@
                 ],
                 "3": [
                     [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_floors.tsv:md5,87ef2cfff9e6246dcb4ffa65a44430f7"
+                    ]
+                ],
+                "4": [
+                    [
                         "SYNTRACKER_CLUSTERS",
                         "python",
                         "3.12.0"
                     ]
                 ],
-                "4": [
+                "5": [
                     [
                         "SYNTRACKER_CLUSTERS",
                         "python-igraph",
@@ -60,6 +68,14 @@
                             "id": "test"
                         },
                         "test_syntracker_genome_coverage.tsv:md5,d7b6b52e7de66e72616ab35640f2ee6c"
+                    ]
+                ],
+                "floors": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_floors.tsv:md5,87ef2cfff9e6246dcb4ffa65a44430f7"
                     ]
                 ],
                 "noise": [
@@ -90,7 +106,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-09T14:19:36.151125"
+        "timestamp": "2026-10-11T13:43:31.715103"
     },
     "syntracker apss - all regions - leiden": {
         "content": [

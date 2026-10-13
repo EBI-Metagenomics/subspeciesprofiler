@@ -200,3 +200,54 @@ def test_bad_apss_fails_clearly(tmp_path, content, message):
                            "--out-prefix", str(tmp_path / "sp")], capture_output=True, text=True)
     assert proc.returncode != 0
     assert message in proc.stderr
+
+
+# --- auto floors ---------------------------------------------------------------------------------
+
+def test_auto_floors_are_evenly_spaced_over_the_species_range(tmp_path):
+    proc, d = run(tmp_path, two_groups(within=0.90, between=0.60), min_apss="auto",
+                  extra=["--apss-range", "0,1", "--apss-steps", "4"])
+    assert proc.returncode == 0, proc.stderr
+    floors = pd.read_csv(d / "sp_syntracker_floors.tsv", sep="\t")
+    assert list(floors.columns) == ["step", "min_apss"]
+    assert floors["min_apss"].tolist() == pytest.approx([0.6, 0.7, 0.8, 0.9])
+    for t in ("0.600", "0.700", "0.800", "0.900"):
+        assert (d / f"sp_syntracker_leiden_apss{t}_r1.0_clusters.csv").exists()
+    # a floor inside the gap between the groups separates them
+    assert n_clusters(clusters(d, "leiden_apss0.700_r1.0")) == 2
+
+
+def test_auto_floors_follow_the_filtered_pairs(tmp_path):
+    # the only pairs below 0.80 are on too few regions: dropped before the range is taken
+    scores = two_groups(within=0.90, between=0.85)
+    scores[("a1", "b1")] = 0.10
+    regions = {k: (20 if k == ("a1", "b1") else 300) for k in scores}
+    proc, d = run(tmp_path, scores, regions=regions, min_apss="auto",
+                  extra=["--apss-range", "0,1", "--apss-steps", "2"])
+    assert proc.returncode == 0, proc.stderr
+    assert pd.read_csv(d / "sp_syntracker_floors.tsv", sep="\t")["min_apss"].tolist() == pytest.approx([0.85, 0.90])
+
+
+def test_auto_floors_drop_duplicates(tmp_path):
+    scores = {k: 0.9 for k in two_groups()}       # one APSS value: every step rounds to 0.900
+    proc, d = run(tmp_path, scores, min_apss="auto", extra=["--apss-steps", "5"])
+    assert proc.returncode == 0, proc.stderr
+    assert pd.read_csv(d / "sp_syntracker_floors.tsv", sep="\t")["min_apss"].tolist() == [0.9]
+
+
+def test_fixed_floors_still_work_and_are_listed(tmp_path):
+    proc, d = run(tmp_path, two_groups(), min_apss="0.70,0.80")
+    assert proc.returncode == 0, proc.stderr
+    assert pd.read_csv(d / "sp_syntracker_floors.tsv", sep="\t")["min_apss"].tolist() == [0.70, 0.80]
+    assert (d / "sp_syntracker_leiden_apss0.70_r1.0_clusters.csv").exists()
+
+
+@pytest.mark.parametrize("extra, message", [
+    (["--apss-range", "0.9,0.1"], "--apss-range"),
+    (["--apss-range", "0.5"], "--apss-range"),
+    (["--apss-steps", "0"], "--apss-steps"),
+])
+def test_bad_auto_options_fail_clearly(tmp_path, extra, message):
+    proc, _ = run(tmp_path, two_groups(), min_apss="auto", extra=extra)
+    assert proc.returncode != 0
+    assert message in proc.stderr

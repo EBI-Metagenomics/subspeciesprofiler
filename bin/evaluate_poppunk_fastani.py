@@ -226,6 +226,9 @@ def safe_percentile(values, q):
 ANI_WEIGHTS = (0.40, 0.30, 0.20, 0.10)
 APSS_WEIGHTS = (0.50, 0.375, 0.0, 0.125)
 ANI_GAP_FLOOR = 0.002
+# Cliff's delta from which a cluster counts as separated from its nearest cluster in the ANI
+# concordance check: a "large" effect (Romano et al. 2006).
+ANI_SEPARATION_DELTA = 0.474
 
 
 def score_gap(tail_gap, median_gap, floor=ANI_GAP_FLOOR):
@@ -314,13 +317,17 @@ def cliffs_delta(x, y) -> float:
 
 
 def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int,
-                      space: str = "ANI", gap_floor: float = ANI_GAP_FLOOR, weights=ANI_WEIGHTS) -> pd.DataFrame:
+                      space: str = "ANI", gap_floor: float = ANI_GAP_FLOOR, weights=ANI_WEIGHTS,
+                      with_delta: bool = None) -> pd.DataFrame:
     """
     Per-cluster metrics on a similarity matrix: ANI (0-1) or APSS. `space` names the columns
     (p5_intra_<space>, ...); `gap_floor` and `weights` are the space's scoring profile.
-    In APSS space the cohesion score is not computed (weight 0) and Cliff's delta between the
-    within-cluster values and those to the nearest cluster is reported.
+    In APSS space the cohesion score is not computed (weight 0). Cliff's delta between the
+    within-cluster values and those to the nearest cluster is reported in APSS space, and on
+    request (`with_delta`) in ANI space too, for the concordance check.
     """
+    if with_delta is None:
+        with_delta = space != "ANI"
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
@@ -367,7 +374,7 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
                 "validity_status": "Singleton",
                 "confidence_status": confidence_status(cluster_size, n_hq, hq_ratio),
             })
-            if space != "ANI":
+            if with_delta:
                 rows[-1]["cliffs_delta"] = np.nan
             continue
 
@@ -456,7 +463,7 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
             "validity_status": validity_status(cluster_score, cluster_size),
             "confidence_status": confidence_status(cluster_size, n_hq, hq_ratio),
         })
-        if space != "ANI":
+        if with_delta:
             rows[-1]["cliffs_delta"] = cliffs_delta(intra_values, best_external_values)
 
     return pd.DataFrame(rows)
@@ -837,18 +844,21 @@ def ani_concordance(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: 
     Score the same (SynTracker) partition in ANI space and classify its signal.
 
     `ani_separated_fraction` is the share of HQ genomes in non-singleton clusters whose
-    cluster is separated from its nearest cluster in ANI too, by the same standard as the ANI
-    scoring (tail gap >= 0.002, ANI_GAP_FLOOR). A partition
+    cluster is separated from its nearest cluster in ANI too: Cliff's delta between its
+    within-cluster ANI and its ANI to the nearest cluster >= ANI_SEPARATION_DELTA (a large
+    effect). Cliff's delta, not the tail gap: a few distant genomes inside an under-split
+    cluster pull its ANI tail gap below the floor although its ANI clearly separates it (seen
+    on B. longum), while a split invisible in ANI still gives delta ~ 0. A partition
     that is clean in APSS (Strong/Moderate) is `synteny_and_ani` when at least half of those
     genomes are ANI-separated, else `synteny_only` (groups that differ in gene arrangement but
     overlap in ANI); a partition that is not clean in APSS is `none`.
     """
-    cm = evaluate_clusters(clusters, metadata, ani_matrix, min_comparison_cluster_size)
+    cm = evaluate_clusters(clusters, metadata, ani_matrix, min_comparison_cluster_size, with_delta=True)
     gm = evaluate_genomes(clusters, metadata, ani_matrix, min_comparison_cluster_size)
     merged = clusters.merge(metadata, on="genome_id", how="left").merge(
-        cm[["cluster_id", "cluster_size", "tail_gap"]], on="cluster_id", how="left")
+        cm[["cluster_id", "cluster_size", "cliffs_delta"]], on="cluster_id", how="left")
     hq = merged[merged["quality_status"].eq("HQ") & (merged["cluster_size"] > 1)]
-    separated = float(np.mean(hq["tail_gap"].fillna(-np.inf) >= ANI_GAP_FLOOR)) if len(hq) else np.nan
+    separated = float(np.mean(hq["cliffs_delta"].fillna(-np.inf) >= ANI_SEPARATION_DELTA)) if len(hq) else np.nan
 
     sil = pd.to_numeric(gm.loc[gm["quality_status"].eq("HQ"), "silhouette_ANI"], errors="coerce").dropna()
     if apss_status in ("Strong", "Moderate"):

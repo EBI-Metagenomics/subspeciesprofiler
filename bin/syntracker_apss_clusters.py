@@ -21,7 +21,12 @@ Steps:
      a genome keeps fewer regions when it is fragmented or far from the reference, and
      the regions it keeps are not a random sample, which biases its APSS.
   3. Graph: one node per remaining target, one edge per pair, weight = APSS; edges with
-     APSS < min_apss are pruned. Leiden (modularity, weights = APSS, `resolution`, fixed
+     APSS < min_apss are pruned. With `--min-apss auto` the floors are --apss-steps values
+     evenly spaced between two percentiles (--apss-range, default 1st-99th) of the species' own
+     cleaned APSS: species differ in where their APSS sits (B. fragilis: median 0.918, above any
+     fixed floor that suits B. longum or E. lenta). Evenly spaced in APSS, not at quantiles: the
+     separations to find are gaps, which hold almost no pairs (B. longum's subspecies gap,
+     0.70-0.78, holds 0.2% of them), so quantile floors would skip them. Leiden (modularity, weights = APSS, `resolution`, fixed
      seed) gives the clusters; a target left without edges is a singleton.
   4. Noise: the per-region synteny-score SD, estimated from the difference between a
      subsampled table (--apss-subsampled, n regions per pair) and the all-regions table,
@@ -32,6 +37,7 @@ Outputs (`<p>` = --out-prefix):
   <p>_syntracker_leiden_apss<t>_r<res>_clusters.csv   Taxon,Cluster (cluster 1 = largest)
   <p>_syntracker_genome_coverage.tsv                   genome, median_regions, relative_coverage, status
   <p>_syntracker_noise.tsv                             region_sd, median_regions, apss_se, ...
+  <p>_syntracker_floors.tsv                            step, min_apss (the floors used)
 
 APSS input columns (SynTracker 1.4.0): Ref_genome, Sample1, Sample2, APSS,
 Compared_regions. Names are reconciled with `normalise_genome_id` from
@@ -40,7 +46,7 @@ Compared_regions. Names are reconciled with `normalise_genome_id` from
 Usage:
     syntracker_apss_clusters.py \
         --apss avg_synteny_scores_all_regions.csv --apss-subsampled avg_synteny_scores_40_regions.csv \
-        --targets targets.txt --min-apss 0.70,0.75,0.80 --resolutions 0.5,1.0,2.0 --out-prefix B_longum
+        --targets targets.txt --min-apss auto --apss-range 0.01,0.99 --apss-steps 8 --resolutions 0.25,0.5,1.0 --out-prefix B_longum
 """
 
 import argparse
@@ -145,6 +151,18 @@ def renumber(genomes, labels) -> dict:
     return {genome: cid for cid, members in enumerate(ordered, start=1) for genome in members}
 
 
+def auto_floors(apss: pd.Series, low_q: float, high_q: float, steps: int) -> list:
+    """`steps` floors evenly spaced between two percentiles of the APSS values, rounded to 3 decimals, duplicates dropped."""
+    low, high = np.quantile(apss, [low_q, high_q])
+    floors, seen = [], set()
+    for value in np.linspace(low, high, steps):
+        value = round(float(value), 3)
+        if value not in seen:
+            seen.add(value)
+            floors.append((len(floors) + 1, f"{value:.3f}", value))
+    return floors
+
+
 def parse_floats(text: str, name: str) -> list:
     tokens = [t.strip() for t in text.split(",") if t.strip()]
     try:
@@ -170,13 +188,27 @@ def main():
     parser.add_argument("--min-genome-coverage", type=float, default=0.5,
                         help="Exclude targets whose median regions per pair is below this fraction of "
                              "the species median (default 0.5).")
-    parser.add_argument("--min-apss", default="0.75", help="Comma-separated edge-pruning floors (default 0.75).")
+    parser.add_argument("--min-apss", default="auto",
+                        help="Edge-pruning floors: 'auto' (evenly spaced over the species' APSS range, "
+                             "--apss-range / --apss-steps) or comma-separated APSS values (default auto).")
+    parser.add_argument("--apss-range", default="0.01,0.99",
+                        help="With --min-apss auto: the two percentiles of the cleaned APSS values that bound the floors.")
+    parser.add_argument("--apss-steps", type=int, default=8,
+                        help="With --min-apss auto: number of evenly spaced floors (default 8).")
     parser.add_argument("--resolutions", default="1.0", help="Comma-separated Leiden resolutions (default 1.0).")
     parser.add_argument("--seed", type=int, default=42, help="Leiden random seed.")
     parser.add_argument("--out-prefix", required=True, help="Output file prefix.")
     args = parser.parse_args()
 
-    floors = parse_floats(args.min_apss, "--min-apss")
+    auto = args.min_apss.strip().lower() == "auto"
+    if auto:
+        bounds = [q for _, q in parse_floats(args.apss_range, "--apss-range")]
+        if len(bounds) != 2 or not 0 <= bounds[0] < bounds[1] <= 1:
+            sys.exit(f"ERROR: --apss-range must be two increasing percentiles in [0, 1], got '{args.apss_range}'")
+        if args.apss_steps < 1:
+            sys.exit(f"ERROR: --apss-steps must be at least 1, got {args.apss_steps}")
+    else:
+        floors = [(i + 1, token, value) for i, (token, value) in enumerate(parse_floats(args.min_apss, "--min-apss"))]
     resolutions = parse_floats(args.resolutions, "--resolutions")
     if not 0 <= args.min_genome_coverage <= 1:
         sys.exit(f"ERROR: --min-genome-coverage must be in [0, 1], got {args.min_genome_coverage}")
@@ -215,7 +247,13 @@ def main():
     print(f"noise: per-region SD {noise['region_sd']:.3f} ({noise['sd_source']}), "
           f"APSS SE {noise['apss_se']:.4f} at {noise['median_regions']:.0f} regions", file=sys.stderr)
 
-    for t_token, t_value in floors:
+    if auto:
+        floors = auto_floors(pairs["apss"], bounds[0], bounds[1], args.apss_steps)
+    pd.DataFrame([(step, value) for step, _, value in floors], columns=["step", "min_apss"]).to_csv(
+        f"{args.out_prefix}_syntracker_floors.tsv", sep="\t", index=False)
+    print("floors: " + ", ".join(t for _, t, _ in floors), file=sys.stderr)
+
+    for _, t_token, t_value in floors:
         for r_token, r_value in resolutions:
             assignment = renumber(kept, leiden(pairs, kept, t_value, r_value, args.seed))
             model = f"syntracker_leiden_apss{t_token}_r{r_token}"

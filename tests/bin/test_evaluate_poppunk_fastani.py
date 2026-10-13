@@ -620,3 +620,22 @@ def test_cli_apss_requires_the_table(tmp_path):
     proc, _ = run_cli(tmp_path, SIX_SIX, {g: "HQ" for g in SIX_SIX}, extra_args=["--distance", "apss"])
     assert proc.returncode != 0
     assert "--apss" in proc.stderr
+
+
+def test_cli_apss_distant_genome_inside_big_cluster_is_still_ani_separated(tmp_path):
+    # B. longum case: an under-split big cluster holds one ANI-distant genome (a0). Its ANI tail
+    # gap drops to 0, but its ANI still separates it from the small cluster (Cliff's delta large),
+    # so the signal is synteny_and_ani, not synteny_only.
+    cluster_of = {**{f"a{i}": "A" for i in range(9)}, **{f"b{i}": "B" for i in range(3)}}
+    overrides = {("a0", f"a{i}"): 96.0 for i in range(1, 9)}
+    d = tmp_path / "far"
+    d.mkdir()
+    write_apss(d / "avg_synteny_scores_all_regions.csv", cluster_of)
+    proc, out = run_cli(tmp_path, cluster_of, {g: "HQ" for g in cluster_of}, tag="far",
+                        ani_rows=all_vs_all(cluster_of, overrides=overrides),
+                        extra_args=["--distance", "apss", "--apss", str(d / "avg_synteny_scores_all_regions.csv")])
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] in ("Strong", "Moderate")
+    assert tm["ani_separated_fraction"] == 1.0
+    assert tm["signal"] == "synteny_and_ani"

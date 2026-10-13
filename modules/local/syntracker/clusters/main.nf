@@ -20,6 +20,7 @@ process SYNTRACKER_CLUSTERS {
     tuple val(meta), path("*_syntracker_*_clusters.csv")         , emit: clusters
     tuple val(meta), path("*_syntracker_genome_coverage.tsv")    , emit: coverage
     tuple val(meta), path("*_syntracker_noise.tsv")              , emit: noise
+    tuple val(meta), path("*_syntracker_floors.tsv")             , emit: floors
     tuple val("${task.process}"), val('python'), eval("python --version | sed 's/Python //'"), topic: versions, emit: versions_python
     tuple val("${task.process}"), val('python-igraph'), eval("python -c 'import igraph; print(igraph.__version__)'"), topic: versions, emit: versions_igraph
 
@@ -28,7 +29,8 @@ process SYNTRACKER_CLUSTERS {
 
     script:
     // task.ext.args sets the filters and the sweep, e.g.
-    //   `--min-regions 100 --min-genome-coverage 0.4 --min-apss 0.70,0.75 --resolutions 0.25,0.5,1.0 --seed 42`
+    //   `--min-regions 100 --min-genome-coverage 0.4 --min-apss auto --apss-range 0.01,0.99 --apss-steps 8
+    //    --resolutions 0.25,0.5,1.0 --seed 42` (or `--min-apss 0.70,0.75` for fixed floors)
     def args       = task.ext.args ?: ''
     def prefix     = task.ext.prefix ?: "${meta.id}"
     def subsampled = apss_subsampled ? "--apss-subsampled ${apss_subsampled}" : ''
@@ -44,11 +46,13 @@ process SYNTRACKER_CLUSTERS {
     stub:
     def args   = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    // Same file names as the real run: one table per (min_apss, resolution). Targets are spread
-    // over two clusters.
+    // Same file names as the real run: one table per (min_apss, resolution). With `auto` the floors
+    // depend on the data, so the stub uses two fixed ones. Targets are spread over two clusters.
     def tokens = args.tokenize(' ')
     def opt    = { name, fallback -> def i = tokens.indexOf("--${name}".toString()); i >= 0 && i + 1 < tokens.size() ? tokens[i + 1] : fallback }
-    def models = opt.call('min-apss', '0.75').tokenize(',').collectMany { t ->
+    def floors = opt.call('min-apss', 'auto') == 'auto' ? [ '0.800', '0.900' ] : opt.call('min-apss', 'auto').tokenize(',')
+    def floor_rows = floors.withIndex().collect { f, i -> "${i + 1}\\t${f}" }.join('\\n')
+    def models = floors.collectMany { t ->
         opt.call('resolutions', '1.0').tokenize(',').collect { r -> "${prefix}_syntracker_leiden_apss${t}_r${r}" }
     }.join(' ')
     """
@@ -59,6 +63,8 @@ process SYNTRACKER_CLUSTERS {
     done
     printf 'genome\\tmedian_regions\\trelative_coverage\\tstatus\\n' > ${prefix}_syntracker_genome_coverage.tsv
     sort ${targets} | awk 'NF { printf "%s\\t300\\t1.0\\tok\\n", \$0 }' >> ${prefix}_syntracker_genome_coverage.tsv
+    printf 'step\\tmin_apss\\n' > ${prefix}_syntracker_floors.tsv
+    printf '${floor_rows}\\n' >> ${prefix}_syntracker_floors.tsv
     printf 'region_sd\\tmedian_regions\\tapss_se\\tsd_source\\tsubsampled_n\\tn_pairs\\tn_targets\\tn_low_coverage\\n0.226\\t300\\t0.013\\tdefault\\t\\t1\\t2\\t0\\n' > ${prefix}_syntracker_noise.tsv
     """
 }
