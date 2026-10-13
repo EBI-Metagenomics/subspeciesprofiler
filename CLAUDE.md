@@ -133,10 +133,27 @@ Hard-won SynTracker facts (do not relearn them):
 
 Follow-ups (documented, not implemented):
 
-- **Chunked SynTracker runs** (next release): a pair's per-region scores depend only on the two genomes (BLAST hits are filtered per genome; one `FindSynteny` per region), so targets can be split into k chunks, one run per chunk pair Cᵢ ∪ Cⱼ, and the all-regions tables concatenated (duplicated pairs must agree). Never concatenate the subsampled tables (seed-order dependent). Verify first: 20 E. lenta genomes alone must reproduce the 199-genome all-regions APSS exactly.
+- **Chunked SynTracker runs**: the next step, see "Planned work".
 - Edge weights: after pruning, every edge weight lies in `[min_apss, 1]`, so modularity is driven mostly by which edges exist. Rescaling to `(APSS − min_apss)/(1 − min_apss)` restores the dynamic range; planned as a flag, raw APSS stays the default.
 
 ## Planned work (do NOT "clean these up")
+
+- **Next step: chunk the SynTracker targets so every HQ genome is compared, instead of the `--syntracker_max_targets` subset.**
+  - **Why:** SynTracker's cost grows with the square of the targets, so each species is capped at 150 HQ genomes (highest N50 first). The cap distorts the result:
+    - B. fragilis (435 HQ): 21 of the 150 targets lost every clonal partner to the cap, causing about two-thirds of the singletons that made its clonal-level fits Mixed/Weak.
+    - B. longum (422 HQ): the cap thinned the two minority subspecies to 9 and 4 genomes; a smaller group could vanish.
+    - An uncapped single run is ~8× the compute for B. fragilis (≈ 720 core-h, ≈ 45 h on 16 CPUs), past the 24 h task limit.
+  - **Why it is valid:** a pair's per-region scores depend only on the two genomes (BLAST hits are filtered per genome; one DECIPHER `FindSynteny` per region, compared pair by pair), so the all-regions APSS of a pair is the same whatever other targets are in the run.
+  - **Design:**
+    - split the HQ targets into k chunks (`--syntracker_chunk_size`);
+    - one `SYNTRACKER_RUN` per chunk pair Cᵢ ∪ Cⱼ (k(k−1)/2 jobs, same reference in all);
+    - concatenate the **all-regions** tables, asserting that pairs computed in several jobs agree, then de-duplicate.
+
+    Total compute ≈ 2(k−1)/k × one big run; wall time falls ≈ k²/4 when the jobs run in parallel. The cap then becomes a safety limit only.
+
+  - **Never concatenate the subsampled `avg_synteny_scores_<n>_regions.csv` tables:** SynTracker's `set.seed(1)` + `sample_n` over the sorted table makes a pair's draw depend on every pair before it. This affects the noise estimate (`*_noise.tsv`, currently from the 40-region table): take it from one chunk, or compute it from the per-region tables.
+  - **Verify first:** run ~20 E. lenta genomes alone against the same reference; their all-regions APSS must match the existing 199-genome run exactly (`spp_dev/syntracker/e_lenta/syntracker_results`).
+  - **Then:** re-run B. fragilis uncapped and check whether its clonal-level fits move from Mixed to Moderate, like PopPUNK's.
 
 - **`checkm2/predict`** is installed in `modules.json` but unwired _on purpose_. It will be wired behind a flag that generates completeness/contamination when the samplesheet's `qc_csv` is absent. Separate task, not yet started.
 
