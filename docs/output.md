@@ -11,6 +11,7 @@ The directories listed below will be created in the results directory after the 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
 - [Species eligibility](#species-eligibility) - Per-species QC classification and a combined cross-species report
+- [ANI overview](#ani-overview) - Per-species figure: pairwise ANI histogram and clustered ANI heatmap
 - [Subspecies clustering](#subspecies-clustering) - PopPUNK database, model sweep, FastANI evaluation and per-model report
 - [SynTracker](#syntracker) - Synteny-based clustering, an independent signal scored like the PopPUNK fits
 - [MultiQC](#multiqc) - Aggregate subspecies dashboard for the whole run
@@ -22,6 +23,7 @@ Results are organised **species-first**: each species in the samplesheet gets it
 <outdir>/
 ├── species_eligibility_report.tsv        # combined eligibility, one row per species
 ├── <species>/
+│   ├── <species>_ani_overview.{png,pdf,tsv}  # ANI histogram + clustered ANI heatmap
 │   ├── speciesqc/                         # this species' eligibility report + QC classification
 │   ├── poppunk/
 │   │   ├── <species>_model_report.tsv     # every PopPUNK model tried + its verdict
@@ -51,6 +53,21 @@ Results are organised **species-first**: each species in the samplesheet gets it
 </details>
 
 Each species' genome QC table is classified into HQ / MQ genomes and assigned a subspecies-clustering eligibility label. Only species whose label is kept by `--qc_filter` continue to clustering.
+
+### ANI overview
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `<species>/<species>_ani_overview.png` (200 dpi) and `.pdf` (vector): one figure with two panels side by side.
+- `<species>/<species>_ani_overview.tsv`: `n_genomes`, `n_pairs`, `n_missing_pairs`, `ani_min`, `ani_median`, `ani_max` and `colour_min` (the bottom of the heatmap colour scale), ANI in %.
+
+</details>
+
+A first look at a species' population structure, drawn from the all-vs-all FastANI of its HQ and MQ genomes (`poppunk/fastani/`), before any model is fitted:
+
+- **Left, pairwise ANI histogram:** one count per genome pair (the two FastANI directions averaged), in 0.1% bins, with a black kernel density estimate. A single mode means a continuum of relatedness; separate modes mean discrete groups, e.g. the low-ANI mode of the between-group pairs when a species has subspecies.
+- **Right, clustered ANI heatmap:** ANI between every pair of genomes, rows and columns ordered by UPGMA hierarchical clustering on 100 − ANI, with the dendrograms on top and left. Blocks along the diagonal are groups of closely related genomes. A strip beside the heatmap marks each genome HQ or MQ, to show whether MQ genomes fall on their own branches. Pairs FastANI did not report (it reports nothing below about 80% ANI) are grey, counted in the title, and treated as the most distant observed pair for the clustering. Genome names are shown up to 50 genomes.
 
 ### Subspecies clustering
 

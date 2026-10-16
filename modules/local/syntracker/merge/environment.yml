@@ -1,0 +1,15 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # Shared by syntracker/select, syntracker/merge and syntracker/clusters (one Seqera image): pandas (+numpy),
+  # python-igraph (Leiden). pandas < 3: evaluate_poppunk_fastani.py, imported by both scripts,
+  # breaks under pandas 3's copy-on-write. procps-ng gives Nextflow `ps` (linux-only package).
+  # matplotlib-base is in the image but currently unused; kept so this file matches the image.
+  - "conda-forge::matplotlib-base=3.10.0"
+  - "conda-forge::pandas=2.2.0"
+  - "conda-forge::procps-ng=4.0.6"
+  - "conda-forge::python-igraph=1.0.0"
+  - "conda-forge::python=3.12.0"

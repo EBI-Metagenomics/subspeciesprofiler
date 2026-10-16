@@ -1,0 +1,137 @@
+name: "ani_plot"
+description: |
+  Per-species ANI overview with bin/plot_ani.py: one figure with, side by side, a histogram of
+  the pairwise ANI (%) of every genome pair with a black kernel density estimate, and a heatmap
+  of ANI between genomes ordered by UPGMA hierarchical clustering (100 - ANI), with dendrograms
+  and an HQ/MQ strip. Pairs FastANI did not report (below ~80% ANI) are drawn grey and counted.
+keywords:
+  - ani
+  - fastani
+  - heatmap
+  - hierarchical clustering
+  - visualisation
+tools:
+  - "matplotlib":
+      description: "Plotting library used to draw the figure."
+      homepage: "https://matplotlib.org/"
+      documentation: "https://matplotlib.org/stable/"
+      licence: ["PSF-based"]
+      identifier: ""
+  - "scipy":
+      description: "Kernel density estimate and UPGMA hierarchical clustering."
+      homepage: "https://scipy.org/"
+      documentation: "https://docs.scipy.org/doc/scipy/"
+      licence: ["BSD-3-Clause"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
+    - ani:
+        type: file
+        description: All-vs-all FastANI output of the species (percent ANI, tab-separated, no header).
+        pattern: "*.ani.txt"
+        ontologies: []
+    - labels:
+        type: file
+        description: |
+          SPECIESQC `genome,label` table (HQ/MQ), for the strip beside the heatmap. Pass `[]` to
+          draw every genome as "other".
+        pattern: "*_labels.csv"
+        ontologies: []
+
+output:
+  png:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_overview.png":
+          type: file
+          description: The figure (histogram + clustered heatmap), 200 dpi.
+          pattern: "*_ani_overview.png"
+          ontologies: []
+  pdf:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_overview.pdf":
+          type: file
+          description: The same figure, vector.
+          pattern: "*_ani_overview.pdf"
+          ontologies: []
+  summary:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_overview.tsv":
+          type: file
+          description: |
+            n_genomes, n_pairs, n_missing_pairs, ani_min, ani_median, ani_max and colour_min (ANI in %).
+          pattern: "*_ani_overview.tsv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+  versions_matplotlib:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "matplotlib":
+          type: string
+          description: The name of the tool
+      - "python -c 'import matplotlib; print(matplotlib.__version__)'":
+          type: eval
+          description: The expression to obtain the version of the tool
+  versions_scipy:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "scipy":
+          type: string
+          description: The name of the tool
+      - "python -c 'import scipy; print(scipy.__version__)'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - matplotlib:
+          type: string
+          description: The name of the tool
+      - python -c 'import matplotlib; print(matplotlib.__version__)':
+          type: eval
+          description: The expression to obtain the version of the tool
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - scipy:
+          type: string
+          description: The name of the tool
+      - python -c 'import scipy; print(scipy.__version__)':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

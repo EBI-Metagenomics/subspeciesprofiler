@@ -6,6 +6,7 @@
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
 include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
 include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
+include { ANI_PLOT               } from '../modules/local/ani/plot/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -89,6 +90,17 @@ workflow SUBSPECIESPROFILER {
         [ meta, files("${genomes_dir}/*", checkIfExists: true), rfile, labels ]
     }
     POPPUNK_METHODS( ch_poppunk_in )
+
+    //
+    // MODULE: per-species ANI overview (pairwise ANI histogram + UPGMA-clustered ANI heatmap with
+    // an HQ/MQ strip), from the all-vs-all FastANI that POPPUNK_METHODS computes.
+    //
+    ANI_PLOT(
+        POPPUNK_METHODS.out.ani
+            .map { meta, ani -> [ meta.id, meta, ani ] }
+            .join( ch_poppunk_in.map { meta, genomes, rfile, labels -> [ meta.id, labels ] } )
+            .map { id, meta, ani, labels -> [ meta, ani, labels ] }
+    )
 
     //
     // SUBWORKFLOW: SynTracker (synteny), an independent non-PopPUNK signal. Its clusterings are
