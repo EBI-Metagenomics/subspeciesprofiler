@@ -36,9 +36,11 @@ process SYNTRACKER_SELECT {
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
-    // Reference = the first genome of the stats table, every genome a target.
+    // Reference = the first genome of the stats table, every genome a target. The seqkit stub
+    // writes an empty table, so fall back to the FastANI genomes, then to two fixed names.
     """
     tail -n +2 ${stats} | cut -f1 | sed 's#.*/##' > files.txt
+    if [ ! -s files.txt ]; then cut -f1 ${ani} | sed 's#.*/##' | awk 'NF && !seen[\$0]++' >| files.txt; fi
     if [ ! -s files.txt ]; then printf 'genome1.fna.gz\\ngenome2.fna.gz\\n' >| files.txt; fi
     head -n 1 files.txt > ${prefix}_syntracker_reference.txt
     cp files.txt ${prefix}_syntracker_targets.txt

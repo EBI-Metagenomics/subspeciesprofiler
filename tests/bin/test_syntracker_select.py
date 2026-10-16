@@ -3,7 +3,7 @@ Tests for bin/syntracker_select.py (SynTracker reference and target choice).
 
 Pins: the reference is the most central HQ genome (mean FastANI) among those with N50 above the
 floor; with none above it, the highest-N50 genome; targets are every HQ genome, the highest-N50
-ones first when capped, the reference always kept.
+ones first when capped (0 = no cap), the reference always kept.
 
 Run with:  python3 -m pytest tests/bin/test_syntracker_select.py
 """
@@ -87,6 +87,24 @@ def test_cap_keeps_reference_and_highest_n50(tmp_path):
     assert roles["hub"] == "reference" and roles["c"] == "capped" and roles["d"] == "capped"
     assert list(out["table"]["role"]) == ["reference", "target", "target", "capped", "capped"]
     assert "leaving 2 out" in proc.stderr
+
+
+def test_max_targets_zero_keeps_every_genome(tmp_path):
+    n50 = {"hub": 150_000, "a": 900_000, "b": 800_000, "c": 700_000, "d": 10_000}
+    write_inputs(tmp_path, n50, star("hub", ["a", "b", "c", "d"]))
+    proc, out = run(tmp_path, "--min-n50", "100000", "--max-targets", "0")
+    assert proc.returncode == 0, proc.stderr
+    # reference first, then by N50; nobody capped and no warning
+    assert out["targets"] == ["hub.fna.gz", "a.fna.gz", "b.fna.gz", "c.fna.gz", "d.fna.gz"]
+    assert "capped" not in set(out["table"]["role"])
+    assert "WARNING" not in proc.stderr
+
+
+def test_max_targets_one_is_an_error(tmp_path):
+    write_inputs(tmp_path, {"a": 500_000, "b": 400_000}, {("a", "b"): 99.0})
+    proc, _ = run(tmp_path, "--max-targets", "1")
+    assert proc.returncode != 0
+    assert "--max-targets" in proc.stderr
 
 
 def test_fewer_than_two_genomes_is_an_error(tmp_path):

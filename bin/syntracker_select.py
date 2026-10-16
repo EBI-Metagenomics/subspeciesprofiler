@@ -14,9 +14,11 @@ that loss evenly across lineages instead of penalising every lineage but its own
 N50 floor keeps a fragmented genome from being chosen. If no genome passes the floor,
 the genome with the highest N50 is used, with a warning.
 
-Targets: every HQ genome, the reference included. Above --max-targets (SynTracker's cost
-grows with the square of the targets), the genomes with the highest N50 are kept: contig
-breaks remove regions and bias APSS, and the reference is always kept.
+Targets: every HQ genome, the reference included, the reference first and then by N50
+(highest first). --max-targets 0 (the pipeline default) keeps them all: the pipeline splits
+large target sets into chunks (see subworkflows/local/syntracker_methods). Above a positive
+--max-targets, the genomes with the highest N50 are kept: contig breaks remove regions and
+bias APSS, and the reference is always kept.
 
 Outputs (`<p>` = --out-prefix), genomes named by their file names:
   <p>_syntracker_reference.txt   the reference file name
@@ -25,7 +27,7 @@ Outputs (`<p>` = --out-prefix), genomes named by their file names:
 
 Usage:
     syntracker_select.py --ani fastani.txt --stats seqkit_stats.tsv \
-        --min-n50 100000 --max-targets 150 --out-prefix B_longum
+        --min-n50 100000 --max-targets 0 --out-prefix B_longum
 """
 
 import argparse
@@ -83,8 +85,8 @@ def select(stats: pd.DataFrame, cent: pd.Series, min_n50: int, max_targets: int)
 
     by_n50 = table.sort_values(["N50", "genome"], ascending=[False, True])["genome"].tolist()
     ordered = [reference] + [g for g in by_n50 if g != reference]
-    targets = ordered[:max_targets]
-    if len(ordered) > max_targets:
+    targets = ordered[:max_targets] if max_targets else ordered
+    if len(targets) < len(ordered):
         print(f"WARNING: {len(ordered)} HQ genomes > --max-targets ({max_targets}); SynTracker runs on the "
               f"{max_targets} with the highest N50, leaving {len(ordered) - max_targets} out.", file=sys.stderr)
 
@@ -100,11 +102,11 @@ def main():
     parser.add_argument("--ani", required=True, help="All-vs-all FastANI output (percent ANI).")
     parser.add_argument("--stats", required=True, help="seqkit stats --all --tabular of the HQ genomes.")
     parser.add_argument("--min-n50", type=int, default=100000, help="Minimum N50 of the reference (default 100000).")
-    parser.add_argument("--max-targets", type=int, default=150, help="Maximum number of targets (default 150).")
+    parser.add_argument("--max-targets", type=int, default=0, help="Maximum number of targets; 0 = no cap (default 0).")
     parser.add_argument("--out-prefix", required=True, help="Output prefix.")
     args = parser.parse_args()
-    if args.max_targets < 2:
-        sys.exit("ERROR: --max-targets must be at least 2")
+    if args.max_targets == 1 or args.max_targets < 0:
+        sys.exit("ERROR: --max-targets must be 0 (no cap) or at least 2")
 
     stats = read_stats(args.stats)
     if len(stats) < 2:

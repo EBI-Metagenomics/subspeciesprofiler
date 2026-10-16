@@ -94,7 +94,7 @@
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Synteny-based clustering with SynTracker, an independent signal scored alongside the PopPUNK fits.",
-            "help_text": "For each species, the SynTracker reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those with N50 >= `--syntracker_ref_min_n50`; every HQ genome is a target (highest N50 first when capped). SynTracker scores every target pair by synteny (APSS, all regions). Pairs on fewer than `--syntracker_min_regions` regions and low-coverage genomes are left out; the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored in APSS space (gap margin = 2x the APSS standard error) and in ANI space (concordance), and reported as a `syntracker_leiden_apss<t>_r<res>` row in the species' SynTracker model report.",
+            "help_text": "For each species, the SynTracker reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those with N50 >= `--syntracker_ref_min_n50`; every HQ genome is a target (uncapped by default). SynTracker scores every target pair by synteny (APSS, all regions), in chunk pairs for large species, merged into one table. Pairs on fewer than `--syntracker_min_regions` regions and low-coverage genomes are left out; the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored in APSS space (gap margin = 2x the APSS standard error) and in ANI space (concordance), and reported as a `syntracker_leiden_apss<t>_r<res>` row in the species' SynTracker model report.",
             "properties": {
                 "skip_syntracker": {
                     "type": "boolean",
@@ -103,11 +103,19 @@
                 },
                 "syntracker_max_targets": {
                     "type": "integer",
-                    "default": 150,
-                    "minimum": 2,
-                    "description": "Maximum number of HQ genomes passed to SynTracker as targets.",
-                    "help_text": "SynTracker's cost grows with the square of the number of targets: about 40-85 core-hours at 150 targets (B. longum, B. fragilis), about 8x that for B. fragilis's 435 HQ genomes. The genomes with the highest N50 are kept (the reference always is); the others are left out of the SynTracker clusterings, with a warning. Capping can split clonal groups: in B. fragilis, 21 of 150 targets lost every clonal partner to the cap.",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Maximum number of HQ genomes passed to SynTracker as targets (0 = no cap).",
+                    "help_text": "By default every HQ genome is a target, and large target sets run in chunk pairs (`--syntracker_chunk_size`). A positive value keeps only the genomes with the highest N50 (the reference always is), with a warning; it must then be at least 2. Capping can split clonal groups: in B. fragilis, 21 of 150 targets lost every clonal partner to a 150 cap.",
                     "fa_icon": "fas fa-compress-arrows-alt"
+                },
+                "syntracker_chunk_size": {
+                    "type": "integer",
+                    "default": 75,
+                    "minimum": 2,
+                    "description": "Number of targets per chunk when SynTracker runs in chunk pairs.",
+                    "help_text": "SynTracker's cost grows with the square of the number of targets (about 40 core-hours at 150). Above 2x this many targets, they are split into k chunks and SynTracker runs once per chunk pair (k(k-1)/2 jobs of at most 2x this many targets, same reference); the all-regions APSS tables are then merged. A pair's all-regions APSS does not depend on the other targets in the run, so the result equals one big run. B. fragilis's 435 HQ genomes: 6 chunks, 15 jobs.",
+                    "fa_icon": "fas fa-th-large"
                 },
                 "syntracker_ref_min_n50": {
                     "type": "integer",
