@@ -1,13 +1,8 @@
-<h1>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/nf-core-subspeciesprofiler_logo_dark.png">
-    <img alt="ebi-metagenomics/subspeciesprofiler" src="docs/images/nf-core-subspeciesprofiler_logo_light.png">
-  </picture>
-</h1>
+# ebi-metagenomics/subspeciesprofiler
 
 [![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/ebi-metagenomics/subspeciesprofiler)
 [![GitHub Actions CI Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/nf-test.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://github.com/ebi-metagenomics/subspeciesprofiler)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![GitHub Actions Linting Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://github.com/ebi-metagenomics/subspeciesprofiler)
 [![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
 
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
@@ -125,10 +120,6 @@ no subspecies structure), see the
 
 ebi-metagenomics/subspeciesprofiler was originally written by Alejandra Escobar.
 
-We thank the following people for their extensive assistance in the development of this pipeline:
-
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
-
 ## Contributions and Support
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
@@ -136,11 +127,6 @@ If you would like to contribute to this pipeline, please see the [contributing g
 For further information or help, don't hesitate to get in touch on the [Slack `#subspeciesprofiler` channel](https://github.com/ebi-metagenomics/subspeciesprofiler/issues) (you can join with [this invite](https://nf-co.re/join/slack)).
 
 ## Citations
-
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use ebi-metagenomics/subspeciesprofiler for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
-
-<!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
 

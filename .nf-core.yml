@@ -3,6 +3,11 @@ repository_type: pipeline
 nf_core_version: 3.6.0.dev0
 
 lint:
+  # The nf-core template logos were removed: this is not an nf-core pipeline.
+  files_exist:
+    - assets/nf-core-subspeciesprofiler_logo_light.png
+    - docs/images/nf-core-subspeciesprofiler_logo_light.png
+    - docs/images/nf-core-subspeciesprofiler_logo_dark.png
   # This pipeline is published under the ebi-metagenomics org, so the boilerplate files
   # that carry the pipeline's identity necessarily diverge from the nf-core template.
   files_unchanged:

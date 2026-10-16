@@ -159,8 +159,7 @@ Follow-ups (documented, not implemented):
 
 ## Known loose ends
 
-- Test data is a local fixture (`tests/fixtures/`, `conf/test.config`). Now that this isn't an nf-core pipeline it no longer _needs_ to move to nf-core/test-datasets, but `conf/test.config` still carries a TODO saying it should, and `tests/nextflow.config` points `pipelines_testdata_base_path` at a `subspeciesprofiler` branch the fixtures don't use.
+- Test data is a local fixture (`tests/fixtures/`, `conf/test.config`). Now that this isn't an nf-core pipeline it does not need to move to nf-core/test-datasets, but `tests/nextflow.config` still points `pipelines_testdata_base_path` at a `subspeciesprofiler` branch the fixtures don't use.
 - `ro-crate-metadata.json` is generated — `nf-core pipelines lint` refreshes its README snapshot automatically. Never hand-edit it.
-- Logo assets are still named `nf-core-subspeciesprofiler_logo_*.png` (in `assets/` and `docs/images/`) and referenced by that name from `README.md`. Renaming needs new artwork, so it was left alone.
-- Template `TODO nf-core:` markers remain in `README.md`, `conf/base.config`, `conf/test_full.config`, `docs/usage.md`, `assets/methods_description_template.yml` and the `toolCitationText`/`toolBibliographyText` stubs in the local utils subworkflow. They need real content, not deletion.
+- The nf-core logo images and the template `TODO nf-core:` markers were removed on purpose (2026-10-16); the completion email has no inline logo. Don't restore them. `conf/test_full.config` still holds the template's placeholder input (viralrecon) and `genome`, not real full-size test data.
 - `bin/spp_species_eligibility.py` (GTDB/RefSeq-wide species screening) is not called by any module; it's an upstream/offline companion to `spp_eligibility_from_qc.py`.
