@@ -9,7 +9,9 @@
 // Every fit -- swept or refined -- is scored against FastANI, then ranked.
 //
 // Every fit the evaluator rates Strong or Moderate additionally gets Microreact
-// visualisations, for manual inspection and selection among the worthy models.
+// visualisations, for manual inspection and selection among the worthy models. They start as
+// soon as that fit is evaluated: the gate is the fit's own tool_status, so they do not wait for
+// the species' ranking (which needs every fit) nor for other species.
 //
 // Lineage is deliberately absent: it clusters *within* a strain (sub-sub-
 // clustering), which is a different question from subspecies structure.
@@ -117,19 +119,25 @@ workflow POPPUNK_METHODS {
     // ---- Final selection over the swept + dbscan-refined fits ----
     ch_tool_metrics = POPPUNK_EVALUATE.out.tool_metrics
         .mix( POPPUNK_EVALUATE_DBSCAN_REFINE.out.tool_metrics )
-    ch_ranked = ch_tool_metrics
+    ch_metric_rows = ch_tool_metrics
         .splitCsv( header: true, sep: '\t' )
         .map { meta, row -> [ meta.id, row ] }
-        .groupTuple()
+    // The ranking needs all of a species' fits. Failed fits are dropped (ignored), so the number to
+    // expect is not known in advance, and the grouping waits for every evaluation to finish. Only
+    // the accepted / best-model outputs (MultiQC) depend on it; the Microreact visuals do not.
+    ch_ranked = ch_metric_rows.groupTuple()
 
     // Report ALL accepted models (decision == ACCEPT) -- if several fits are Strong, all are kept.
     ch_accepted = ch_ranked.map { id, rows -> [ id, rows.findAll { it.decision == 'ACCEPT' } ] }
 
     // The single best-ranked fit (tool_status, then HQ structure score) -- the fallback when nothing
     // is accepted.
+    // `rows` is the same list object that ch_accepted iterates on another thread: sort a copy
+    // (sort(false)). An in-place sort here raced with ch_accepted's findAll and aborted the
+    // 2026-10-19 Codon run with a ConcurrentModificationException.
     ch_best = ch_ranked.map { id, rows ->
         def order = [ 'Strong': 3, 'Moderate': 2, 'Mixed': 1, 'Weak': 0 ]
-        def best = rows.sort { a, b ->
+        def best = rows.sort(false) { a, b ->
             def sa = (a.tool_structure_score_HQ ?: '').isNumber() ? a.tool_structure_score_HQ.toDouble() : -1d
             def sb = (b.tool_structure_score_HQ ?: '').isNumber() ? b.tool_structure_score_HQ.toDouble() : -1d
             ((order[b.tool_status] ?: -1) <=> (order[a.tool_status] ?: -1)) ?: (sb <=> sa)
@@ -140,23 +148,23 @@ workflow POPPUNK_METHODS {
     // ---- Microreact visuals for every model worth inspecting ----
     // The evaluator's `decision` is deliberately not used here: it is ACCEPT only for Strong,
     // whereas the point of these visuals is to eyeball and choose among ALL the credible models.
-    // So the gate is `tool_status` in (Strong, Moderate).
-    ch_viz_wanted = ch_ranked
-        .flatMap { id, rows ->
-            rows.findAll { it.tool_status in [ 'Strong', 'Moderate' ] }.collect { [ id, it.model ] }
-        }
+    // So the gate is `tool_status` in (Strong, Moderate), read per fit as soon as it is evaluated.
+    ch_viz_wanted = ch_metric_rows
+        .filter { id, row -> row.tool_status in [ 'Strong', 'Moderate' ] }
+        .map { id, row -> [ [ id.toString(), row.model.toString() ], id ] }
 
-    // Pair each wanted model name with its own fit directory (swept or dbscan-refined) and the
-    // species' QC'd db. Same combine + filter idiom used elsewhere to rejoin a model name to its dir.
+    // Pair each wanted model with its own fit directory (swept or dbscan-refined), keyed on
+    // (species, model), and with the species' QC'd db. Keys are plain Strings: meta.model is often
+    // a GString, which `join` (hash-based) would not match to the same text read from the TSV.
     ch_fit_dirs = POPPUNK_FITMODEL.out.model
         .mix( POPPUNK_REFINE_DBSCAN.out.model )
-        .map { meta, dir -> [ meta.id, meta.model, dir ] }
+        .map { meta, dir -> [ [ meta.id.toString(), meta.model.toString() ], dir ] }
 
     ch_viz_in = ch_viz_wanted
-        .combine( ch_fit_dirs, by: 0 )
-        .filter { id, wanted, candidate, dir -> wanted == candidate }
+        .join( ch_fit_dirs )
+        .map { key, id, dir -> [ id, key[1], dir ] }
         .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
-        .map { id, wanted, candidate, dir, meta, db -> [ meta + [ model: wanted ], db, dir ] }
+        .map { id, model, dir, meta, db -> [ meta + [ model: model ], db, dir ] }
     POPPUNK_VISUALISE( ch_viz_in )
 
 

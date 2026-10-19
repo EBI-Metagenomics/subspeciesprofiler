@@ -82,7 +82,7 @@
                 },
                 "poppunk_dbscan_min_cluster_prop": {
                     "type": "string",
-                    "default": "0.001,0.005,0.01,0.02",
+                    "default": "0.001,0.005,0.01",
                     "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
                     "description": "Comma-separated min-cluster-prop values for the DBSCAN sweep.",
                     "fa_icon": "fas fa-list-ol"
