@@ -1,16 +1,7 @@
-# ebi-metagenomics/subspeciesprofiler
+# Subspecies Profiler Pipeline (SPP)
 
-[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/ebi-metagenomics/subspeciesprofiler)
-[![GitHub Actions CI Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/nf-test.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://github.com/ebi-metagenomics/subspeciesprofiler)
-[![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
+<img src="media/cluster_scoring_components.png" align="right" width="235" alt="Cluster scoring components">
 
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
-[![nf-core template version](https://img.shields.io/badge/nf--core_template-3.6.0.dev0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.6.0.dev0)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
-[![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
-[![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/ebi-metagenomics/subspeciesprofiler)
 
 ## Introduction
 
@@ -36,12 +27,6 @@ Outputs are a per-species set of PopPUNK databases, fitted models (with diagnost
 
 <p align="center" width="100%">
    <img src="media/spp_methods.png" width="90%"/>
-</p>
-
-### Cluster scoring components
-
-<p align="center" width="100%">
-   <img src="media/cluster_scoring_components.png" width="90%"/>
 </p>
 
 
@@ -130,7 +115,6 @@ Results are organised per species under `<outdir>/`:
 | `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `poppunk_network_score`, `tool_status`, scores, `decision`, `eval_summary`) plus per-cluster and per-genome metrics.     |
 | `<species>/syntracker/`               | SynTracker branch: reference/target selection, APSS tables, one `Taxon,Cluster` table per APSS floor × resolution, their APSS/ANI evaluations and the SynTracker model report. |
 
-To see the results of an example test run with a full size dataset refer to the [results](https://github.com/ebi-metagenomics/subspeciesprofiler) tab on the nf-core website pipeline page.
 For more details about the output files and reports, please refer to the
 [output documentation](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/output.md).
 For how to read the per-species model report and choose a model (or conclude a species has
@@ -145,16 +129,8 @@ ebi-metagenomics/subspeciesprofiler was originally written by Alejandra Escobar.
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
 
-For further information or help, don't hesitate to get in touch on the [Slack `#subspeciesprofiler` channel](https://github.com/ebi-metagenomics/subspeciesprofiler/issues) (you can join with [this invite](https://nf-co.re/join/slack)).
 
 ## Citations
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
 
-You can cite the `nf-core` publication as follows:
-
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
