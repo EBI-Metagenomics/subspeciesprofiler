@@ -1,0 +1,7 @@
+"Ref_genome","Sample1","Sample2","APSS","Compared_regions"
+"ref","g1","g2",0.95,200
+"ref","g1","g3",0.70,200
+"ref","g1","g4",0.71,200
+"ref","g2","g3",0.69,200
+"ref","g2","g4",0.70,200
+"ref","g3","g4",0.94,200

@@ -1,0 +1,93 @@
+{
+    "syntracker merge - three chunk pairs": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "avg_synteny_scores_all_regions.csv:md5,c24c429774dbfec445105117400bb846"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_syntracker_merge.tsv:md5,fb68dd52e9cde61f3631b8759600f523"
+                ]
+            ],
+            {
+                "versions_python": [
+                    [
+                        "SYNTRACKER_MERGE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-16T12:06:56.377488"
+    },
+    "syntracker merge - three chunk pairs - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "avg_synteny_scores_all_regions.csv:md5,aa92aaaa4281f4dae1e2d5a340f9e4c8"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_merge.tsv:md5,e17e999da31a62e19d12efdc05b6849c"
+                    ]
+                ],
+                "2": [
+                    [
+                        "SYNTRACKER_MERGE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "apss": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "avg_synteny_scores_all_regions.csv:md5,aa92aaaa4281f4dae1e2d5a340f9e4c8"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_merge.tsv:md5,e17e999da31a62e19d12efdc05b6849c"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_MERGE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-16T12:07:04.120704"
+    }
+}

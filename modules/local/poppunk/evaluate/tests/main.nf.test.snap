@@ -7,7 +7,7 @@
                         "id": "test",
                         "model": "bgmm_test"
                     },
-                    "test.tool_metrics.tsv:md5,9d4423217d7e6fb06e2cd05b045a8a20"
+                    "test.tool_metrics.tsv:md5,3096445ac0a2a9ba8aa6af916708afa8"
                 ]
             ],
             [
@@ -42,7 +42,43 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-10T09:48:24.693378"
+        "timestamp": "2026-09-28T15:09:30.530743"
+    },
+    "evaluate clusters - apss": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "syntracker_leiden_apss0.75_r0.5"
+                    },
+                    "test.tool_metrics.tsv:md5,a50ab33392e038abda1f67b6fe62fdf7"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "syntracker_leiden_apss0.75_r0.5"
+                    },
+                    "test.cluster_metrics.tsv:md5,fc25f5d878117c8731e25e846b11dc76"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "model": "syntracker_leiden_apss0.75_r0.5"
+                    },
+                    "test.genome_metrics.tsv:md5,739cafb7c6b7f62000d940241f051f4f"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-09T14:18:28.167162"
     },
     "evaluate clusters - fastani - stub": {
         "content": [
@@ -53,7 +89,7 @@
                             "id": "test",
                             "model": "bgmm_test"
                         },
-                        "test.tool_metrics.tsv:md5,e7c555ab2fb91cbdfd729a039f44f46d"
+                        "test.tool_metrics.tsv:md5,7f943fdabdb2f94a80d3ea847a95be51"
                     ]
                 ],
                 "1": [
@@ -105,7 +141,7 @@
                             "id": "test",
                             "model": "bgmm_test"
                         },
-                        "test.tool_metrics.tsv:md5,e7c555ab2fb91cbdfd729a039f44f46d"
+                        "test.tool_metrics.tsv:md5,7f943fdabdb2f94a80d3ea847a95be51"
                     ]
                 ],
                 "versions_python": [
@@ -121,6 +157,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-07-10T10:15:01.855429"
+        "timestamp": "2026-09-28T15:09:34.298745"
     }
 }

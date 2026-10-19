@@ -5,6 +5,8 @@
 */
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
 include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
+include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
+include { ANI_PLOT               } from '../modules/local/ani/plot/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -46,25 +48,28 @@ workflow SUBSPECIESPROFILER {
         )
 
     //
-    // Keep only species whose eligibility label is in --qc_filter, folding the
-    // label onto meta so it travels downstream. Join is keyed on meta.id because
-    // adding spp_label changes the meta map.
+    // Keep only species whose eligibility label is in --qc_filter, folding the label and the
+    // post-QC genome count onto meta so they travel downstream. Join is keyed on meta.id
+    // because adding fields changes the meta map.
     //
     def qc_keep = params.qc_filter.tokenize(',')
 
-    def ch_spp_label = SPECIESQC.out.report
+    // n_total_passing_qc is n_hq + n_mq: exactly the genomes written to the r-file and handed to
+    // POPPUNK_CREATEDB, so it is the right count for the BGMM size gate in POPPUNK_METHODS.
+    // (n_eff is a weighted HQ/MQ score, not a genome count -- don't use it here.)
+    def ch_spp_info = SPECIESQC.out.report
         .splitCsv(header: true, sep: '\t')
-        .map { meta, row -> [ meta.id, row.spp_label ] }
+        .map { meta, row -> [ meta.id, [ spp_label: row.spp_label, n_genomes: row.n_total_passing_qc as Integer ] ] }
     def ch_rfile  = SPECIESQC.out.rfile.map  { meta, rf -> [ meta.id, rf ] }
     def ch_labels = SPECIESQC.out.labels.map { meta, lb -> [ meta.id, lb ] }
 
     ch_samplesheet
         .map { meta, genomes_dir, qc_csv -> [ meta.id, meta, genomes_dir ] }
-        .join(ch_spp_label)
+        .join(ch_spp_info)
         .join(ch_rfile)
         .join(ch_labels)
-        .map { id, meta, genomes_dir, label, rfile, labels ->
-            [ meta + [ spp_label: label ], genomes_dir, rfile, labels ]
+        .map { id, meta, genomes_dir, spp_info, rfile, labels ->
+            [ meta + spp_info, genomes_dir, rfile, labels ]
         }
         .branch { meta, genomes_dir, rfile, labels ->
             pass: meta.spp_label in qc_keep
@@ -86,13 +91,42 @@ workflow SUBSPECIESPROFILER {
     }
     POPPUNK_METHODS( ch_poppunk_in )
 
-    // Per-species model report (Phase-4 "profiler history"): append every fitted model's
-    // verdict into one table under that species' poppunk directory. collectFile reads each
-    // per-fit tool_metrics by content, so the identical filenames across fits don't collide.
-    POPPUNK_METHODS.out.tool_metrics
-        .collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
-            [ "${meta.id}/poppunk/${meta.id}_model_report.tsv", tsv ]
+    //
+    // MODULE: per-species ANI overview (pairwise ANI histogram + UPGMA-clustered ANI heatmap with
+    // an HQ/MQ strip), from the all-vs-all FastANI that POPPUNK_METHODS computes.
+    //
+    ANI_PLOT(
+        POPPUNK_METHODS.out.ani
+            .map { meta, ani -> [ meta.id, meta, ani ] }
+            .join( ch_poppunk_in.map { meta, genomes, rfile, labels -> [ meta.id, labels ] } )
+            .map { id, meta, ani, labels -> [ meta, ani, labels ] }
+    )
+
+    //
+    // SUBWORKFLOW: SynTracker (synteny), an independent non-PopPUNK signal. Its clusterings are
+    // scored by the same evaluator, so they join the PopPUNK fits in the model report.
+    //
+    // Per-species model reports (Phase-4 "profiler history"): every fitted model's verdict, one
+    // table per branch, since PopPUNK fits (scored in ANI space) and SynTracker clusterings (scored
+    // in APSS space, with ANI concordance) have different columns. collectFile reads each per-fit
+    // tool_metrics by content, so identical filenames across fits don't collide. The evaluator's
+    // `decision` column is dropped: it only drives control flow (ch_accepted, the MultiQC
+    // best-model table) and would duplicate tool_status in the report.
+    def model_report = { ch, branch, suffix ->
+        ch.collectFile(keepHeader: true, skip: 1, sort: true, storeDir: params.outdir) { meta, tsv ->
+            def rows = tsv.readLines().collect { it.split('\t', -1) as List }
+            def drop = rows[0].indexOf('decision')
+            if ( drop >= 0 ) {
+                rows.each { it.remove(drop as int) }
+            }
+            [ "${meta.id}/${branch}/${meta.id}_${suffix}.tsv", rows*.join('\t').join('\n') + '\n' ]
         }
+    }
+    model_report.call( POPPUNK_METHODS.out.tool_metrics, 'poppunk', 'model_report' )
+    if ( !params.skip_syntracker ) {
+        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani )
+        model_report.call( SYNTRACKER_METHODS.out.tool_metrics, 'syntracker', 'syntracker_model_report' )
+    }
 
     //
     // Collate and save software versions

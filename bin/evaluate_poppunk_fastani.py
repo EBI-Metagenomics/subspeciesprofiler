@@ -2,7 +2,7 @@
 
 import argparse
 import csv
-import itertools
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -194,20 +194,20 @@ def make_symmetric_ani_matrix(fastani: pd.DataFrame, genomes: list[str]) -> pd.D
         .mean()
     )
 
-    matrix = pd.DataFrame(np.nan, index=genomes, columns=genomes, dtype=float)
+    # Place every pair by position in one vectorised assignment; pairs involving a genome
+    # outside `genomes` are dropped.
+    index = pd.Index(genomes)
+    i = index.get_indexer(pair_mean["g1"])
+    j = index.get_indexer(pair_mean["g2"])
+    keep = (i >= 0) & (j >= 0)
+    i, j, ani = i[keep], j[keep], pair_mean["ani"].to_numpy(dtype=float)[keep]
 
-    for row in pair_mean.itertuples(index=False):
-        g1 = row.g1
-        g2 = row.g2
-        ani = row.ani
+    values = np.full((len(genomes), len(genomes)), np.nan)
+    values[i, j] = ani
+    values[j, i] = ani
+    np.fill_diagonal(values, 1.0)
 
-        if g1 in matrix.index and g2 in matrix.columns:
-            matrix.loc[g1, g2] = ani
-            matrix.loc[g2, g1] = ani
-
-    np.fill_diagonal(matrix.values, 1.0)
-
-    return matrix
+    return pd.DataFrame(values, index=genomes, columns=genomes)
 
 
 def safe_percentile(values, q):
@@ -220,12 +220,27 @@ def safe_percentile(values, q):
     return float(np.percentile(values, q))
 
 
-def score_gap(tail_gap, median_gap):
+# Cluster-score weights for gap, overlap, cohesion and support. In APSS space cohesion has no
+# weight: the within-cluster APSS 5th percentile is ~0.81 both in B. longum (clear subspecies)
+# and in E. lenta (no structure), so it does not discriminate; gap and overlap carry the score.
+ANI_WEIGHTS = (0.40, 0.30, 0.20, 0.10)
+APSS_WEIGHTS = (0.50, 0.375, 0.0, 0.125)
+ANI_GAP_FLOOR = 0.002
+# Cliff's delta from which a cluster counts as separated from its nearest cluster in the ANI
+# concordance check: a "large" effect (Romano et al. 2006).
+ANI_SEPARATION_DELTA = 0.474
+
+
+def score_gap(tail_gap, median_gap, floor=ANI_GAP_FLOOR):
+    """
+    Gap score. `floor` is the smallest gap that counts as a real separation: 0.002 on the
+    ANI scale; in APSS space, 2x the APSS standard error of a typical pair (measurement noise).
+    """
     if np.isnan(tail_gap) or np.isnan(median_gap):
         return np.nan
-    if tail_gap >= 0.002:
+    if tail_gap >= floor:
         return 1.0
-    if tail_gap >= 0 and median_gap >= 0.002:
+    if tail_gap >= 0 and median_gap >= floor:
         return 0.7
     if tail_gap < 0 and median_gap > 0:
         return 0.4
@@ -289,29 +304,51 @@ def confidence_status(cluster_size, n_hq, hq_ratio):
         return "Unresolved_low_HQ"
 
 
-def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int) -> pd.DataFrame:
+def cliffs_delta(x, y) -> float:
+    """Cliff's delta P(x > y) - P(x < y), ignoring NaN; NaN when either side is empty."""
+    x = np.sort(np.asarray(x, dtype=float)[~np.isnan(np.asarray(x, dtype=float))])
+    y = np.asarray(y, dtype=float)
+    y = y[~np.isnan(y)]
+    if len(x) == 0 or len(y) == 0:
+        return np.nan
+    below = np.searchsorted(x, y, side="left")              # x values < each y
+    above = len(x) - np.searchsorted(x, y, side="right")    # x values > each y
+    return float((above.sum() - below.sum()) / (len(x) * len(y)))
+
+
+def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int,
+                      space: str = "ANI", gap_floor: float = ANI_GAP_FLOOR, weights=ANI_WEIGHTS,
+                      with_delta: bool = None) -> pd.DataFrame:
+    """
+    Per-cluster metrics on a similarity matrix: ANI (0-1) or APSS. `space` names the columns
+    (p5_intra_<space>, ...); `gap_floor` and `weights` are the space's scoring profile.
+    In APSS space the cohesion score is not computed (weight 0). Cliff's delta between the
+    within-cluster values and those to the nearest cluster is reported in APSS space, and on
+    request (`with_delta`) in ANI space too, for the concordance check.
+    """
+    if with_delta is None:
+        with_delta = space != "ANI"
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
-    cluster_to_genomes = (
-        merged
+    # One dense ANI array in `merged` row order; each cluster is a set of row positions,
+    # so intra/inter ANI values are numpy blocks rather than per-pair lookups. Clusters
+    # are visited in sorted cluster_id order (as groupby does), which fixes tie-breaks.
+    genome_ids = merged["genome_id"].tolist()
+    ani = ani_matrix.reindex(index=genome_ids, columns=genome_ids).to_numpy(dtype=float)
+    positions = dict(sorted(merged.groupby("cluster_id").indices.items()))
+    n_hq_by_cluster = (
+        merged[merged["quality_status"].eq("HQ")]
         .groupby("cluster_id")["genome_id"]
-        .apply(list)
-        .to_dict()
+        .nunique()
     )
 
     rows = []
 
-    for cluster_id, members in cluster_to_genomes.items():
-        cluster_size = len(members)
+    for cluster_id, idx in positions.items():
+        cluster_size = len(idx)
 
-        n_hq = int(
-            merged.loc[
-                merged["cluster_id"].eq(cluster_id)
-                & merged["quality_status"].eq("HQ"),
-                "genome_id"
-            ].nunique()
-        )
+        n_hq = int(n_hq_by_cluster.get(cluster_id, 0))
 
         hq_ratio = n_hq / cluster_size if cluster_size > 0 else np.nan
 
@@ -322,10 +359,10 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
                 "N_HQ": n_hq,
                 "HQ_ratio_cluster": hq_ratio,
                 "nearest_external_cluster": np.nan,
-                "p5_intra_ANI": np.nan,
-                "median_intra_ANI": np.nan,
-                "p95_nearest_inter_ANI": np.nan,
-                "median_nearest_inter_ANI": np.nan,
+                f"p5_intra_{space}": np.nan,
+                f"median_intra_{space}": np.nan,
+                f"p95_nearest_inter_{space}": np.nan,
+                f"median_nearest_inter_{space}": np.nan,
                 "tail_gap": np.nan,
                 "median_gap": np.nan,
                 "overlap_fraction": np.nan,
@@ -337,13 +374,13 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
                 "validity_status": "Singleton",
                 "confidence_status": confidence_status(cluster_size, n_hq, hq_ratio),
             })
+            if with_delta:
+                rows[-1]["cliffs_delta"] = np.nan
             continue
 
-        # Intra-cluster ANI values.
-        intra_values = []
-        for g1, g2 in itertools.combinations(members, 2):
-            if g1 in ani_matrix.index and g2 in ani_matrix.columns:
-                intra_values.append(ani_matrix.loc[g1, g2])
+        # Intra-cluster ANI values: each unordered pair once.
+        block = ani[np.ix_(idx, idx)]
+        intra_values = block[np.triu_indices(cluster_size, k=1)]
 
         p5_intra = safe_percentile(intra_values, 5)
         median_intra = safe_percentile(intra_values, 50)
@@ -355,21 +392,16 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
         # tiny_cluster_rate instead), so a lone outlier can't distort the score.
         best_external_cluster = None
         best_external_median = -np.inf
-        best_external_values = []
+        best_external_values = np.array([], dtype=float)
 
-        for other_cluster_id, other_members in cluster_to_genomes.items():
+        rows_of_cluster = ani[idx]
+        for other_cluster_id, other_idx in positions.items():
             if other_cluster_id == cluster_id:
                 continue
-            if len(other_members) < min_comparison_cluster_size:
+            if len(other_idx) < min_comparison_cluster_size:
                 continue
 
-            inter_values = []
-            for g1 in members:
-                for g2 in other_members:
-                    if g1 in ani_matrix.index and g2 in ani_matrix.columns:
-                        inter_values.append(ani_matrix.loc[g1, g2])
-
-            inter_values = np.asarray(inter_values, dtype=float)
+            inter_values = rows_of_cluster[:, other_idx].ravel()
             inter_values = inter_values[~np.isnan(inter_values)]
 
             if len(inter_values) == 0:
@@ -393,18 +425,22 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
         else:
             overlap_fraction = np.nan
 
-        gap_s = score_gap(tail_gap, median_gap)
+        gap_s = score_gap(tail_gap, median_gap, gap_floor)
         overlap_s = score_overlap(overlap_fraction)
-        cohesion_s = score_cohesion(p5_intra)
+        # ANI cohesion anchors (0.98/0.975/0.97) are meaningless outside ANI space.
+        cohesion_s = score_cohesion(p5_intra) if space == "ANI" else np.nan
         support_s = score_support(cluster_size, n_hq)
 
+        # Components with zero weight are left out, so an unscored cohesion never blanks the score.
         components = np.array([gap_s, overlap_s, cohesion_s, support_s], dtype=float)
-        weights = np.array([0.40, 0.30, 0.20, 0.10], dtype=float)
+        w = np.array(weights, dtype=float)
+        used = w > 0
+        components, w = components[used], w[used]
 
         if np.any(np.isnan(components)):
             cluster_score = np.nan
         else:
-            cluster_score = float(np.sum(weights * components))
+            cluster_score = float(np.sum(w * components))
 
         rows.append({
             "cluster_id": cluster_id,
@@ -412,10 +448,10 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
             "N_HQ": n_hq,
             "HQ_ratio_cluster": hq_ratio,
             "nearest_external_cluster": best_external_cluster,
-            "p5_intra_ANI": p5_intra,
-            "median_intra_ANI": median_intra,
-            "p95_nearest_inter_ANI": p95_inter,
-            "median_nearest_inter_ANI": median_inter,
+            f"p5_intra_{space}": p5_intra,
+            f"median_intra_{space}": median_intra,
+            f"p95_nearest_inter_{space}": p95_inter,
+            f"median_nearest_inter_{space}": median_inter,
             "tail_gap": tail_gap,
             "median_gap": median_gap,
             "overlap_fraction": overlap_fraction,
@@ -427,111 +463,93 @@ def evaluate_clusters(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix
             "validity_status": validity_status(cluster_score, cluster_size),
             "confidence_status": confidence_status(cluster_size, n_hq, hq_ratio),
         })
+        if with_delta:
+            rows[-1]["cliffs_delta"] = cliffs_delta(intra_values, best_external_values)
 
     return pd.DataFrame(rows)
 
 
-def calculate_silhouette_for_genome(genome, own_cluster, clusters_by_id, ani_matrix, min_comparison_cluster_size):
+def ani_silhouettes(genomes, cluster_ids, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int):
     """
-    Calculate ANI-based silhouette for one genome.
+    ANI-based silhouette for every genome at once, with distance = 1 - ANI.
 
-    Distance = 1 - ANI.
+    Vectorised over the whole distance matrix: a one-hot genome x cluster matrix turns
+    "mean distance from each genome to each cluster" into one matrix product. Missing
+    (NaN) ANI pairs are left out of each mean rather than counted as zero.
 
-    Returns NaN for singleton clusters or if distances are missing. The nearest
-    other cluster (b) is chosen only among clusters of at least
-    `min_comparison_cluster_size`, so singletons are not treated as competing
+    Per genome, `a` is the mean distance to the other members of its own cluster and `b`
+    the smallest mean distance to another cluster. The silhouette is NaN for singleton
+    genomes and when either mean has no ANI values. `b` is chosen only among clusters of
+    at least `min_comparison_cluster_size`, so singletons are not treated as competing
     clusters (a lone outlier near a real cluster should not tank its silhouette;
-    over-splitting is penalised separately via singleton_rate).
+    over-splitting is penalised separately via singleton_rate). Ties go to the first
+    cluster in sorted cluster_id order.
+
+    Returns (silhouettes, nearest_clusters): a float array and an object array holding
+    the nearest external cluster_id, or NaN where the silhouette is undefined.
     """
-    own_members = [g for g in clusters_by_id[own_cluster] if g != genome]
+    genomes = list(genomes)
+    n = len(genomes)
+    codes, uniques = pd.factorize(pd.Series(cluster_ids), sort=True)
+    k = len(uniques)
 
-    if len(own_members) == 0:
-        return np.nan, np.nan
+    # Distances in the genomes' order; self-pairs are excluded from every mean.
+    dist = 1.0 - ani_matrix.reindex(index=genomes, columns=genomes).to_numpy(dtype=float)
+    np.fill_diagonal(dist, np.nan)
+    present = ~np.isnan(dist)
 
-    own_distances = []
-    for g in own_members:
-        if genome in ani_matrix.index and g in ani_matrix.columns:
-            ani = ani_matrix.loc[genome, g]
-            if not np.isnan(ani):
-                own_distances.append(1.0 - ani)
+    onehot = np.zeros((n, k))
+    onehot[np.arange(n), codes] = 1.0
+    sums = np.where(present, dist, 0.0) @ onehot       # (n, k) summed distance to each cluster
+    counts = present.astype(float) @ onehot            # (n, k) ANI values behind each sum
+    with np.errstate(invalid="ignore", divide="ignore"):
+        mean_to = sums / counts                        # NaN where a cluster has no ANI values
+    sizes = onehot.sum(axis=0)
 
-    if len(own_distances) == 0:
-        return np.nan, np.nan
+    rows = np.arange(n)
+    a = mean_to[rows, codes]
+    a[sizes[codes] <= 1] = np.nan                      # singleton: no same-cluster neighbour
 
-    a = float(np.mean(own_distances))
+    # Candidate clusters for b: not the genome's own, big enough, with ANI values.
+    candidates = np.where(sizes >= min_comparison_cluster_size, mean_to, np.nan)
+    candidates[rows, codes] = np.nan
+    candidates = np.where(np.isnan(candidates), np.inf, candidates)
+    nearest = candidates.argmin(axis=1)                # first minimum = first cluster_id in order
+    b = candidates[rows, nearest]
 
-    nearest_cluster = None
-    b = np.inf
+    defined = ~np.isnan(a) & np.isfinite(b)
+    denom = np.maximum(a, b)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        silhouettes = np.where(denom == 0, 0.0, (b - a) / denom)
+    silhouettes = np.where(defined, silhouettes, np.nan)
 
-    for cluster_id, members in clusters_by_id.items():
-        if cluster_id == own_cluster:
-            continue
-        if len(members) < min_comparison_cluster_size:
-            continue
-
-        distances = []
-        for g in members:
-            if genome in ani_matrix.index and g in ani_matrix.columns:
-                ani = ani_matrix.loc[genome, g]
-                if not np.isnan(ani):
-                    distances.append(1.0 - ani)
-
-        if len(distances) == 0:
-            continue
-
-        mean_dist = float(np.mean(distances))
-        if mean_dist < b:
-            b = mean_dist
-            nearest_cluster = cluster_id
-
-    if nearest_cluster is None or np.isinf(b):
-        return np.nan, np.nan
-
-    denom = max(a, b)
-    if denom == 0:
-        silhouette = 0.0
-    else:
-        silhouette = (b - a) / denom
-
-    return silhouette, nearest_cluster
+    nearest_clusters = np.full(n, np.nan, dtype=object)
+    nearest_clusters[defined] = np.asarray(uniques, dtype=object)[nearest[defined]]
+    return silhouettes, nearest_clusters
 
 
-def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int) -> pd.DataFrame:
+def evaluate_genomes(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame, min_comparison_cluster_size: int,
+                     space: str = "ANI") -> pd.DataFrame:
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
-    clusters_by_id = (
-        merged
-        .groupby("cluster_id")["genome_id"]
-        .apply(list)
-        .to_dict()
+    silhouettes, nearest_clusters = ani_silhouettes(
+        merged["genome_id"], merged["cluster_id"], ani_matrix, min_comparison_cluster_size,
     )
 
-    rows = []
-
-    for row in merged.itertuples(index=False):
-        silhouette, nearest_cluster = calculate_silhouette_for_genome(
-            row.genome_id,
-            row.cluster_id,
-            clusters_by_id,
-            ani_matrix,
-            min_comparison_cluster_size,
-        )
-
-        rows.append({
-            "genome_id": row.genome_id,
-            "cluster_id": row.cluster_id,
-            "quality_status": row.quality_status,
-            "nearest_external_cluster": nearest_cluster,
-            "silhouette_ANI": silhouette,
-        })
-
-    result = pd.DataFrame(rows)
+    result = pd.DataFrame({
+        "genome_id": merged["genome_id"].to_numpy(),
+        "cluster_id": merged["cluster_id"].to_numpy(),
+        "quality_status": merged["quality_status"].to_numpy(),
+        # a list, so pandas infers the dtype as it did row by row (float64 when all NaN)
+        "nearest_external_cluster": list(nearest_clusters),
+        f"silhouette_{space}": silhouettes,
+    })
     # Derive the negative-silhouette flag vectorised, as a nullable boolean, so the
     # column has one clean dtype (True/False/<NA>) rather than mixing Python bool
     # with float NaN (object dtype). NaN silhouettes occur for singleton genomes
     # (no same-cluster neighbour) and single-cluster inputs (no external cluster).
-    sil = result["silhouette_ANI"]
+    sil = result[f"silhouette_{space}"]
     result["is_negative_silhouette"] = (sil < 0).astype("boolean").mask(sil.isna())
     return result
 
@@ -572,7 +590,38 @@ def fraction_status(clusters_with_metrics, status, genome_subset=None):
     return float(np.mean(tmp["validity_status"].eq(status)))
 
 
-def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_metrics: pd.DataFrame, model_name: str, accept_status: set) -> pd.DataFrame:
+# The plain network score in PopPUNK's "Network summary" block. Anchored to the whole line so
+# the "Score (w/ betweenness)" and "Score (w/ weighted-betweenness)" variants never match.
+NETWORK_SCORE_RE = re.compile(r"^\s*Score\s+(\S+)\s*$")
+
+
+def parse_network_score(path) -> float:
+    """
+    Return PopPUNK's network score from a `poppunk --fit-model` log, or NaN if absent.
+
+    The last summary wins: a refine run can report the network more than once, and the
+    final one describes the model that was saved.
+    """
+    if not path:
+        return np.nan
+    score = np.nan
+    with open(path, errors="replace") as fh:
+        for line in fh:
+            m = NETWORK_SCORE_RE.match(line)
+            if m:
+                try:
+                    score = float(m.group(1))
+                except ValueError:
+                    pass
+    return score
+
+
+def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics: pd.DataFrame, genome_metrics: pd.DataFrame, model_name: str, accept_status: set, network_score: float = np.nan,
+                 space: str = "ANI") -> pd.DataFrame:
+    """
+    One summary row for the model. In ANI space (PopPUNK fits) the columns are the model
+    report's; in APSS space (SynTracker) `poppunk_network_score` is left out.
+    """
     merged = clusters.merge(metadata, on="genome_id", how="left")
     merged["quality_status"] = merged["quality_status"].fillna("UNKNOWN")
 
@@ -601,7 +650,7 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     gm_total = genome_metrics
 
     def silhouette_summary(df, column):
-        values = pd.to_numeric(df["silhouette_ANI"], errors="coerce").dropna()
+        values = pd.to_numeric(df[f"silhouette_{space}"], errors="coerce").dropna()
         if len(values) == 0:
             return np.nan
         if column == "median":
@@ -632,6 +681,10 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
     # "Mixed") so the model-selection loop moves on to the next model.
     n_clusters = int(len(cluster_metrics))
     n_nonsingleton = int((cluster_metrics["cluster_size"] > 1).sum()) if n_clusters else 0
+    n_genomes = int(cluster_metrics["cluster_size"].sum()) if n_clusters else 0
+    largest_cluster_fraction = (
+        float(cluster_metrics["cluster_size"].max()) / n_genomes if n_genomes else np.nan
+    )
     no_hq_structure = bool(np.isnan(tool_structure_score_hq))
 
     reason = None
@@ -641,6 +694,10 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
             reason = "no evaluable HQ structure: single cluster (no partitioning)"
         elif n_nonsingleton == 0:
             reason = "no evaluable HQ structure: all singletons (no cohesive clusters)"
+        elif bool((hq_df["cluster_size"] > 1).any()):
+            # HQ genomes do cluster, but into one group with nothing of comparable size to be
+            # separated from (separation ignores singletons), so it is effectively one cluster.
+            reason = "no evaluable HQ structure: one multi-genome cluster plus singletons (no second group to separate from)"
         else:
             reason = (
                 "no evaluable HQ structure: structure only among MQ genomes, HQ unresolved "
@@ -696,6 +753,21 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
             if neg_sil_hq > 0.25:
                 fails.append(f"negative-silhouette HQ fraction {neg_sil_hq:.2f} > 0.25")
             reason = "weak clustering: " + ("; ".join(fails) if fails else "below Moderate thresholds")
+            # Over-fragmentation: the fit fails only on the singleton / tiny-cluster rules while
+            # its few multi-genome clusters are clean. Flagged because the structure score and
+            # silhouettes are computed over non-singletons only and would otherwise look strong.
+            # A fit-level statement: it says nothing about whether the species has structure.
+            only_fragmentation = (
+                tool_structure_score_hq >= 0.80
+                and tool_structure_score_total >= 0.55
+                and defective_hq_fraction <= 0.20
+                and not neg_sil_hq > 0.25
+            )
+            if only_fragmentation:
+                reason = (
+                    "over-fragmentation: the few multi-genome clusters are clean, but most HQ "
+                    "genomes are singletons or in tiny clusters; " + reason
+                )
         else:  # Mixed: structure/separation reach Moderate quality, but a
             # fragmentation/misplacement metric sits in the band between the
             # Moderate and Weak thresholds -- genuinely mixed signals (good on some
@@ -722,6 +794,14 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
 
     row = {
         "model": model_name,
+        # PopPUNK's own score, reported for context only: it is transitivity x (1 - density),
+        # so it peaks for many tiny cliques and must never feed tool_status.
+        "poppunk_network_score": network_score,
+        "tool_status": status,
+
+        "n_clusters": n_clusters,
+        "n_nonsingleton_clusters": n_nonsingleton,
+        "largest_cluster_fraction": largest_cluster_fraction,
 
         "tool_structure_score_HQ": tool_structure_score_hq,
         "tool_structure_score_total": tool_structure_score_total,
@@ -749,12 +829,81 @@ def tool_metrics(clusters: pd.DataFrame, metadata: pd.DataFrame, cluster_metrics
         "p10_silhouette_total": silhouette_summary(gm_total, "p10"),
         "negative_silhouette_total_fraction": silhouette_summary(gm_total, "negative_fraction"),
 
-        "tool_status": status,
         "decision": decision,
-        "reason": reason,
+        "eval_summary": reason,
     }
+    if space != "ANI":
+        del row["poppunk_network_score"]
 
     return pd.DataFrame([row])
+
+
+def ani_concordance(clusters: pd.DataFrame, metadata: pd.DataFrame, ani_matrix: pd.DataFrame,
+                    min_comparison_cluster_size: int, apss_status: str) -> dict:
+    """
+    Score the same (SynTracker) partition in ANI space and classify its signal.
+
+    `ani_separated_fraction` is the share of HQ genomes in non-singleton clusters whose
+    cluster is separated from its nearest cluster in ANI too: Cliff's delta between its
+    within-cluster ANI and its ANI to the nearest cluster >= ANI_SEPARATION_DELTA (a large
+    effect). Cliff's delta, not the tail gap: a few distant genomes inside an under-split
+    cluster pull its ANI tail gap below the floor although its ANI clearly separates it (seen
+    on B. longum), while a split invisible in ANI still gives delta ~ 0. A partition
+    that is clean in APSS (Strong/Moderate) is `synteny_and_ani` when at least half of those
+    genomes are ANI-separated, else `synteny_only` (groups that differ in gene arrangement but
+    overlap in ANI); a partition that is not clean in APSS is `none`.
+    """
+    cm = evaluate_clusters(clusters, metadata, ani_matrix, min_comparison_cluster_size, with_delta=True)
+    gm = evaluate_genomes(clusters, metadata, ani_matrix, min_comparison_cluster_size)
+    merged = clusters.merge(metadata, on="genome_id", how="left").merge(
+        cm[["cluster_id", "cluster_size", "cliffs_delta"]], on="cluster_id", how="left")
+    hq = merged[merged["quality_status"].eq("HQ") & (merged["cluster_size"] > 1)]
+    separated = float(np.mean(hq["cliffs_delta"].fillna(-np.inf) >= ANI_SEPARATION_DELTA)) if len(hq) else np.nan
+
+    sil = pd.to_numeric(gm.loc[gm["quality_status"].eq("HQ"), "silhouette_ANI"], errors="coerce").dropna()
+    if apss_status in ("Strong", "Moderate"):
+        signal = "synteny_and_ani" if separated >= 0.5 else "synteny_only"
+    else:
+        signal = "none"
+    return {
+        "median_silhouette_ANI_HQ": float(np.median(sil)) if len(sil) else np.nan,
+        "negative_silhouette_ANI_HQ_fraction": float(np.mean(sil < 0)) if len(sil) else np.nan,
+        "ani_separated_fraction": separated,
+        "signal": signal,
+    }
+
+
+def read_apss(path: str, min_regions: int) -> pd.DataFrame:
+    """
+    SynTracker all-regions APSS as a FastANI-shaped frame (query, reference, ani = APSS), so
+    `make_symmetric_ani_matrix` builds the APSS matrix. Pairs on fewer than `min_regions`
+    regions are dropped (left missing in the matrix).
+    """
+    df = _read_csv_or_exit(path, "APSS")
+    missing = {"Sample1", "Sample2", "APSS", "Compared_regions"} - set(df.columns)
+    if missing:
+        sys.exit(f"ERROR: APSS file '{path}' lacks columns {sorted(missing)}; found {list(df.columns)}")
+    if "Ref_genome" in df.columns and df["Ref_genome"].nunique() > 1:
+        sys.exit(f"ERROR: APSS file '{path}' mixes {df['Ref_genome'].nunique()} reference genomes.")
+    keep = pd.to_numeric(df["Compared_regions"], errors="coerce") >= min_regions
+    return pd.DataFrame({
+        "query": df.loc[keep, "Sample1"].map(normalise_genome_id),
+        "reference": df.loc[keep, "Sample2"].map(normalise_genome_id),
+        "ani": pd.to_numeric(df.loc[keep, "APSS"], errors="coerce"),
+        "regions": pd.to_numeric(df.loc[keep, "Compared_regions"], errors="coerce"),
+    }).dropna(subset=["ani"])
+
+
+DEFAULT_REGION_SD = 0.226  # per-region synteny-score SD, E. lenta and B. longum
+
+
+def apss_standard_error(apss: pd.DataFrame, noise_path) -> float:
+    """APSS standard error of a typical pair: from the clustering step's noise table, else estimated."""
+    if noise_path:
+        noise = _read_csv_or_exit(noise_path, "APSS noise", sep="\t")
+        if "apss_se" in noise.columns and len(noise):
+            return float(noise["apss_se"].iloc[0])
+    return DEFAULT_REGION_SD / np.sqrt(float(apss["regions"].median()))
 
 
 def check_species_ani(ani_matrix, genomes, min_ani):
@@ -770,22 +919,21 @@ def check_species_ani(ani_matrix, genomes, min_ani):
     Returns a list of offending (g1, g2, ani_or_None) pairs; `None` marks a pair
     missing from FastANI.
     """
-    problems = []
-    n = len(genomes)
-    for i in range(n):
-        for j in range(i + 1, n):
-            g1, g2 = genomes[i], genomes[j]
-            ani = ani_matrix.loc[g1, g2]
-            if np.isnan(ani):
-                problems.append((g1, g2, None))
-            elif ani < min_ani:
-                problems.append((g1, g2, float(ani)))
+    values = ani_matrix.loc[genomes, genomes].to_numpy(dtype=float)
+    i, j = np.triu_indices(len(genomes), k=1)
+    pair_ani = values[i, j]
+    bad = np.flatnonzero(np.isnan(pair_ani) | (pair_ani < min_ani))
+    problems = [
+        (genomes[i[b]], genomes[j[b]], None if np.isnan(pair_ani[b]) else float(pair_ani[b]))
+        for b in bad
+    ]
     return problems
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Evaluate PopPUNK cluster assignments using all-vs-all FastANI results."
+        description="Evaluate cluster assignments (PopPUNK fits against all-vs-all FastANI, or "
+                    "SynTracker clusterings against APSS with ANI concordance)."
     )
     parser.add_argument("--fastani", required=True, help="All-vs-all FastANI output TSV.")
     parser.add_argument("--clusters", required=True, help="PopPUNK *_clusters.csv file.")
@@ -805,12 +953,28 @@ def main():
              "lineage), recorded in the output for the profiler-history report.",
     )
     parser.add_argument(
+        "--fit-log", default=None,
+        help="Log of the `poppunk --fit-model` run that produced these clusters. Its network "
+             "score is reported as poppunk_network_score (NaN when not given).",
+    )
+    parser.add_argument(
         "--min-comparison-cluster-size", type=int, default=2,
         help="Minimum cluster size for a cluster to count as a competing/nearest cluster "
              "in the separation metrics (silhouette b and nearest-external ANI). Default 2 "
              "excludes singletons -- they are not treated as genuine groupings for "
              "separation (over-splitting is penalised via singleton_rate instead).",
     )
+    parser.add_argument(
+        "--distance", choices=["ani", "apss"], default="ani",
+        help="Space the clusters are scored in: 'ani' (FastANI, PopPUNK fits) or 'apss' (SynTracker "
+             "synteny, from --apss). In APSS space the gap margin is 2x the APSS standard error, "
+             "cohesion is not scored, and the partition is also scored in ANI space (concordance).",
+    )
+    parser.add_argument("--apss", default=None, help="SynTracker avg_synteny_scores_all_regions.csv (--distance apss).")
+    parser.add_argument("--apss-noise", default=None,
+                        help="Noise table from syntracker_apss_clusters.py (apss_se); estimated when absent.")
+    parser.add_argument("--min-regions", type=int, default=100,
+                        help="APSS pairs compared on fewer regions are treated as missing (default 100).")
     parser.add_argument(
         "--accept-status", default="Strong",
         help="Comma-separated tool_status values that count as acceptable, i.e. "
@@ -821,6 +985,8 @@ def main():
 
     args = parser.parse_args()
     accept_status = {s.strip() for s in args.accept_status.split(",") if s.strip()}
+    if args.distance == "apss" and not args.apss:
+        sys.exit("ERROR: --distance apss needs --apss (the SynTracker all-regions APSS table)")
 
     fastani = read_fastani(args.fastani)
     clusters = read_clusters(args.clusters)
@@ -862,9 +1028,30 @@ def main():
             print(f"  ... and {len(distant_pairs) - 20} more pair(s)", file=sys.stderr)
         sys.exit(1)
 
-    cluster_metrics = evaluate_clusters(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
-    genome_metrics = evaluate_genomes(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
-    summary_metrics = tool_metrics(clusters, metadata, cluster_metrics, genome_metrics, args.model_name, accept_status)
+    if args.distance == "ani":
+        cluster_metrics = evaluate_clusters(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
+        genome_metrics = evaluate_genomes(clusters, metadata, ani_matrix, args.min_comparison_cluster_size)
+        summary_metrics = tool_metrics(
+            clusters, metadata, cluster_metrics, genome_metrics, args.model_name, accept_status,
+            network_score=parse_network_score(args.fit_log),
+        )
+    else:
+        apss = read_apss(args.apss, args.min_regions)
+        apss_matrix = make_symmetric_ani_matrix(apss, genomes)
+        apss_se = apss_standard_error(apss, args.apss_noise)
+        cluster_metrics = evaluate_clusters(
+            clusters, metadata, apss_matrix, args.min_comparison_cluster_size,
+            space="APSS", gap_floor=2 * apss_se, weights=APSS_WEIGHTS,
+        )
+        genome_metrics = evaluate_genomes(clusters, metadata, apss_matrix, args.min_comparison_cluster_size, space="APSS")
+        summary_metrics = tool_metrics(clusters, metadata, cluster_metrics, genome_metrics, args.model_name,
+                                       accept_status, space="APSS")
+        # Noise and ANI-concordance columns go just before `decision`.
+        extra = {"apss_se": apss_se}
+        extra.update(ani_concordance(clusters, metadata, ani_matrix, args.min_comparison_cluster_size,
+                                     summary_metrics["tool_status"].iloc[0]))
+        for column, value in extra.items():
+            summary_metrics.insert(summary_metrics.columns.get_loc("decision"), column, value)
 
     out_prefix = Path(args.out_prefix)
     out_prefix.parent.mkdir(parents=True, exist_ok=True)

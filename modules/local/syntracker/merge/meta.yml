@@ -1,0 +1,85 @@
+name: "syntracker_merge"
+description: |
+  Merges the all-regions APSS tables of a species' chunked SynTracker runs (one run per chunk
+  pair, all against the same reference) into one table, with bin/syntracker_merge_apss.py. A
+  pair computed in several runs must have exactly the same APSS and Compared_regions, otherwise
+  the task fails. The subsampled `avg_synteny_scores_<n>_regions.csv` tables must never be
+  merged: a pair's subsample depends on the other targets in the run.
+keywords:
+  - syntracker
+  - apss
+  - merge
+  - chunking
+tools:
+  - "python":
+      description: "Runs bin/syntracker_merge_apss.py."
+      homepage: "https://www.python.org/"
+      documentation: "https://docs.python.org/3/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bacteroides_fragilis' ]`
+    - apss:
+        type: file
+        description: |
+          The `avg_synteny_scores_all_regions.csv` of every SynTracker run of the species, staged
+          as `chunk_??/avg_synteny_scores_all_regions.csv`.
+        pattern: "avg_synteny_scores_all_regions.csv"
+        ontologies: []
+    - targets:
+        type: file
+        description: Every SynTracker target of the species (file or sample names), one per line.
+        pattern: "*.txt"
+        ontologies: []
+
+output:
+  apss:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "avg_synteny_scores_all_regions.csv":
+          type: file
+          description: The merged all-regions APSS table, one row per pair, in SynTracker's format.
+          pattern: "avg_synteny_scores_all_regions.csv"
+          ontologies: []
+  report:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_merge.tsv":
+          type: file
+          description: |
+            Tables merged, rows read, duplicate rows (pairs computed in several runs), unique pairs,
+            and the number of target pairs absent from the merge.
+          pattern: "*_syntracker_merge.tsv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

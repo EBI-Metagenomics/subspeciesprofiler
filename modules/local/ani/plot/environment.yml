@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # bin/plot_ani.py needs matplotlib, scipy and pandas. No image in the pipeline has all three
+  # except PopPUNK's, which is already pulled, so this module reuses the poppunk/visualise env.
+  - "bioconda::poppunk=2.7.8"
+  - "conda-forge::setuptools<81"

@@ -1,0 +1,16 @@
+"Ref_genome","Sample1","Sample2","APSS","Compared_regions"
+"ref","genomeA1","genomeA3",0.9,120
+"ref","genomeA1","genomeA4",0.9,120
+"ref","genomeA1","genomeB1",0.85,120
+"ref","genomeA1","genomeB2",0.65,120
+"ref","genomeA1","genomeB4",0.65,120
+"ref","genomeA3","genomeA4",0.9,120
+"ref","genomeA3","genomeB1",0.65,120
+"ref","genomeA3","genomeB2",0.65,120
+"ref","genomeA3","genomeB4",0.65,120
+"ref","genomeA4","genomeB1",0.65,120
+"ref","genomeA4","genomeB2",0.65,120
+"ref","genomeA4","genomeB4",0.65,120
+"ref","genomeB1","genomeB2",0.9,120
+"ref","genomeB1","genomeB4",0.9,120
+"ref","genomeB2","genomeB4",0.9,120

@@ -1,13 +1,8 @@
-<h1>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/nf-core-subspeciesprofiler_logo_dark.png">
-    <img alt="nf-core/subspeciesprofiler" src="docs/images/nf-core-subspeciesprofiler_logo_light.png">
-  </picture>
-</h1>
+# ebi-metagenomics/subspeciesprofiler
 
-[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/nf-core/subspeciesprofiler)
-[![GitHub Actions CI Status](https://github.com/nf-core/subspeciesprofiler/actions/workflows/nf-test.yml/badge.svg)](https://github.com/nf-core/subspeciesprofiler/actions/workflows/nf-test.yml)
-[![GitHub Actions Linting Status](https://github.com/nf-core/subspeciesprofiler/actions/workflows/linting.yml/badge.svg)](https://github.com/nf-core/subspeciesprofiler/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://nf-co.re/subspeciesprofiler/results)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![Open in GitHub Codespaces](https://img.shields.io/badge/Open_In_GitHub_Codespaces-black?labelColor=grey&logo=github)](https://github.com/codespaces/new/ebi-metagenomics/subspeciesprofiler)
+[![GitHub Actions CI Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/nf-test.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/nf-test.yml)
+[![GitHub Actions Linting Status](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml/badge.svg)](https://github.com/ebi-metagenomics/subspeciesprofiler/actions/workflows/linting.yml)[![AWS CI](https://img.shields.io/badge/CI%20tests-full%20size-FF9900?labelColor=000000&logo=Amazon%20AWS)](https://github.com/ebi-metagenomics/subspeciesprofiler)
 [![nf-test](https://img.shields.io/badge/unit_tests-nf--test-337ab7.svg)](https://www.nf-test.com)
 
 [![Nextflow](https://img.shields.io/badge/version-%E2%89%A525.04.0-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
@@ -15,7 +10,7 @@
 [![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/nf-core/subspeciesprofiler)
+[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/ebi-metagenomics/subspeciesprofiler)
 
 ## Introduction
 
@@ -26,6 +21,7 @@ Given, per species, a directory of assembled genomes and a per-genome completene
 1. **Classifies** each genome as HQ / MQ / DISCARDED from its completeness/contamination and decides whether the species group is eligible for subspecies clustering (`speciesqc`).
 2. Builds and QCs a **[PopPUNK](https://poppunk.bacpop.org)** database from the HQ/MQ genomes and derives a **core-distance threshold sweep** from the observed distance distribution.
 3. Fits PopPUNK clustering models and **scores each against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI)**, then selects the model(s) that best recover the ANI-defined subspecies structure.
+4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the HQ genomes against the most central one, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings in synteny space with an ANI-concordance check, in a separate SynTracker model report.
 
 Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
 
@@ -60,7 +56,7 @@ MGYG000005313.fasta,98.2,1.1
 Now, you can run the pipeline using:
 
 ```bash
-nextflow run nf-core/subspeciesprofiler \
+nextflow run ebi-metagenomics/subspeciesprofiler \
    -profile <docker/singularity/.../institute> \
    --input samplesheet.csv \
    --outdir <OUTDIR>
@@ -72,7 +68,7 @@ nextflow run nf-core/subspeciesprofiler \
 > [!WARNING]
 > Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_; see [docs](https://nf-co.re/docs/usage/getting_started/configuration#custom-configuration-files).
 
-For more details and further functionality, please refer to the [usage documentation](https://nf-co.re/subspeciesprofiler/usage) and the [parameter documentation](https://nf-co.re/subspeciesprofiler/parameters).
+For more details and further functionality, please refer to the [usage documentation](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/usage.md) and the [parameter documentation](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/nextflow_schema.json).
 
 ## How it works
 
@@ -102,40 +98,36 @@ Candidate PopPUNK models are scored against all-vs-all FastANI:
 
 Results are organised per species under `<outdir>/`:
 
-| Path                                  | Contents                                                                                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `speciesqc/<species>/`                | Eligibility report + the PopPUNK r-file and per-genome HQ/MQ labels.                                                                        |
-| `poppunk/<species>/createdb/`         | The PopPUNK sketch database + core/accessory distances (with diagnostic plots).                                                             |
-| `poppunk/<species>/qcdb/`             | The QC'd (pruned) database (with plots).                                                                                                    |
-| `poppunk/<species>/quantiles/`        | The data-derived core-distance thresholds (`*_core_quantiles.csv`).                                                                         |
-| `poppunk/<species>/fastani/`          | The all-vs-all ANI (`*.ani.txt`).                                                                                                           |
-| `poppunk/<species>/fitmodel/<model>/` | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model.                                       |
-| `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `tool_status`, `decision`, `reason`, scores) plus per-cluster and per-genome metrics. |
+| Path                                  | Contents                                                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `speciesqc/<species>/`                | Eligibility report + the PopPUNK r-file and per-genome HQ/MQ labels.                                                                                                           |
+| `<species>/<species>_ani_overview.*`  | Per-species figure (PNG + PDF): pairwise ANI histogram with a density curve, and the ANI heatmap ordered by UPGMA clustering with dendrograms and an HQ/MQ strip.              |
+| `poppunk/<species>/createdb/`         | The PopPUNK sketch database + core/accessory distances (with diagnostic plots).                                                                                                |
+| `poppunk/<species>/qcdb/`             | The QC'd (pruned) database (with plots).                                                                                                                                       |
+| `poppunk/<species>/quantiles/`        | The data-derived core-distance thresholds (`*_core_quantiles.csv`).                                                                                                            |
+| `poppunk/<species>/fastani/`          | The all-vs-all ANI (`*.ani.txt`).                                                                                                                                              |
+| `poppunk/<species>/fitmodel/<model>/` | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model.                                                                          |
+| `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `poppunk_network_score`, `tool_status`, scores, `decision`, `eval_summary`) plus per-cluster and per-genome metrics.     |
+| `<species>/syntracker/`               | SynTracker branch: reference/target selection, APSS tables, one `Taxon,Cluster` table per APSS floor × resolution, their APSS/ANI evaluations and the SynTracker model report. |
 
-To see the results of an example test run with a full size dataset refer to the [results](https://nf-co.re/subspeciesprofiler/results) tab on the nf-core website pipeline page.
+To see the results of an example test run with a full size dataset refer to the [results](https://github.com/ebi-metagenomics/subspeciesprofiler) tab on the nf-core website pipeline page.
 For more details about the output files and reports, please refer to the
-[output documentation](https://nf-co.re/subspeciesprofiler/output).
+[output documentation](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/output.md).
+For how to read the per-species model report and choose a model (or conclude a species has
+no subspecies structure), see the
+[curation guide](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/curation.md).
 
 ## Credits
 
-nf-core/subspeciesprofiler was originally written by Alejandra Escobar.
-
-We thank the following people for their extensive assistance in the development of this pipeline:
-
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
+ebi-metagenomics/subspeciesprofiler was originally written by Alejandra Escobar.
 
 ## Contributions and Support
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
 
-For further information or help, don't hesitate to get in touch on the [Slack `#subspeciesprofiler` channel](https://nfcore.slack.com/channels/subspeciesprofiler) (you can join with [this invite](https://nf-co.re/join/slack)).
+For further information or help, don't hesitate to get in touch on the [Slack `#subspeciesprofiler` channel](https://github.com/ebi-metagenomics/subspeciesprofiler/issues) (you can join with [this invite](https://nf-co.re/join/slack)).
 
 ## Citations
-
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-<!-- If you use nf-core/subspeciesprofiler for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
-
-<!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
 

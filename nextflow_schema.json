@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/nf-core/subspeciesprofiler/master/nextflow_schema.json",
-    "title": "nf-core/subspeciesprofiler pipeline parameters",
+    "$id": "https://raw.githubusercontent.com/ebi-metagenomics/subspeciesprofiler/master/nextflow_schema.json",
+    "title": "ebi-metagenomics/subspeciesprofiler pipeline parameters",
     "description": "Pipeline that generates subspecies clusters from a group of genomes of the same species",
     "type": "object",
     "$defs": {
@@ -20,7 +20,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file describing the species to profile.",
-                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_csv` (path to a CSV of per-genome completeness/contamination values). See [usage docs](https://nf-co.re/subspeciesprofiler/usage#samplesheet-input).",
+                    "help_text": "You will need to create a design file with information about the species before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with a header row and 3 columns: `species` (unique species name), `genomes_dir` (path to a directory of gzipped genomes for that species), and `qc_csv` (path to a CSV of per-genome completeness/contamination values). See [usage docs](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/usage.md#samplesheet-input).",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "qc_filter": {
@@ -56,21 +56,22 @@
             "type": "object",
             "fa_icon": "fas fa-project-diagram",
             "description": "Parameter grids swept within each PopPUNK model family.",
-            "help_text": "All four families (threshold, lineage, BGMM, DBSCAN) always run; these params set the values swept within each and are scored against all-vs-all ANI. Trim them (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
+            "help_text": "All three families (threshold, BGMM, DBSCAN) are swept, except that BGMM is skipped for species at or above `--poppunk_bgmm_max_genomes`. Every DBSCAN fit is additionally refined with PopPUNK's standard `--fit-model refine`. Every fit is scored against all-vs-all ANI. Trim the grids (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
             "properties": {
-                "poppunk_lineage_ranks": {
-                    "type": "string",
-                    "default": "1,2,3,5,8,10,15,20,30,50",
-                    "pattern": "^[0-9]+(,[0-9]+)*$",
-                    "description": "Comma-separated lineage ranks (nearest-neighbour counts) to fit in one lineage run; each is scored as a separate clustering.",
-                    "fa_icon": "fas fa-list-ol"
-                },
                 "poppunk_bgmm_k": {
                     "type": "string",
                     "default": "2,3,4,5,6,8,10",
                     "pattern": "^[0-9]+(,[0-9]+)*$",
                     "description": "Comma-separated K values (number of mixture components) for the BGMM sweep.",
                     "fa_icon": "fas fa-list-ol"
+                },
+                "poppunk_bgmm_max_genomes": {
+                    "type": "integer",
+                    "default": 200,
+                    "minimum": 1,
+                    "description": "Skip the BGMM sweep for species with at least this many post-QC genomes.",
+                    "help_text": "BGMM requires the core/accessory distance components to be clearly separated, which in practice only holds for small genome collections. At or above this count the BGMM family is not fitted at all and DBSCAN (plus its standard refinement) carries the fit. The count used is n_hq + n_mq from the species eligibility report, i.e. the genomes actually entering the PopPUNK database.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
                 },
                 "poppunk_dbscan_d": {
                     "type": "string",
@@ -81,38 +82,101 @@
                 },
                 "poppunk_dbscan_min_cluster_prop": {
                     "type": "string",
-                    "default": "0.001,0.005,0.01,0.02",
+                    "default": "0.001,0.005,0.01",
                     "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
                     "description": "Comma-separated min-cluster-prop values for the DBSCAN sweep.",
                     "fa_icon": "fas fa-list-ol"
+                }
+            }
+        },
+        "syntracker_options": {
+            "title": "SynTracker (synteny) options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Synteny-based clustering with SynTracker, an independent signal scored alongside the PopPUNK fits.",
+            "help_text": "For each species, the SynTracker reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those with N50 >= `--syntracker_ref_min_n50`; every HQ genome is a target (uncapped by default). SynTracker scores every target pair by synteny (APSS, all regions), in chunk pairs for large species, merged into one table. Pairs on fewer than `--syntracker_min_regions` regions and low-coverage genomes are left out; the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored in APSS space (gap margin = 2x the APSS standard error) and in ANI space (concordance), and reported as a `syntracker_leiden_apss<t>_r<res>` row in the species' SynTracker model report.",
+            "properties": {
+                "skip_syntracker": {
+                    "type": "boolean",
+                    "description": "Skip the SynTracker branch.",
+                    "fa_icon": "fas fa-fast-forward"
                 },
-                "poppunk_refine_top_n": {
+                "syntracker_max_targets": {
                     "type": "integer",
-                    "default": 3,
-                    "minimum": 1,
-                    "description": "When no cheap model is Strong, how many top candidates (pooled across the non-lineage families, by HQ structure score) to refine.",
-                    "fa_icon": "fas fa-sort-amount-down"
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Maximum number of HQ genomes passed to SynTracker as targets (0 = no cap).",
+                    "help_text": "By default every HQ genome is a target, and large target sets run in chunk pairs (`--syntracker_chunk_size`). A positive value keeps only the genomes with the highest N50 (the reference always is), with a warning; it must then be at least 2. Capping can split clonal groups: in B. fragilis, 21 of 150 targets lost every clonal partner to a 150 cap.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
                 },
-                "poppunk_multiboundary_n": {
+                "syntracker_chunk_size": {
                     "type": "integer",
-                    "default": 20,
-                    "minimum": 1,
-                    "description": "Number of boundary positions to sweep with `refine --multi-boundary` when refine yields no Strong model.",
+                    "default": 75,
+                    "minimum": 2,
+                    "description": "Number of targets per chunk when SynTracker runs in chunk pairs.",
+                    "help_text": "SynTracker's cost grows with the square of the number of targets (about 40 core-hours at 150). Above 2x this many targets, they are split into k chunks and SynTracker runs once per chunk pair (k(k-1)/2 jobs of at most 2x this many targets, same reference); the all-regions APSS tables are then merged. A pair's all-regions APSS does not depend on the other targets in the run, so the result equals one big run. B. fragilis's 435 HQ genomes: 6 chunks, 15 jobs.",
+                    "fa_icon": "fas fa-th-large"
+                },
+                "syntracker_ref_min_n50": {
+                    "type": "integer",
+                    "default": 100000,
+                    "minimum": 0,
+                    "description": "Minimum N50 of the SynTracker reference genome.",
+                    "help_text": "The reference is the most central HQ genome (mean FastANI) among those above this N50; centrality spreads the loss of regions evenly across lineages, the floor keeps a fragmented genome from being chosen.",
                     "fa_icon": "fas fa-ruler-horizontal"
                 },
-                "poppunk_multiboundary_top_n": {
+                "syntracker_min_regions": {
                     "type": "integer",
-                    "default": 2,
+                    "default": 100,
                     "minimum": 1,
-                    "description": "How many top post-refine candidates to seed the multi-boundary sweep from.",
-                    "fa_icon": "fas fa-sort-amount-down"
+                    "description": "Minimum number of regions a pair must be compared on to be used.",
+                    "help_text": "The APSS of a pair has a standard error of about 0.23/sqrt(regions); 100 regions gives ~0.02.",
+                    "fa_icon": "fas fa-filter"
                 },
-                "poppunk_unconstrained_top_n": {
+                "syntracker_min_genome_coverage": {
+                    "type": "number",
+                    "default": 0.4,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Exclude targets whose median regions per pair is below this fraction of the species median.",
+                    "help_text": "Genomes keep fewer regions when fragmented or far from the reference, and the regions they keep are biased. 0.4 removes very fragmented genomes while keeping distant subspecies (in B. longum, 0.5 started removing members of a minority subspecies).",
+                    "fa_icon": "fas fa-percentage"
+                },
+                "syntracker_min_apss": {
+                    "type": "string",
+                    "default": "auto",
+                    "pattern": "^(auto|[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*)$",
+                    "description": "APSS edge-pruning floors: `auto` (evenly spaced over the species' APSS range) or comma-separated values; one Leiden clustering per floor and resolution.",
+                    "help_text": "Species differ in where their APSS sits (B. longum subspecies separate at 0.70-0.80; B. fragilis has a median of 0.92), so by default the floors are `--syntracker_apss_steps` values evenly spaced between the `--syntracker_apss_range` percentiles of the species' own APSS. Evenly spaced, not at quantiles: the separations sought are gaps, which hold almost no pairs.",
+                    "fa_icon": "fas fa-cut"
+                },
+                "syntracker_apss_range": {
+                    "type": "string",
+                    "default": "0.01,0.99",
+                    "pattern": "^[0-9]*\\.?[0-9]+,[0-9]*\\.?[0-9]+$",
+                    "description": "With `--syntracker_min_apss auto`: the two percentiles of the species' APSS values that bound the floors.",
+                    "fa_icon": "fas fa-arrows-alt-h"
+                },
+                "syntracker_apss_steps": {
                     "type": "integer",
-                    "default": 1,
+                    "default": 8,
                     "minimum": 1,
-                    "description": "How many top model-dir candidates (cheap or refine) to seed the unconstrained-refine rescue from, if multi-boundary still yields no Strong model.",
-                    "fa_icon": "fas fa-sort-amount-down"
+                    "description": "With `--syntracker_min_apss auto`: number of evenly spaced floors.",
+                    "fa_icon": "fas fa-list-ol"
+                },
+                "syntracker_resolutions": {
+                    "type": "string",
+                    "default": "0.25,0.5,1.0",
+                    "pattern": "^[0-9]*\\.?[0-9]+(,[0-9]*\\.?[0-9]+)*$",
+                    "description": "Comma-separated Leiden (modularity) resolutions; higher values give more, smaller clusters.",
+                    "fa_icon": "fas fa-sliders-h",
+                    "help_text": "On B. longum, 0.25-0.5 recovered the three subspecies (ARI 0.98 with dbscan); 1.0 over-split the main group."
+                },
+                "syntracker_seed": {
+                    "type": "integer",
+                    "default": 42,
+                    "description": "Random seed for Leiden.",
+                    "fa_icon": "fas fa-random"
                 }
             }
         },
@@ -280,6 +344,9 @@
         },
         {
             "$ref": "#/$defs/poppunk_model_sweep"
+        },
+        {
+            "$ref": "#/$defs/syntracker_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

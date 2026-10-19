@@ -1,4 +1,4 @@
-# nf-core/subspeciesprofiler: Output
+# ebi-metagenomics/subspeciesprofiler: Output
 
 ## Introduction
 
@@ -6,14 +6,14 @@ This document describes the output produced by the pipeline. Most of the plots a
 
 The directories listed below will be created in the results directory after the pipeline has finished. All paths are relative to the top-level results directory.
 
-<!-- TODO nf-core: Write this documentation describing your workflow's output -->
-
 ## Pipeline overview
 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
 - [Species eligibility](#species-eligibility) - Per-species QC classification and a combined cross-species report
+- [ANI overview](#ani-overview) - Per-species figure: pairwise ANI histogram and clustered ANI heatmap
 - [Subspecies clustering](#subspecies-clustering) - PopPUNK database, model sweep, FastANI evaluation and per-model report
+- [SynTracker](#syntracker) - Synteny-based clustering, an independent signal scored like the PopPUNK fits
 - [MultiQC](#multiqc) - Aggregate subspecies dashboard for the whole run
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
 
@@ -23,13 +23,21 @@ Results are organised **species-first**: each species in the samplesheet gets it
 <outdir>/
 ├── species_eligibility_report.tsv        # combined eligibility, one row per species
 ├── <species>/
+│   ├── <species>_ani_overview.{png,pdf,tsv}  # ANI histogram + clustered ANI heatmap
 │   ├── speciesqc/                         # this species' eligibility report + QC classification
-│   └── poppunk/
-│       ├── <species>_model_report.tsv     # every model tried + its verdict
-│       ├── createdb/  qcdb/  quantiles/
-│       ├── fastani/
-│       ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
-│       └── evaluate/<model>/
+│   ├── poppunk/
+│   │   ├── <species>_model_report.tsv     # every PopPUNK model tried + its verdict
+│   │   ├── createdb/  qcdb/  quantiles/
+│   │   ├── fastani/
+│   │   ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
+│   │   ├── evaluate/<model>/
+│   │   └── microreact/                    # Strong + Moderate models, one file set each
+│   └── syntracker/
+│       ├── <species>_syntracker_model_report.tsv  # every SynTracker clustering + its verdict
+│       ├── selection/                     # reference and target choice
+│       ├── apss/                          # SynTracker APSS tables + its log
+│       ├── clusters/                      # one Taxon,Cluster table per min_apss x resolution, coverage, noise
+│       └── evaluate/<model>/              # APSS (+ ANI concordance) evaluation of each clustering
 ├── multiqc/
 └── pipeline_info/
 ```
@@ -46,20 +54,77 @@ Results are organised **species-first**: each species in the samplesheet gets it
 
 Each species' genome QC table is classified into HQ / MQ genomes and assigned a subspecies-clustering eligibility label. Only species whose label is kept by `--qc_filter` continue to clustering.
 
+### ANI overview
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `<species>/<species>_ani_overview.png` (200 dpi) and `.pdf` (vector): one figure with two panels side by side.
+- `<species>/<species>_ani_overview.tsv`: `n_genomes`, `n_pairs`, `n_missing_pairs`, `ani_min`, `ani_median`, `ani_max` and `colour_min` (the bottom of the heatmap colour scale), ANI in %.
+
+</details>
+
+A first look at a species' population structure, drawn from the all-vs-all FastANI of its HQ and MQ genomes (`poppunk/fastani/`), before any model is fitted:
+
+- **Left, pairwise ANI histogram:** one count per genome pair (the two FastANI directions averaged), in 0.1% bins, with a black kernel density estimate. A single mode means a continuum of relatedness; separate modes mean discrete groups, e.g. the low-ANI mode of the between-group pairs when a species has subspecies.
+- **Right, clustered ANI heatmap:** ANI between every pair of genomes, rows and columns ordered by UPGMA hierarchical clustering on 100 − ANI, with the dendrograms on top and left. Blocks along the diagonal are groups of closely related genomes. A strip beside the heatmap marks each genome HQ or MQ, to show whether MQ genomes fall on their own branches. Pairs FastANI did not report (it reports nothing below about 80% ANI) are grey, counted in the title, and treated as the most distant observed pair for the clustering. Genome names are shown up to 50 genomes.
+
 ### Subspecies clustering
 
 <details markdown="1">
 <summary>Output files</summary>
 
-- `<species>/poppunk/<species>_model_report.tsv`: the "profiler history" — every PopPUNK model fitted for this species with its evaluation verdict (`tool_status`, `decision`, structure scores).
+- `<species>/poppunk/<species>_model_report.tsv`: the "profiler history" — every PopPUNK model fitted for this species with:
+  - PopPUNK's own network score (`poppunk_network_score`, the plain score from the fit's network summary). This is context only: it peaks for the most fragmented fits, so it does not feed the verdict;
+  - its evaluation verdict (`tool_status`);
+  - the cluster counts (`n_clusters`, `n_nonsingleton_clusters`, `largest_cluster_fraction`);
+  - the structure scores and a plain-text `eval_summary`.
+
+  The binary `decision` is kept only in the per-fit `evaluate/<model>/*.tool_metrics.tsv`. See the [curation guide](curation.md) for how to read this table and choose a model.
+
 - `<species>/poppunk/createdb/`, `qcdb/`, `quantiles/`: the PopPUNK database, its distance-QC output, and the core-distance quantiles that seed the threshold sweep.
 - `<species>/poppunk/fastani/`: the all-vs-all FastANI distances used to score each model externally.
-- `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`).
+- `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`) and the run log (`*_fit.log`).
 - `<species>/poppunk/evaluate/<model>/`: per-model evaluation metrics (`*.tool_metrics.tsv`, `*.cluster_metrics.tsv`, `*.genome_metrics.tsv`).
+- `<species>/poppunk/microreact/`: [Microreact](https://microreact.org) visualisations for every model the evaluator rated **Strong or Moderate**, so the credible candidates can be inspected side by side and the best one picked by eye. All models share this one directory and each file carries the model name (family plus its swept parameters), e.g.:
+  - `<species>_<model>.microreact` — upload this single file to [microreact.org/upload](https://microreact.org/upload) to open the visualisation.
+  - `<species>_<model>_microreact_clusters.csv` — cluster assignments with Microreact headers.
+  - `<species>_<model>_core_NJ.nwk` — neighbour-joining tree from the core distances.
+  - `<species>_<model>_perplexity<P>_accessory_mandrake.dot` — 2D embedding of the accessory distances.
+
+  For example `E_coli_refine_from_dbscan_D5_mcp0.01.microreact` is the refined DBSCAN fit with `D=5`, `min-cluster-prop=0.01`.
 
 </details>
 
 [PopPUNK](https://poppunk.readthedocs.io/) builds a genome database and fits candidate clustering models, which are scored against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI) distances to pick a subspecies partition.
+
+### SynTracker
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `<species>/syntracker/<species>_syntracker_model_report.tsv`: one row per SynTracker clustering (`syntracker_leiden_apss<t>_r<res>`): its verdict in APSS space (`tool_status`, structure scores, silhouettes, singleton rates), the APSS standard error used as the gap margin (`apss_se`), the same partition scored in ANI space (`median_silhouette_ANI_HQ`, `negative_silhouette_ANI_HQ_fraction`, `ani_separated_fraction`) and the resulting `signal` (`synteny_and_ani`, `synteny_only` or `none`). It has its own columns, separate from the PopPUNK model report.
+- `<species>/syntracker/selection/<species>_syntracker_selection.tsv`: every HQ genome with its N50, its centrality (mean FastANI to the other HQ genomes) and its role: `reference`, `target`, or `capped` (left out by a positive `--syntracker_max_targets`; by default nothing is capped). The `*_reference.txt` and `*_targets.txt` files list the chosen genomes.
+- `<species>/syntracker/apss/`:
+  - `avg_synteny_scores_all_regions.csv`: the average pairwise synteny score (APSS) of every pair of targets over all the regions they share (`Ref_genome, Sample1, Sample2, APSS, Compared_regions`), merged over the SynTracker jobs. This is the table that is clustered and evaluated.
+  - `<species>_syntracker_merge.tsv`: how the merge went: tables merged, rows read, duplicate rows (pairs computed in more than one job, which must agree exactly), unique pairs, and the number of target pairs absent (SynTracker leaves out pairs that share no region).
+  - `<chunk>/`: one folder per SynTracker job: `all` when the targets ran together, else `c<i>_c<j>`, the run on chunks i and j (see below). Each holds:
+    - `avg_synteny_scores_all_regions.csv`: that job's pairs.
+    - `avg_synteny_scores_<N>_regions.csv` (N = 40, 60, 80, 100, 200): APSS from N regions subsampled per pair; pairs with fewer than N regions are absent. SynTracker fixes the subsampling seed, so these are reproducible, but they are noisy (sampling noise about 0.23/sqrt(N)), and a pair's subsample depends on the other targets in the job, so they are never merged. Only the 40-region table of the first job is used, to estimate that noise.
+    - `SynTracker_log.txt`: SynTracker's own log, with each region's outcome.
+    - `<species>_<chunk>_syntracker_multihit.tsv`: what the one-hit filter removed from that job (below): region/genome combinations with more than one BLAST hit, per-region rows read and removed, pairs changed and pairs left without regions.
+- `<species>/syntracker/clusters/`:
+  - `<species>_syntracker_leiden_apss<t>_r<res>_clusters.csv`: one `Taxon,Cluster` table per APSS floor `t` (`floors.tsv`) and Leiden resolution `res` (`--syntracker_resolutions`); cluster 1 is the largest. A target with no pair at or above `t` is a singleton.
+  - `<species>_syntracker_genome_coverage.tsv`: each target's median number of regions per pair, relative to the species median, and its status; `low_coverage` targets (below `--syntracker_min_genome_coverage`) are left out of the clusterings.
+  - `<species>_syntracker_noise.tsv`: the per-region synteny-score SD, the median regions per pair and the resulting APSS standard error.
+  - `<species>_syntracker_floors.tsv`: the APSS floors used (`step`, `min_apss`). With the default `--syntracker_min_apss auto` they are `--syntracker_apss_steps` values evenly spaced between the `--syntracker_apss_range` percentiles of the species' own APSS.
+- `<species>/syntracker/evaluate/<model>/`: the evaluation of each clustering (`*.tool_metrics.tsv`, `*.cluster_metrics.tsv` with `*_APSS` columns and Cliff's delta, `*.genome_metrics.tsv` with `silhouette_APSS`).
+
+</details>
+
+[SynTracker](https://github.com/leylabmpi/SynTracker) compares genomes by **synteny**, the arrangement of genes, in regions of a single reference genome, which makes it independent of PopPUNK's k-mer distances and able to separate genomes of near-identical ANI that differ by rearrangements. APSS is close to 1 minus the share of 5-kb windows that a pair has broken into more than one synteny block.
+
+The reference is the most central HQ genome (highest mean FastANI to the other HQ genomes) among those with N50 of at least `--syntracker_ref_min_n50`: a target loses regions the further it is from the reference, and a central reference spreads that loss evenly across lineages. Every HQ genome is a target. SynTracker's cost grows with the square of their number, so above 2 × `--syntracker_chunk_size` (default 75) targets they are split round-robin, in N50 order, into k chunks and SynTracker runs once per pair of chunks (k(k−1)/2 jobs, the same reference in all); the jobs' all-regions tables are then merged. Before merging, each job's per-region scores go through SynTracker's own **one-hit-per-genome rule**: a region in which a genome has more than one BLAST hit (it is multi-copy there) is dropped from that genome's pairs, and the all-regions APSS is recomputed. SynTracker 1.4.0 defines that rule but applies it only when deciding whether a region is analysed, not when extracting the sequences, so without the filter whether such a pair gets the region depends on the other genomes in the run. This removes about 0.05% of per-region scores and moves no APSS by more than 0.002. With it, a pair's all-regions APSS depends only on the two genomes and the reference, not on the other targets in the run, so the merged table is the one a single run would give; a pair computed in two jobs must agree exactly, or the run stops. A job that fails is retried (twice after a resource or kill error, once otherwise). If a job still fails, that species gets no SynTracker results, with a warning in the Nextflow log naming the failed chunks, because a partial merge would make the missing pairs' genomes look unconnected. Its PopPUNK results are not affected, and `-resume` re-runs only the failed jobs. A positive `--syntracker_max_targets` still caps the targets, keeping the highest N50. The all-regions APSS is turned into clusters as in the SynTracker paper's network analysis: an APSS-weighted graph of the targets, pruned at the APSS floor, partitioned into Leiden (modularity) communities, over a sweep of floors evenly spaced across the species' own APSS range and of Leiden resolutions. Each clustering is scored in APSS space, with a gap margin of twice the APSS standard error, and in ANI space for concordance. See the [curation guide](curation.md) for reading these rows.
 
 ### MultiQC
 

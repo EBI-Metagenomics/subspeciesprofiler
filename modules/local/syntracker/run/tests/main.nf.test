@@ -1,0 +1,85 @@
+nextflow_process {
+
+    name "Test Process SYNTRACKER_RUN"
+    script "../main.nf"
+    process "SYNTRACKER_RUN"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_local"
+    tag "syntracker"
+    tag "syntracker/run"
+
+    // Real data: SynTracker's own E. coli sample data, pinned to the 1.4.0 release tag
+    // (K-12 MG1655 reference, three assembled targets). Needs the amd64 container; under
+    // emulation on Apple Silicon it is slow but works.
+    test("e_coli - syntracker sample data") {
+
+        when {
+            process {
+                """
+                def base = 'https://raw.githubusercontent.com/leylabmpi/SynTracker/1.4.0/Sample_Data/Input_example'
+                input[0] = [
+                    [ id:'E_coli' ],
+                    file("\${base}/Reference_genomes/E_coli_K-12_MG1655.fasta", checkIfExists: true),
+                    [
+                        file("\${base}/Target_genomes/ASM15512v1.fna", checkIfExists: true),
+                        file("\${base}/Target_genomes/ASM17195v1.fna", checkIfExists: true),
+                        file("\${base}/Target_genomes/ASM2222v1.fna", checkIfExists: true)
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            def all = process.out.apss[0][1].find { file(it.toString()).name == 'avg_synteny_scores_all_regions.csv' }
+            // Ref_genome,Sample1,Sample2,APSS,Compared_regions (quoted strings) -> maps
+            def rows = path(all.toString()).readLines().drop(1).collect { line ->
+                def v = line.replace('"', '').tokenize(',')
+                [ Sample1: v[1], Sample2: v[2], APSS: v[3] ]
+            }
+            assertAll(
+                { assert process.success },
+                // all three target pairs scored, with plausible within-species APSS
+                { assert rows.size() == 3 },
+                { assert rows.every { (it.APSS as double) > 0.5 && (it.APSS as double) <= 1.0 } },
+                { assert rows.collect { [ it.Sample1, it.Sample2 ].sort() }.flatten().toSet() == [ 'ASM15512v1', 'ASM17195v1', 'ASM2222v1' ] as Set },
+                { assert snapshot(
+                    process.out.apss[0][1].collect { file(it.toString()).name }.sort(),
+                    process.out.findAll { key, val -> key.startsWith("versions") }
+                ).match() }
+            )
+        }
+
+    }
+
+    test("e_coli - syntracker sample data - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'E_coli' ],
+                    file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true),
+                    [
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/genomes/E_coli/genome2.fna.gz", checkIfExists: true)
+                    ]
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

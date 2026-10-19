@@ -41,6 +41,7 @@ process SPECIESQC {
     printf '${meta.id}\\tSTRONG\\t80\\t40\\t100.0\\t0.667\\t120\\t5\\n' >> ${prefix}_spp_eligibility_report.tsv
     printf 'genome1\\t./genomes/genome1.fna.gz\\n' > ${prefix}_rfile.tsv
     printf 'genome2\\t./genomes/genome2.fna.gz\\n' >> ${prefix}_rfile.tsv
-    printf 'genome,label\\ngenome1,HQ\\ngenome2,MQ\\n' > ${prefix}_labels.csv
+    # both genomes HQ, so stub runs reach the SynTracker branch (it needs at least 2 HQ genomes)
+    printf 'genome,label\\ngenome1,HQ\\ngenome2,HQ\\n' > ${prefix}_labels.csv
     """
 }

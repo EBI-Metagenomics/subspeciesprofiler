@@ -1,0 +1,47 @@
+nextflow_process {
+
+    name "Test Process POPPUNK_VISUALISE"
+    script "../main.nf"
+    process "POPPUNK_VISUALISE"
+
+    tag "modules"
+    tag "modules_"
+    tag "poppunk"
+    tag "poppunk/visualise"
+
+    // NOTE: there is no real-data test here yet. poppunk_visualise builds an NJ tree and a
+    // mandrake embedding, and mandrake needs perplexity < n genomes, so a real test needs a
+    // test database with considerably more than the 3 genomes the other PopPUNK module tests
+    // use. It also cannot be developed on Apple Silicon (the amd64 poppunk container segfaults
+    // under emulation), so it needs to be written against a Linux/x86 runner.
+    test("visualise - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', model:'dbscan_D5_mcp0.01' ],
+                    file("${projectDir}/tests/fixtures/poppunk_qc_db", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/poppunk_fit/test_fitmodel", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assertAll(
+                { assert snapshot(process.out).match() },
+                // the model name (family + its swept params) must be part of every filename, so the
+                // files stay self-describing when published flat into .../poppunk/microreact/
+                { assert process.out.microreact.every { meta, f -> file(f.toString()).name.contains('dbscan_D5_mcp0.01') } },
+                { assert process.out.clusters.every  { meta, f -> file(f.toString()).name.contains('dbscan_D5_mcp0.01') } },
+                { assert process.out.tree.every      { meta, f -> file(f.toString()).name.contains('dbscan_D5_mcp0.01') } }
+            )
+        }
+
+    }
+
+}

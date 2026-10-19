@@ -1,0 +1,112 @@
+nextflow_process {
+
+    name "Test Process SYNTRACKER_MERGE"
+    script "../main.nf"
+    process "SYNTRACKER_MERGE"
+
+    tag "modules"
+    tag "modules_local"
+    tag "syntracker"
+    tag "syntracker/merge"
+
+    // Fixture: the 9 genomes of tests/fixtures/syntracker split round-robin into 3 chunks, one
+    // table per chunk pair (15 pairs each), cut from the single-run all-regions table. Pairs
+    // within a chunk are in two tables; the merge must give back the single-run pairs.
+    test("syntracker merge - three chunk pairs") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    [
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c1_c2_all_regions.csv", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c1_c3_all_regions.csv", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c2_c3_all_regions.csv", checkIfExists: true)
+                    ],
+                    file("${projectDir}/tests/fixtures/syntracker/targets.txt", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            def pairs = { lines -> lines.drop(1).collect { it.tokenize(',') }.collect { [ [ it[1], it[2] ].sort(), it[3], it[4] ] } as Set }
+            def report = path(process.out.report[0][1].toString()).readLines()*.tokenize('\t')
+            def stats  = [ report[0], report[1] ].transpose().collectEntries()
+            assertAll(
+                { assert process.success },
+                // the same 36 pairs and values as the single run
+                { assert pairs(path(process.out.apss[0][1].toString()).readLines()) ==
+                         pairs(file("${projectDir}/tests/fixtures/syntracker/avg_synteny_scores_all_regions.csv").readLines()) },
+                { assert stats.n_tables == '3' && stats.rows_read == '45' && stats.duplicate_rows == '9' && stats.unique_pairs == '36' },
+                // genomeC1 has no pairs: 9 of the 45 target pairs are absent
+                { assert stats.n_targets == '10' && stats.expected_pairs == '45' && stats.missing_pairs == '9' },
+                { assert snapshot(
+                    process.out.apss,
+                    process.out.report,
+                    process.out.findAll { key, val -> key.startsWith('versions') }
+                ).match() }
+            )
+        }
+
+    }
+
+    test("syntracker merge - conflicting duplicate pair fails") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    [
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/conflict_all_regions.csv", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c1_c3_all_regions.csv", checkIfExists: true)
+                    ],
+                    file("${projectDir}/tests/fixtures/syntracker/targets.txt", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.failed },
+                { assert process.stdout.any { it.contains('not comparable') } }
+            )
+        }
+
+    }
+
+    test("syntracker merge - three chunk pairs - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    [
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c1_c2_all_regions.csv", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c1_c3_all_regions.csv", checkIfExists: true),
+                        file("${projectDir}/tests/fixtures/syntracker/chunks/c2_c3_all_regions.csv", checkIfExists: true)
+                    ],
+                    file("${projectDir}/tests/fixtures/syntracker/targets.txt", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // one row per pair, as in the real run
+                { assert path(process.out.apss[0][1].toString()).readLines().size() == 37 },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

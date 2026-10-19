@@ -266,7 +266,7 @@ def test_cli_single_cluster_is_weak(tmp_path):
     assert proc.returncode == 0
     assert tm["tool_status"] == "Weak"
     assert tm["decision"] == "TRY_NEXT_MODEL"
-    assert "single cluster" in tm["reason"]
+    assert "single cluster" in tm["eval_summary"]
 
 
 def test_cli_all_singletons_is_weak(tmp_path):
@@ -275,7 +275,19 @@ def test_cli_all_singletons_is_weak(tmp_path):
     proc, out = run_cli(tmp_path, cluster_of, label_of)
     tm = read_metrics(out, "tool_metrics").iloc[0]
     assert tm["tool_status"] == "Weak"
-    assert "all singletons" in tm["reason"]
+    assert "all singletons" in tm["eval_summary"]
+
+
+def test_cli_one_cluster_plus_singletons_is_not_mq_only(tmp_path):
+    # One multi-genome HQ cluster plus a singleton: nothing to separate it from, so Weak,
+    # but it must not be blamed on MQ-only structure.
+    cluster_of = {"g1": 1, "g2": 1, "g3": 1, "g4": 1, "g5": 2}
+    label_of = {g: "HQ" for g in cluster_of}
+    proc, out = run_cli(tmp_path, cluster_of, label_of)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert "one multi-genome cluster plus singletons" in tm["eval_summary"]
+    assert "MQ" not in tm["eval_summary"]
 
 
 def test_cli_mq_only_structure_is_weak(tmp_path):
@@ -285,7 +297,7 @@ def test_cli_mq_only_structure_is_weak(tmp_path):
     proc, out = run_cli(tmp_path, cluster_of, label_of)
     tm = read_metrics(out, "tool_metrics").iloc[0]
     assert tm["tool_status"] == "Weak"
-    assert "only among MQ" in tm["reason"]
+    assert "only among MQ" in tm["eval_summary"]
 
 
 # --------------------------------------------------------------------------- #
@@ -312,6 +324,96 @@ def test_cli_accept_status_controls_decision(tmp_path):
     assert read_metrics(out2, "tool_metrics").iloc[0]["decision"] == "ACCEPT"
 
 
+# A PopPUNK "Network summary" block, as written to stderr by `poppunk --fit-model`.
+NETWORK_SUMMARY = (
+    "Network summary:\n"
+    "\tComponents\t\t\t\t{c}\n"
+    "\tDensity\t\t\t\t\t0.1000\n"
+    "\tTransitivity\t\t\t\t0.9000\n"
+    "\tMean betweenness\t\t\t0.0500\n"
+    "\tWeighted-mean betweenness\t\t0.0400\n"
+    "\tScore\t\t\t\t\t{s}\n"
+    "\tScore (w/ betweenness)\t\t\t0.1111\n"
+    "\tScore (w/ weighted-betweenness)\t\t0.2222\n"
+)
+
+
+def test_parse_network_score_takes_plain_score_only(mod, tmp_path):
+    log = tmp_path / "fit.log"
+    log.write_text(NETWORK_SUMMARY.format(c=3, s="0.8123"))
+    assert mod.parse_network_score(str(log)) == pytest.approx(0.8123)
+
+
+def test_parse_network_score_last_summary_wins(mod, tmp_path):
+    # refine can report the network more than once; the final summary is the saved model.
+    log = tmp_path / "fit.log"
+    log.write_text(NETWORK_SUMMARY.format(c=5, s="0.5000") + "Refining...\n"
+                   + NETWORK_SUMMARY.format(c=3, s="0.9000"))
+    assert mod.parse_network_score(str(log)) == pytest.approx(0.9)
+
+
+def test_parse_network_score_missing_is_nan(mod, tmp_path):
+    log = tmp_path / "fit.log"
+    log.write_text("no summary here\n")
+    assert np.isnan(mod.parse_network_score(str(log)))
+    assert np.isnan(mod.parse_network_score(None))
+
+
+def test_cli_network_score_and_column_order(tmp_path):
+    cluster_of = {f"g{i}": (1 if i <= 3 else 2) for i in range(1, 7)}
+    label_of = {g: "HQ" for g in cluster_of}
+    log = tmp_path / "fit.log"
+    log.write_text(NETWORK_SUMMARY.format(c=2, s="0.7500"))
+    _, out = run_cli(tmp_path, cluster_of, label_of, extra_args=["--fit-log", str(log)])
+    tm = read_metrics(out, "tool_metrics")
+    cols = list(tm.columns)
+    assert cols[:3] == ["model", "poppunk_network_score", "tool_status"]
+    assert cols[-2:] == ["decision", "eval_summary"]
+    assert "reason" not in cols
+    assert tm.iloc[0]["poppunk_network_score"] == pytest.approx(0.75)
+
+
+def test_cli_cluster_count_columns(tmp_path):
+    # 3 clusters of 10 / 6 / 4 genomes -> n_clusters 3, all non-singleton, largest = 10/20.
+    sizes = {1: 10, 2: 6, 3: 4}
+    cluster_of = {}
+    for c, n in sizes.items():
+        cluster_of.update({f"c{c}g{i}": c for i in range(n)})
+    label_of = {g: "HQ" for g in cluster_of}
+    _, out = run_cli(tmp_path, cluster_of, label_of)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["n_clusters"] == 3
+    assert tm["n_nonsingleton_clusters"] == 3
+    assert tm["largest_cluster_fraction"] == pytest.approx(0.5)
+    assert not tm["eval_summary"].startswith("over-fragmentation")
+
+
+def test_cli_over_fragmentation_flagged(tmp_path):
+    # Two clean, near-identical triples plus 14 singletons: the non-singleton clusters score
+    # well, but 70% of HQ genomes are singletons -> Weak, flagged as over-fragmentation.
+    cluster_of = {f"t{c}g{i}": c for c in (1, 2) for i in range(3)}
+    cluster_of.update({f"s{i}": 100 + i for i in range(14)})
+    label_of = {g: "HQ" for g in cluster_of}
+    _, out = run_cli(tmp_path, cluster_of, label_of, intra=99.99)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert tm["tool_structure_score_HQ"] >= 0.80
+    assert tm["n_clusters"] == 16
+    assert tm["n_nonsingleton_clusters"] == 2
+    assert tm["eval_summary"].startswith("over-fragmentation")
+    assert "HQ singleton rate" in tm["eval_summary"]
+
+
+def test_cli_weak_structure_not_flagged_as_over_fragmentation(tmp_path):
+    # Clusters overlap on ANI (intra == inter) -> Weak for poor structure, not fragmentation.
+    cluster_of = {f"g{i}": (1 if i <= 6 else 2) for i in range(1, 13)}
+    label_of = {g: "HQ" for g in cluster_of}
+    _, out = run_cli(tmp_path, cluster_of, label_of, intra=98.0, inter=98.0)
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert not tm["eval_summary"].startswith("over-fragmentation")
+
+
 def test_cli_mixed_signal_reason(tmp_path):
     # cluster1 size 7 (not tiny) + cluster2 size 4 (tiny) -> tiny_cluster_rate_HQ ~0.36,
     # in the (0.30, 0.40] band between Moderate and Weak -> tool_status = Mixed.
@@ -320,8 +422,8 @@ def test_cli_mixed_signal_reason(tmp_path):
     _, out = run_cli(tmp_path, cluster_of, label_of, extra_args=["--model-name", "refine"])
     tm = read_metrics(out, "tool_metrics").iloc[0]
     assert tm["tool_status"] == "Mixed"
-    assert tm["reason"].startswith("mixed signal")
-    assert "tiny-cluster HQ rate" in tm["reason"]
+    assert tm["eval_summary"].startswith("mixed signal")
+    assert "tiny-cluster HQ rate" in tm["eval_summary"]
 
 
 # --------------------------------------------------------------------------- #
@@ -392,3 +494,148 @@ def test_is_negative_silhouette_is_nullable_boolean(mod):
     assert str(gm["is_negative_silhouette"].dtype) == "boolean"
     # the singleton's flag is <NA>, not False
     assert pd.isna(gm.set_index("genome_id").loc["g5", "is_negative_silhouette"])
+
+
+# --------------------------------------------------------------------------- #
+# APSS space (SynTracker clusterings): gap margin, weights, concordance
+# --------------------------------------------------------------------------- #
+
+def write_apss(path, cluster_of, intra=0.92, inter=0.70, regions=300, overrides=None):
+    """All-regions APSS table from {genome: cluster}; overrides: {(a, b): (apss, regions)}."""
+    overrides = overrides or {}
+    genomes = list(cluster_of)
+    with open(path, "w") as fh:
+        fh.write('"Ref_genome","Sample1","Sample2","APSS","Compared_regions"\n')
+        for i, a in enumerate(genomes):
+            for b in genomes[i + 1:]:
+                apss, reg = overrides.get((a, b), overrides.get((b, a), (
+                    intra if cluster_of[a] == cluster_of[b] else inter, regions)))
+                fh.write(f'"ref","{a}","{b}",{apss},{reg}\n')
+
+
+def run_apss(tmp_path, cluster_of, ani_intra=99.5, ani_inter=96.0, apss_kwargs=None, extra_args=(), tag="apss"):
+    d = tmp_path / tag
+    d.mkdir(exist_ok=True)
+    write_apss(d / "avg_synteny_scores_all_regions.csv", cluster_of, **(apss_kwargs or {}))
+    return run_cli(tmp_path, cluster_of, {g: "HQ" for g in cluster_of}, tag=tag, intra=ani_intra, inter=ani_inter,
+                   extra_args=["--distance", "apss", "--apss", str(d / "avg_synteny_scores_all_regions.csv"), *extra_args])
+
+
+SIX_SIX = {**{f"a{i}": "A" for i in range(6)}, **{f"b{i}": "B" for i in range(6)}}
+
+
+def test_score_gap_uses_the_given_floor(mod):
+    assert mod.score_gap(0.01, 0.05) == 1.0                  # ANI floor 0.002
+    assert mod.score_gap(0.01, 0.05, floor=0.03) == 0.7      # below the APSS margin, median gap clears it
+    assert mod.score_gap(0.01, 0.02, floor=0.03) == 0.0
+    assert mod.score_gap(-0.01, 0.05, floor=0.03) == 0.4
+
+
+def test_cliffs_delta(mod):
+    assert mod.cliffs_delta([3, 4, 5], [0, 1, 2]) == 1.0
+    assert mod.cliffs_delta([0, 1, 2], [3, 4, 5]) == -1.0
+    assert mod.cliffs_delta([1, 2], [1, 2]) == 0.0
+    assert mod.cliffs_delta([2, 3], [1, 2]) == pytest.approx(0.75)  # 3 of 4 pairs greater, none smaller
+    assert np.isnan(mod.cliffs_delta([], [1.0]))
+
+
+def test_apss_weights_leave_cohesion_unscored(mod):
+    cluster_of = SIX_SIX
+    clusters = pd.DataFrame({"genome_id": list(cluster_of), "cluster_id": list(cluster_of.values())})
+    meta = pd.DataFrame({"genome_id": list(cluster_of), "quality_status": "HQ"})
+    # APSS-like values far below every ANI cohesion anchor: ANI scoring would give cohesion 0
+    m = ani_matrix_from(cluster_of, intra=0.90, inter=0.70)
+    cm = mod.evaluate_clusters(clusters, meta, m, 2, space="APSS", gap_floor=0.03, weights=mod.APSS_WEIGHTS)
+    assert cm["cohesion_score"].isna().all()
+    assert "p5_intra_APSS" in cm.columns and "cliffs_delta" in cm.columns
+    assert cm["cluster_structure_score"].tolist() == pytest.approx([1.0, 1.0])
+    assert cm["cliffs_delta"].tolist() == pytest.approx([1.0, 1.0])
+
+
+def test_cli_apss_clean_split_concordant_with_ani(tmp_path):
+    proc, out = run_apss(tmp_path, SIX_SIX)
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Strong"
+    assert tm["signal"] == "synteny_and_ani"
+    assert tm["ani_separated_fraction"] == 1.0
+    cols = list(read_metrics(out, "tool_metrics").columns)
+    assert "poppunk_network_score" not in cols
+    assert cols[-7:] == ["apss_se", "median_silhouette_ANI_HQ", "negative_silhouette_ANI_HQ_fraction",
+                         "ani_separated_fraction", "signal", "decision", "eval_summary"]
+    assert "silhouette_APSS" in read_metrics(out, "genome_metrics").columns
+
+
+def test_cli_apss_split_invisible_in_ani_is_synteny_only(tmp_path):
+    # same ANI everywhere (no ANI structure), clear APSS split
+    proc, out = run_apss(tmp_path, SIX_SIX, ani_intra=98.5, ani_inter=98.5)
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Strong"
+    assert tm["signal"] == "synteny_only"
+
+
+def test_cli_apss_gap_below_noise_is_not_strong(tmp_path):
+    # APSS groups only 0.01 apart, below 2x the standard error (~0.026 at 300 regions)
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"intra": 0.85, "inter": 0.84})
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    cm = read_metrics(out, "cluster_metrics")
+    assert (cm["gap_score"] < 1.0).all()
+    assert tm["tool_status"] != "Strong"
+    assert tm["apss_se"] == pytest.approx(0.226 / np.sqrt(300))
+
+
+def test_cli_apss_noise_table_sets_the_margin(tmp_path):
+    d = tmp_path / "noise"
+    d.mkdir()
+    (d / "n.tsv").write_text("region_sd\tmedian_regions\tapss_se\n0.2\t300\t0.001\n")
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"intra": 0.85, "inter": 0.84},
+                         extra_args=["--apss-noise", str(d / "n.tsv")], tag="noise_run")
+    assert proc.returncode == 0, proc.stderr
+    assert read_metrics(out, "tool_metrics").iloc[0]["apss_se"] == pytest.approx(0.001)
+    assert (read_metrics(out, "cluster_metrics")["gap_score"] == 1.0).all()   # 0.01 > 2 x 0.001
+
+
+def test_cli_apss_pairs_below_min_regions_are_missing(tmp_path):
+    # a0's six cross-group pairs look like a merge but are on too few regions: ignored
+    overrides = {("a0", f"b{i}"): (0.95, 20) for i in range(6)}
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"overrides": overrides})
+    assert proc.returncode == 0, proc.stderr
+    assert read_metrics(out, "tool_metrics").iloc[0]["tool_status"] == "Strong"
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"overrides": overrides},
+                         extra_args=["--min-regions", "10"], tag="kept")
+    assert read_metrics(out, "cluster_metrics")["tail_gap"].lt(0).all()
+
+
+def test_cli_apss_unclean_partition_has_no_signal(tmp_path):
+    proc, out = run_apss(tmp_path, SIX_SIX, apss_kwargs={"intra": 0.84, "inter": 0.84})
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] == "Weak"
+    assert tm["signal"] == "none"
+
+
+def test_cli_apss_requires_the_table(tmp_path):
+    proc, _ = run_cli(tmp_path, SIX_SIX, {g: "HQ" for g in SIX_SIX}, extra_args=["--distance", "apss"])
+    assert proc.returncode != 0
+    assert "--apss" in proc.stderr
+
+
+def test_cli_apss_distant_genome_inside_big_cluster_is_still_ani_separated(tmp_path):
+    # B. longum case: an under-split big cluster holds one ANI-distant genome (a0). Its ANI tail
+    # gap drops to 0, but its ANI still separates it from the small cluster (Cliff's delta large),
+    # so the signal is synteny_and_ani, not synteny_only.
+    cluster_of = {**{f"a{i}": "A" for i in range(9)}, **{f"b{i}": "B" for i in range(3)}}
+    overrides = {("a0", f"a{i}"): 96.0 for i in range(1, 9)}
+    d = tmp_path / "far"
+    d.mkdir()
+    write_apss(d / "avg_synteny_scores_all_regions.csv", cluster_of)
+    proc, out = run_cli(tmp_path, cluster_of, {g: "HQ" for g in cluster_of}, tag="far",
+                        ani_rows=all_vs_all(cluster_of, overrides=overrides),
+                        extra_args=["--distance", "apss", "--apss", str(d / "avg_synteny_scores_all_regions.csv")])
+    assert proc.returncode == 0, proc.stderr
+    tm = read_metrics(out, "tool_metrics").iloc[0]
+    assert tm["tool_status"] in ("Strong", "Moderate")
+    assert tm["ani_separated_fraction"] == 1.0
+    assert tm["signal"] == "synteny_and_ani"

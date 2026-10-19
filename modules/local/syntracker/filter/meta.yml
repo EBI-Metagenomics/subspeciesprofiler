@@ -1,0 +1,91 @@
+name: "syntracker_filter"
+description: |
+  Applies SynTracker's one-hit-per-genome rule to one SynTracker run, with
+  bin/syntracker_filter_multihit.py, and recomputes its all-regions APSS. SynTracker 1.4.0 marks
+  a genome with more than one BLAST hit in a region as invalid but still extracts it, so whether
+  that genome's pairs get the region depends on the other genomes in the run. Dropping those
+  per-region rows makes every pair's APSS independent of the other targets, so chunk jobs agree
+  exactly when merged.
+keywords:
+  - syntracker
+  - apss
+  - blast
+  - filter
+tools:
+  - "python":
+      description: "Runs bin/syntracker_filter_multihit.py (standard library only)."
+      homepage: "https://www.python.org/"
+      documentation: "https://docs.python.org/3/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species and job information, e.g. `[ id:'Phocaeicola_vulgatus', chunk:'c1_c8' ]`
+    - per_region:
+        type: file
+        description: SynTracker `summary_output/synteny_scores_per_region.csv` of the run.
+        pattern: "synteny_scores_per_region.csv"
+        ontologies: []
+    - blast_output:
+        type: directory
+        description: |
+          The run's `<reference>/blast_output/` directory, one `<region>.tab` of BLAST hits per region;
+          staged as `blast_output`.
+        pattern: "blast_output"
+    - dictionary:
+        type: file
+        description: The run's `combined_targets/sample_names_dictionary.tab` (genome, Sample.N).
+        pattern: "sample_names_dictionary.tab"
+        ontologies: []
+
+output:
+  apss:
+    - - meta:
+          type: map
+          description: Groovy Map containing species and job information
+      - "avg_synteny_scores_all_regions.csv":
+          type: file
+          description: |
+            The run's all-regions APSS without the multi-hit genome/region rows, in SynTracker's format.
+          pattern: "avg_synteny_scores_all_regions.csv"
+          ontologies: []
+  report:
+    - - meta:
+          type: map
+          description: Groovy Map containing species and job information
+      - "*_syntracker_multihit.tsv":
+          type: file
+          description: |
+            Multi-hit region/genome combinations, per-region rows read and removed, and the pairs
+            changed or left without regions.
+          pattern: "*_syntracker_multihit.tsv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

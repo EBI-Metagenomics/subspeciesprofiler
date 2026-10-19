@@ -1,33 +1,40 @@
 //
-// POPPUNK_METHODS: staged PopPUNK model-selection for one eligible species.
+// POPPUNK_METHODS: PopPUNK model profiling for one eligible species.
 //
 // Stage 0 (one-time): build + QC the database, derive core-distance quantiles,
-// and compute all-vs-all FastANI (model-independent). Stage 1A: fan a
-// core-distance threshold sweep out over the quantiles, fit each with PopPUNK,
-// score every fit against FastANI, then rank and select the best model.
+// and compute all-vs-all FastANI (model-independent).
 //
-// Cheap models are run in parallel and scored; escalation to the expensive
-// refine stages (gated on no acceptable model) is a later phase.
+// Stage 1: fan out a sweep across three model families (threshold / bgmm /
+// dbscan), then refine every dbscan fit with PopPUNK's standard refinement.
+// Every fit -- swept or refined -- is scored against FastANI, then ranked.
+//
+// Every fit the evaluator rates Strong or Moderate additionally gets Microreact
+// visualisations, for manual inspection and selection among the worthy models. They start as
+// soon as that fit is evaluated: the gate is the fit's own tool_status, so they do not wait for
+// the species' ranking (which needs every fit) nor for other species.
+//
+// Lineage is deliberately absent: it clusters *within* a strain (sub-sub-
+// clustering), which is a different question from subspecies structure.
+// Refinement is applied to dbscan only, and is never gated: the non-standard
+// refine variants (--multi-boundary, --unconstrained) are not used, and a
+// species that no model resolves is itself an informative result.
 //
 
 include { POPPUNK_CREATEDB  } from '../../../modules/local/poppunk/createdb/main'
 include { POPPUNK_QCDB      } from '../../../modules/local/poppunk/qcdb/main'
 include { POPPUNK_QUANTILES } from '../../../modules/local/poppunk/quantiles/main'
-include { POPPUNK_FITMODEL      } from '../../../modules/local/poppunk/fitmodel/main'
-include { POPPUNK_FITMODEL as POPPUNK_REFINE } from '../../../modules/local/poppunk/fitmodel/main'
-include { POPPUNK_FITMODEL as POPPUNK_MULTIBOUNDARY } from '../../../modules/local/poppunk/fitmodel/main'
-include { POPPUNK_FITMODEL as POPPUNK_UNCONSTRAINED } from '../../../modules/local/poppunk/fitmodel/main'
-include { POPPUNK_LINEAGE_RANKS } from '../../../modules/local/poppunk/lineage_ranks/main'
-include { POPPUNK_EVALUATE      } from '../../../modules/local/poppunk/evaluate/main'
-include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_REFINE } from '../../../modules/local/poppunk/evaluate/main'
-include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_MULTIBOUNDARY } from '../../../modules/local/poppunk/evaluate/main'
-include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_UNCONSTRAINED } from '../../../modules/local/poppunk/evaluate/main'
-include { FASTANI_ALLVSALL      } from '../../../modules/local/fastani_allvsall/main'
+include { POPPUNK_FITMODEL  } from '../../../modules/local/poppunk/fitmodel/main'
+include { POPPUNK_FITMODEL as POPPUNK_REFINE_DBSCAN } from '../../../modules/local/poppunk/fitmodel/main'
+include { POPPUNK_EVALUATE  } from '../../../modules/local/poppunk/evaluate/main'
+include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_DBSCAN_REFINE } from '../../../modules/local/poppunk/evaluate/main'
+include { POPPUNK_VISUALISE } from '../../../modules/local/poppunk/visualise/main'
+include { FASTANI_ALLVSALL  } from '../../../modules/local/fastani_allvsall/main'
 
 workflow POPPUNK_METHODS {
 
     take:
     ch_input // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]
+             // meta.n_genomes (post-QC genome count) gates the BGMM family -- see below.
 
     main:
 
@@ -42,9 +49,8 @@ workflow POPPUNK_METHODS {
 
     // Stage 1: fan out one fit per model family, each paired with its species' QC'd database.
     // meta.id stays the species id (for the join back); meta.model labels the fit. This is a
-    // profiler: all four families always run, sweeping the grids set by params. A fit that dies on a
-    // degenerate grid point is dropped from the ranking (errorStrategy in conf/modules.config), and a
-    // species that no default model resolves is itself informative.
+    // profiler: all three families always run, sweeping the grids set by params. A fit that dies on
+    // a degenerate grid point is dropped from the ranking (errorStrategy in conf/modules.config).
 
     // Threshold sweep: quantile-derived core-distance cutoffs.
     ch_thr_fits = POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }
@@ -54,12 +60,23 @@ workflow POPPUNK_METHODS {
         )
         .map { id, meta, db, quantile, thr -> [ meta + [ model: "threshold_q${quantile}" ], db, "threshold --threshold ${thr}", [] ] }
 
-    // Lineage: a single fit per species holds every rank; split + scored per rank below.
-    ch_lin_fits = POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta + [ model: 'lineage' ], db, "lineage --ranks ${params.poppunk_lineage_ranks}", [] ] }
-
     // BGMM: sweep the number of mixture components K.
+    // BGMM needs the core/accessory distance components to be clearly separated, which in practice
+    // only holds for small collections -- PopPUNK recommends it for small sample sets and dbscan for
+    // larger ones. So the whole family is skipped for species at or above --poppunk_bgmm_max_genomes,
+    // where dbscan (plus its refinement) carries the fit. meta.n_genomes is the post-QC count
+    // (n_hq + n_mq, set in workflows/subspeciesprofiler.nf); if a caller supplies no count, run BGMM
+    // rather than silently dropping the family.
     def bgmm_k = params.poppunk_bgmm_k.toString().tokenize(',')*.trim()
-    ch_bgmm_fits = POPPUNK_QCDB.out.qc_db.flatMap { meta, db -> bgmm_k.collect { k -> [ meta + [ model: "bgmm_K${k}" ], db, "bgmm --K ${k}", [] ] } }
+    ch_bgmm_fits = POPPUNK_QCDB.out.qc_db
+        .filter { meta, db ->
+            def keep = meta.n_genomes == null || (meta.n_genomes as int) < (params.poppunk_bgmm_max_genomes as int)
+            if ( !keep ) {
+                log.info("Species '${meta.id}': ${meta.n_genomes} genomes >= --poppunk_bgmm_max_genomes (${params.poppunk_bgmm_max_genomes}); skipping the BGMM sweep.")
+            }
+            keep
+        }
+        .flatMap { meta, db -> bgmm_k.collect { k -> [ meta + [ model: "bgmm_K${k}" ], db, "bgmm --K ${k}", [] ] } }
 
     // DBSCAN: sweep the D x min-cluster-prop grid.
     def dbscan_d   = params.poppunk_dbscan_d.toString().tokenize(',')*.trim()
@@ -70,189 +87,57 @@ workflow POPPUNK_METHODS {
         }
     }
 
-    ch_fit_in = ch_thr_fits.mix( ch_lin_fits, ch_bgmm_fits, ch_dbscan_fits )
+    ch_fit_in = ch_thr_fits.mix( ch_bgmm_fits, ch_dbscan_fits )
     POPPUNK_FITMODEL( ch_fit_in )
 
-    // A lineage fit is split into one clustering per rank (lineage_rank1, ...); every other family
-    // evaluates its fit directory directly.
-    POPPUNK_FITMODEL.out.model
-        .branch { meta, model ->
-            lineage: meta.model == 'lineage'
-            other:   true
-        }
-        .set { ch_fitted }
-
-    POPPUNK_LINEAGE_RANKS( ch_fitted.lineage )
-    ch_lineage_evals = POPPUNK_LINEAGE_RANKS.out.ranks
-        .transpose()
-        .map { meta, rank_dir -> [ meta + [ model: rank_dir.name ], rank_dir ] }
-
-    ch_to_eval = ch_fitted.other.mix( ch_lineage_evals )
-
-    // Score every fit against the species' FastANI + labels (join back on meta.id)
-    ch_ani    = FASTANI_ALLVSALL.out.ani.map { meta, ani    -> [ meta.id, ani ] }
-    ch_labels = ch_input.map                 { meta, g, r, labels -> [ meta.id, labels ] }
-    ch_eval_in = ch_to_eval
+    // Score every swept fit against the species' FastANI + labels (join back on meta.id)
+    ch_eval_in = POPPUNK_FITMODEL.out.model
         .map { meta, model -> [ meta.id, meta, model ] }
-        .combine( ch_ani, by: 0 )
-        .combine( ch_labels, by: 0 )
-        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
+        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
+        .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
+        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels, [] ] }
     POPPUNK_EVALUATE( ch_eval_in )
 
-    // Cheap-sweep ranking -- drives the refine gate below.
-    ch_ranked_cheap = POPPUNK_EVALUATE.out.tool_metrics
-        .splitCsv( header: true, sep: '\t' )
-        .map { meta, row -> [ meta.id, row ] }
-        .groupTuple()
+    // ---- Standard refinement of every dbscan fit (ungated) ----
+    // PopPUNK's dbscan always designates some points as noise, so the boundary is worth refining;
+    // the other families are left as fitted. `refine` seeds from the dbscan fit directory, which the
+    // fitmodel module stages as `seed_model`.
+    ch_dbscan_refine_in = POPPUNK_FITMODEL.out.model
+        .filter { meta, dir -> meta.model.startsWith('dbscan_') }
+        .map { meta, dir -> [ meta.id, meta, dir ] }
+        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, db ] }, by: 0 )
+        .map { id, meta, dir, db -> [ meta + [ model: "refine_from_${meta.model}" ], db, 'refine', dir ] }
+    POPPUNK_REFINE_DBSCAN( ch_dbscan_refine_in )
 
-    // ---- Stage 3: gated refine escalation ----
-    // Ladder gate: a species escalates only if NO cheap fit was accepted (Strong). Then refine the
-    // top-N candidates by HQ structure score, POOLED across the non-lineage families (lineage ranks
-    // aren't boundary models, so they can't seed refine). An empty seed list = no escalation.
-    ch_refine_seeds = ch_ranked_cheap.map { id, rows ->
-        def accepted = rows.any { it.decision == 'ACCEPT' }
-        def seeds = []
-        if ( !accepted ) {
-            seeds = rows
-                .findAll { r -> !r.model.startsWith('lineage') && (r.tool_structure_score_HQ ?: '').isNumber() && r.tool_structure_score_HQ.toDouble() > 0 }
-                .sort { a, b -> b.tool_structure_score_HQ.toDouble() <=> a.tool_structure_score_HQ.toDouble() }
-                .take( params.poppunk_refine_top_n as int )
-                .collect { it.model }
-        }
-        [ id, seeds ]
-    }
-
-    // Pair each seed model-name with its fit directory and the species' QC'd db, then refine it.
-    ch_refine_in = ch_refine_seeds
-        .flatMap { id, names -> names.collect { name -> [ id, name ] } }
-        .combine( POPPUNK_FITMODEL.out.model.map { meta, dir -> [ meta.id, meta.model, dir ] }, by: 0 )
-        .filter { it[2] == it[1] }
-        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
-        .map { id, seed_name, cand_model, cand_dir, meta, db ->
-            [ meta + [ model: "refine_from_${seed_name}" ], db, 'refine', cand_dir ]
-        }
-    POPPUNK_REFINE( ch_refine_in )
-
-    // Score the refine fits (same evaluator; join back on species id).
-    ch_refine_eval_in = POPPUNK_REFINE.out.model
+    ch_refine_eval_in = POPPUNK_REFINE_DBSCAN.out.model
         .map { meta, model -> [ meta.id, meta, model ] }
         .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
         .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
-        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
-    POPPUNK_EVALUATE_REFINE( ch_refine_eval_in )
+        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels, [] ] }
+    POPPUNK_EVALUATE_DBSCAN_REFINE( ch_refine_eval_in )
 
-    // ---- Stage 4: gated multi-boundary refine ----
-    // Gate on the post-refine ranking: escalate only if still no ACCEPT. `--multi-boundary` sweeps
-    // several boundary positions around each seed (each position is its own clustering), seeded from
-    // the best 1-2 boundary-model candidates so far (cheap or refine; lineage excluded).
-    ch_ranked_refined = POPPUNK_EVALUATE.out.tool_metrics
-        .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
-        .splitCsv( header: true, sep: '\t' )
-        .map { meta, row -> [ meta.id, row ] }
-        .groupTuple()
-
-    ch_mb_seeds = ch_ranked_refined.map { id, rows ->
-        def accepted = rows.any { it.decision == 'ACCEPT' }
-        def seeds = []
-        if ( !accepted ) {
-            seeds = rows
-                .findAll { r -> !r.model.startsWith('lineage') && (r.tool_structure_score_HQ ?: '').isNumber() && r.tool_structure_score_HQ.toDouble() > 0 }
-                .sort { a, b -> b.tool_structure_score_HQ.toDouble() <=> a.tool_structure_score_HQ.toDouble() }
-                .take( params.poppunk_multiboundary_top_n as int )
-                .collect { it.model }
-        }
-        [ id, seeds ]
-    }
-
-    // Candidate fit dirs that can seed a refine: cheap fits + Stage-3 refine fits.
-    ch_seed_dirs = POPPUNK_FITMODEL.out.model
-        .mix( POPPUNK_REFINE.out.model )
-        .map { meta, dir -> [ meta.id, meta.model, dir ] }
-
-    ch_mb_in = ch_mb_seeds
-        .flatMap { id, names -> names.collect { name -> [ id, name ] } }
-        .combine( ch_seed_dirs, by: 0 )
-        .filter { it[2] == it[1] }
-        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
-        .map { id, seed_name, cand_model, cand_dir, meta, db ->
-            [ meta + [ model: "multiboundary_from_${seed_name}" ], db, "refine --multi-boundary ${params.poppunk_multiboundary_n}", cand_dir ]
-        }
-    POPPUNK_MULTIBOUNDARY( ch_mb_in )
-
-    // Each boundary position writes its own <prefix>_boundary<K>_clusters.csv; fan them all to eval.
-    ch_mb_eval_in = POPPUNK_MULTIBOUNDARY.out.model
-        .flatMap { meta, dir ->
-            files( "${dir}/*_boundary*_clusters.csv" ).collect { f ->
-                def k = (f.name =~ /_boundary(\d+)_clusters\.csv/)[0][1]
-                [ meta + [ model: "${meta.model}_b${k}" ], f ]
-            }
-        }
-        .map { meta, clusters -> [ meta.id, meta, clusters ] }
-        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
-        .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
-        .map { id, meta, clusters, ani, labels -> [ meta, clusters, ani, labels ] }
-    POPPUNK_EVALUATE_MULTIBOUNDARY( ch_mb_eval_in )
-
-    // ---- Stage 5: gated unconstrained refine (rescue) ----
-    // Gate on the post-multi-boundary ranking: escalate only if still no ACCEPT. Unconstrained
-    // refine optimises both boundary gradient and intercept (one model, not a sweep), seeded from
-    // the single best model-dir candidate so far -- cheap or refine fits only (lineage ranks and
-    // multi-boundary positions have no fittable model directory to seed from).
-    ch_ranked_mb = POPPUNK_EVALUATE.out.tool_metrics
-        .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
-        .mix( POPPUNK_EVALUATE_MULTIBOUNDARY.out.tool_metrics )
-        .splitCsv( header: true, sep: '\t' )
-        .map { meta, row -> [ meta.id, row ] }
-        .groupTuple()
-
-    ch_unc_seeds = ch_ranked_mb.map { id, rows ->
-        def accepted = rows.any { it.decision == 'ACCEPT' }
-        def seeds = []
-        if ( !accepted ) {
-            seeds = rows
-                .findAll { r -> !r.model.startsWith('lineage') && !r.model.startsWith('multiboundary_') && (r.tool_structure_score_HQ ?: '').isNumber() && r.tool_structure_score_HQ.toDouble() > 0 }
-                .sort { a, b -> b.tool_structure_score_HQ.toDouble() <=> a.tool_structure_score_HQ.toDouble() }
-                .take( params.poppunk_unconstrained_top_n as int )
-                .collect { it.model }
-        }
-        [ id, seeds ]
-    }
-
-    ch_unc_in = ch_unc_seeds
-        .flatMap { id, names -> names.collect { name -> [ id, name ] } }
-        .combine( POPPUNK_FITMODEL.out.model.mix( POPPUNK_REFINE.out.model ).map { meta, dir -> [ meta.id, meta.model, dir ] }, by: 0 )
-        .filter { it[2] == it[1] }
-        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
-        .map { id, seed_name, cand_model, cand_dir, meta, db ->
-            [ meta + [ model: "unconstrained_from_${seed_name}" ], db, 'refine --unconstrained', cand_dir ]
-        }
-    POPPUNK_UNCONSTRAINED( ch_unc_in )
-
-    ch_unc_eval_in = POPPUNK_UNCONSTRAINED.out.model
-        .map { meta, model -> [ meta.id, meta, model ] }
-        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
-        .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
-        .map { id, meta, model, ani, labels -> [ meta, model, ani, labels ] }
-    POPPUNK_EVALUATE_UNCONSTRAINED( ch_unc_eval_in )
-
-    // ---- Final selection over cheap + refine + multi-boundary + unconstrained fits ----
+    // ---- Final selection over the swept + dbscan-refined fits ----
     ch_tool_metrics = POPPUNK_EVALUATE.out.tool_metrics
-        .mix( POPPUNK_EVALUATE_REFINE.out.tool_metrics )
-        .mix( POPPUNK_EVALUATE_MULTIBOUNDARY.out.tool_metrics )
-        .mix( POPPUNK_EVALUATE_UNCONSTRAINED.out.tool_metrics )
-    ch_ranked = ch_tool_metrics
+        .mix( POPPUNK_EVALUATE_DBSCAN_REFINE.out.tool_metrics )
+    ch_metric_rows = ch_tool_metrics
         .splitCsv( header: true, sep: '\t' )
         .map { meta, row -> [ meta.id, row ] }
-        .groupTuple()
+    // The ranking needs all of a species' fits. Failed fits are dropped (ignored), so the number to
+    // expect is not known in advance, and the grouping waits for every evaluation to finish. Only
+    // the accepted / best-model outputs (MultiQC) depend on it; the Microreact visuals do not.
+    ch_ranked = ch_metric_rows.groupTuple()
 
     // Report ALL accepted models (decision == ACCEPT) -- if several fits are Strong, all are kept.
     ch_accepted = ch_ranked.map { id, rows -> [ id, rows.findAll { it.decision == 'ACCEPT' } ] }
 
     // The single best-ranked fit (tool_status, then HQ structure score) -- the fallback when nothing
-    // is accepted, and the seed for the later refine rungs.
+    // is accepted.
+    // `rows` is the same list object that ch_accepted iterates on another thread: sort a copy
+    // (sort(false)). An in-place sort here raced with ch_accepted's findAll and aborted the
+    // 2026-10-19 Codon run with a ConcurrentModificationException.
     ch_best = ch_ranked.map { id, rows ->
         def order = [ 'Strong': 3, 'Moderate': 2, 'Mixed': 1, 'Weak': 0 ]
-        def best = rows.sort { a, b ->
+        def best = rows.sort(false) { a, b ->
             def sa = (a.tool_structure_score_HQ ?: '').isNumber() ? a.tool_structure_score_HQ.toDouble() : -1d
             def sb = (b.tool_structure_score_HQ ?: '').isNumber() ? b.tool_structure_score_HQ.toDouble() : -1d
             ((order[b.tool_status] ?: -1) <=> (order[a.tool_status] ?: -1)) ?: (sb <=> sa)
@@ -260,8 +145,33 @@ workflow POPPUNK_METHODS {
         [ id, best ]
     }
 
+    // ---- Microreact visuals for every model worth inspecting ----
+    // The evaluator's `decision` is deliberately not used here: it is ACCEPT only for Strong,
+    // whereas the point of these visuals is to eyeball and choose among ALL the credible models.
+    // So the gate is `tool_status` in (Strong, Moderate), read per fit as soon as it is evaluated.
+    ch_viz_wanted = ch_metric_rows
+        .filter { id, row -> row.tool_status in [ 'Strong', 'Moderate' ] }
+        .map { id, row -> [ [ id.toString(), row.model.toString() ], id ] }
+
+    // Pair each wanted model with its own fit directory (swept or dbscan-refined), keyed on
+    // (species, model), and with the species' QC'd db. Keys are plain Strings: meta.model is often
+    // a GString, which `join` (hash-based) would not match to the same text read from the TSV.
+    ch_fit_dirs = POPPUNK_FITMODEL.out.model
+        .mix( POPPUNK_REFINE_DBSCAN.out.model )
+        .map { meta, dir -> [ [ meta.id.toString(), meta.model.toString() ], dir ] }
+
+    ch_viz_in = ch_viz_wanted
+        .join( ch_fit_dirs )
+        .map { key, id, dir -> [ id, key[1], dir ] }
+        .combine( POPPUNK_QCDB.out.qc_db.map { meta, db -> [ meta.id, meta, db ] }, by: 0 )
+        .map { id, model, dir, meta, db -> [ meta + [ model: model ], db, dir ] }
+    POPPUNK_VISUALISE( ch_viz_in )
+
+
     emit:
-    tool_metrics    = ch_tool_metrics                   // channel: [ val(meta), path(tool_metrics.tsv) ]  (cheap + refine)
+    tool_metrics    = ch_tool_metrics                   // channel: [ val(meta), path(tool_metrics.tsv) ]  (swept + dbscan-refined)
     accepted_models = ch_accepted                       // channel: [ val(species_id), [ all ACCEPT rows ] ]
     best_model      = ch_best                           // channel: [ val(species_id), map(best row) ]
+    microreact      = POPPUNK_VISUALISE.out.microreact  // channel: [ val(meta), path(.microreact) ]  (Strong/Moderate fits)
+    ani             = FASTANI_ALLVSALL.out.ani          // channel: [ val(meta), path(ani) ]  (reused by SYNTRACKER_METHODS)
 }

@@ -1,0 +1,145 @@
+{
+    "ani plot - two groups, one missing pair": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test_ani_overview.tsv:md5,6cc2f6641040e924563f121bcc6d6ac3"
+                ]
+            ],
+            "test_ani_overview.png",
+            "test_ani_overview.pdf",
+            {
+                "versions_matplotlib": [
+                    [
+                        "ANI_PLOT",
+                        "matplotlib",
+                        "3.10.8"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "ANI_PLOT",
+                        "python",
+                        "3.10.19"
+                    ]
+                ],
+                "versions_scipy": [
+                    [
+                        "ANI_PLOT",
+                        "scipy",
+                        "1.15.2"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-16T13:18:53.292534"
+    },
+    "ani plot - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_overview.png:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_overview.pdf:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_overview.tsv:md5,0caaff6f0ac645f9dac5f553e1b85b76"
+                    ]
+                ],
+                "3": [
+                    [
+                        "ANI_PLOT",
+                        "python",
+                        "3.10.19"
+                    ]
+                ],
+                "4": [
+                    [
+                        "ANI_PLOT",
+                        "matplotlib",
+                        "3.10.8"
+                    ]
+                ],
+                "5": [
+                    [
+                        "ANI_PLOT",
+                        "scipy",
+                        "1.15.2"
+                    ]
+                ],
+                "pdf": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_overview.pdf:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "png": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_overview.png:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "summary": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_overview.tsv:md5,0caaff6f0ac645f9dac5f553e1b85b76"
+                    ]
+                ],
+                "versions_matplotlib": [
+                    [
+                        "ANI_PLOT",
+                        "matplotlib",
+                        "3.10.8"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "ANI_PLOT",
+                        "python",
+                        "3.10.19"
+                    ]
+                ],
+                "versions_scipy": [
+                    [
+                        "ANI_PLOT",
+                        "scipy",
+                        "1.15.2"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-16T13:18:57.732999"
+    }
+}

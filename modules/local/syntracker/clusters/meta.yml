@@ -1,0 +1,135 @@
+name: "syntracker_clusters"
+description: |
+  Turns SynTracker's all-regions APSS into de novo subspecies clusters with
+  bin/syntracker_apss_clusters.py: pairs on too few regions and low-coverage targets are left
+  out, the APSS graph of the targets is pruned at each floor `min_apss` (by default evenly
+  spaced over the species' own APSS range), and Leiden communities
+  (modularity) give one `Taxon,Cluster` table per (min_apss, resolution). It also estimates the
+  APSS measurement noise (per-region SD from a subsampled table). The tables have the format of
+  PopPUNK `*_clusters.csv`, so they are scored by poppunk/evaluate (in APSS space).
+keywords:
+  - syntracker
+  - apss
+  - clustering
+  - subspecies
+tools:
+  - "python":
+      description: "Runs bin/syntracker_apss_clusters.py (pandas, python-igraph)."
+      homepage: "https://www.python.org/"
+      documentation: "https://python.igraph.org/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
+    - apss:
+        type: file
+        description: SynTracker `avg_synteny_scores_all_regions.csv` (what is clustered).
+        pattern: "avg_synteny_scores_all_regions.csv"
+        ontologies: []
+    - apss_subsampled:
+        type: file
+        description: |
+          Optional subsampled table (`avg_synteny_scores_40_regions.csv`) from the same run, used
+          only to estimate the per-region score SD. Pass `[]` to use the default.
+        pattern: "avg_synteny_scores_*_regions.csv"
+        ontologies: []
+    - targets:
+        type: file
+        description: SynTracker targets (file or sample names), one per line; every target is a graph node.
+        pattern: "*.txt"
+        ontologies: []
+
+output:
+  clusters:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_*_clusters.csv":
+          type: file
+          description: |
+            One `Taxon,Cluster` table per (min_apss, resolution), named
+            `<prefix>_syntracker_leiden_apss<t>_r<res>_clusters.csv`; cluster 1 is the largest.
+          pattern: "*_syntracker_*_clusters.csv"
+          ontologies: []
+  coverage:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_genome_coverage.tsv":
+          type: file
+          description: |
+            Per target: median regions per pair, relative to the species median, and status
+            (`ok` or `low_coverage`, excluded from the clusterings).
+          pattern: "*_syntracker_genome_coverage.tsv"
+          ontologies: []
+  noise:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_noise.tsv":
+          type: file
+          description: |
+            Per-region synteny-score SD, median regions per pair and the resulting APSS standard
+            error (the evaluator's gap margin is twice it), plus pair and target counts.
+          pattern: "*_syntracker_noise.tsv"
+          ontologies: []
+  floors:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_floors.tsv":
+          type: file
+          description: |
+            The APSS floors used (`step`, `min_apss`): evenly spaced over the species' APSS range
+            with `--min-apss auto`, else the given values.
+          pattern: "*_syntracker_floors.tsv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+  versions_igraph:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python-igraph":
+          type: string
+          description: The name of the tool
+      - "python -c 'import igraph; print(igraph.__version__)'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python-igraph:
+          type: string
+          description: The name of the tool
+      - python -c 'import igraph; print(igraph.__version__)':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

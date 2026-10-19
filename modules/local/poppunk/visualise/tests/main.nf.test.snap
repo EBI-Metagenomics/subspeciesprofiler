@@ -1,0 +1,99 @@
+{
+    "visualise - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01_microreact_clusters.csv:md5,4170160143f35277f90c66a59eb4a555"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01.microreact:md5,8a80554c91d9fca8acb82f023de02f11"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01_core_NJ.nwk:md5,2b0eb0196d71071eee6dde9c7dd37e4b"
+                    ]
+                ],
+                "3": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01_perplexity20.0_accessory_mandrake.dot:md5,19e7c8d6cb8bf58a33356afd020ef71c"
+                    ]
+                ],
+                "4": [
+                    [
+                        "POPPUNK_VISUALISE",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ],
+                "clusters": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01_microreact_clusters.csv:md5,4170160143f35277f90c66a59eb4a555"
+                    ]
+                ],
+                "embedding": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01_perplexity20.0_accessory_mandrake.dot:md5,19e7c8d6cb8bf58a33356afd020ef71c"
+                    ]
+                ],
+                "microreact": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01.microreact:md5,8a80554c91d9fca8acb82f023de02f11"
+                    ]
+                ],
+                "tree": [
+                    [
+                        {
+                            "id": "test",
+                            "model": "dbscan_D5_mcp0.01"
+                        },
+                        "test_dbscan_D5_mcp0.01_core_NJ.nwk:md5,2b0eb0196d71071eee6dde9c7dd37e4b"
+                    ]
+                ],
+                "versions_poppunk": [
+                    [
+                        "POPPUNK_VISUALISE",
+                        "poppunk",
+                        "poppunk 2.7.8"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-09-21T14:08:45.492712"
+    }
+}

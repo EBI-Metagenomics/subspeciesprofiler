@@ -242,7 +242,7 @@ def main():
     ]
 
     with open(args.output, "w", newline="") as out:
-        writer = csv.writer(out, delimiter="\t")
+        writer = csv.writer(out, delimiter="\t", lineterminator="\n")
         writer.writerow(columns)
         writer.writerow(values)
 
