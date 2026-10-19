@@ -25,6 +25,26 @@ Given, per species, a directory of assembled genomes and a per-genome completene
 
 Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
 
+
+### Quality control workflow
+
+<p align="center" width="100%">
+   <img src="media/spp_qc.png" width="90%"/>
+</p>
+
+### Clustering methods
+
+<p align="center" width="100%">
+   <img src="media/spp_methods.png" width="90%"/>
+</p>
+
+### Cluster scoring components
+
+<p align="center" width="100%">
+   <img src="media/cluster_scoring_components.png" width="90%"/>
+</p>
+
+
 ## Usage
 
 > [!NOTE]
