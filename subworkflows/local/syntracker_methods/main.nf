@@ -8,11 +8,14 @@
 // 2. SynTracker scores every target pair (APSS) over the reference's regions. Its cost grows with
 //    the square of the targets, so above 2 x --syntracker_chunk_size they are split round-robin
 //    (in N50 order) into k chunks and SynTracker runs once per chunk pair Ci + Cj, k(k-1)/2 jobs
-//    against the same reference. A pair's all-regions APSS depends only on the two genomes and
-//    the reference (checked on E. lenta: 190/190 pairs identical run alone vs in the 199-genome
-//    run), so SYNTRACKER_MERGE concatenates the all-regions tables, failing if a pair computed in
-//    two jobs (every pair within a chunk) differs. The subsampled tables cannot be merged (a pair's
-//    subsample depends on the other targets): the noise estimate uses one job's 40-region table.
+//    against the same reference. SYNTRACKER_FILTER first applies SynTracker's one-hit-per-genome
+//    rule to each job (SynTracker 1.4.0 marks a genome with several BLAST hits in a region invalid
+//    but still extracts it, so whether its pairs get the region depended on the other genomes in
+//    the run) and recomputes the all-regions APSS. A pair's APSS then depends only on the two
+//    genomes and the reference, so SYNTRACKER_MERGE concatenates the filtered tables, failing
+//    (and stopping the run) if a pair computed in two jobs (every pair within a chunk) differs.
+//    The subsampled tables cannot be merged (a pair's subsample depends on the other targets):
+//    the noise estimate uses one job's (unfiltered) 40-region table.
 // 3. SYNTRACKER_CLUSTERS clusters the all-regions APSS: pairs on fewer than
 //    --syntracker_min_regions regions are dropped, low-coverage targets excluded, and Leiden runs
 //    on the APSS graph pruned at each floor (`--syntracker_min_apss auto`: evenly spaced over the
@@ -25,6 +28,7 @@
 include { SEQKIT_STATS                            } from '../../../modules/nf-core/seqkit/stats/main'
 include { SYNTRACKER_SELECT                       } from '../../../modules/local/syntracker/select/main'
 include { SYNTRACKER_RUN                          } from '../../../modules/local/syntracker/run/main'
+include { SYNTRACKER_FILTER                       } from '../../../modules/local/syntracker/filter/main'
 include { SYNTRACKER_MERGE                        } from '../../../modules/local/syntracker/merge/main'
 include { SYNTRACKER_CLUSTERS                     } from '../../../modules/local/syntracker/clusters/main'
 include { POPPUNK_EVALUATE as SYNTRACKER_EVALUATE } from '../../../modules/local/poppunk/evaluate/main'
@@ -92,6 +96,15 @@ workflow SYNTRACKER_METHODS {
 
     SYNTRACKER_RUN( ch_chunk_runs )
 
+    // One filter task per job: drop the per-region rows of genomes with several BLAST hits in the
+    // region and recompute the all-regions APSS (see bin/syntracker_filter_multihit.py).
+    SYNTRACKER_FILTER(
+        SYNTRACKER_RUN.out.per_region
+            .map { meta, per_region -> [ [ meta.id, meta.chunk ], meta, per_region ] }
+            .join( SYNTRACKER_RUN.out.blast.map { meta, blast, names -> [ [ meta.id, meta.chunk ], blast, names ] } )
+            .map { key, meta, per_region, blast, names -> [ meta, per_region, blast, names ] }
+    )
+
     // Gather each species' jobs (in chunk order, for -resume) and check that every job came back.
     // A missing job (failed after its retries and ignored, see conf/modules.config) would leave all
     // of its chunk pair's genome pairs out of the merge, and those genomes would then look
@@ -101,13 +114,13 @@ workflow SYNTRACKER_METHODS {
         .map { meta, reference, targets -> [ groupKey( meta.id, meta.n_chunk_jobs ), meta.chunk ] }
         .groupTuple()
         .map { id, chunks -> [ id.toString(), chunks ] }
-    ch_jobs_done = SYNTRACKER_RUN.out.apss
-        .map { meta, files ->
-            def all = [ files ].flatten()
-            [ groupKey( meta.id, meta.n_chunk_jobs ), meta.chunk,
-              all.find { it.name == 'avg_synteny_scores_all_regions.csv' },
-              all.find { it.name == 'avg_synteny_scores_40_regions.csv' } ?: [] ]
-        }
+    // Each job: its filtered all-regions table, plus SynTracker's 40-region table for the noise estimate.
+    ch_jobs_done = SYNTRACKER_FILTER.out.apss
+        .map { meta, all_regions -> [ [ meta.id, meta.chunk ], meta, all_regions ] }
+        .join( SYNTRACKER_RUN.out.apss.map { meta, files ->
+            [ [ meta.id, meta.chunk ], [ files ].flatten().find { it.name == 'avg_synteny_scores_40_regions.csv' } ?: [] ]
+        } )
+        .map { key, meta, all_regions, sub40 -> [ groupKey( meta.id, meta.n_chunk_jobs ), meta.chunk, all_regions, sub40 ] }
         .groupTuple( remainder: true )
         .map { id, chunks, all_regions, sub40 -> [ id.toString(), [ chunks, all_regions, sub40 ] ] }
     ch_runs = ch_jobs_expected
@@ -165,7 +178,9 @@ workflow SYNTRACKER_METHODS {
     tool_metrics = SYNTRACKER_EVALUATE.out.tool_metrics                          // channel: [ val(meta), path(tool_metrics.tsv) ]
     apss         = SYNTRACKER_MERGE.out.apss                                     // channel: [ val(meta), path(avg_synteny_scores_all_regions.csv) ] merged over the jobs
     merge_report = SYNTRACKER_MERGE.out.report                                   // channel: [ val(meta), path(*_syntracker_merge.tsv) ]
-    runs         = SYNTRACKER_RUN.out.apss                                       // channel: [ val(meta + chunk), [ avg_synteny_scores_*.csv ] ] one per job
+    runs         = SYNTRACKER_RUN.out.apss                                       // channel: [ val(meta + chunk), [ avg_synteny_scores_*.csv ] ] one per job, as SynTracker wrote them
+    filtered     = SYNTRACKER_FILTER.out.apss                                    // channel: [ val(meta + chunk), path(avg_synteny_scores_all_regions.csv) ] one per job, multi-hits removed
+    multihit     = SYNTRACKER_FILTER.out.report                                  // channel: [ val(meta + chunk), path(*_syntracker_multihit.tsv) ]
     clusters     = SYNTRACKER_CLUSTERS.out.clusters                              // channel: [ val(meta), [ *_clusters.csv ] ]
     coverage     = SYNTRACKER_CLUSTERS.out.coverage                              // channel: [ val(meta), path(*_genome_coverage.tsv) ]
     noise        = SYNTRACKER_CLUSTERS.out.noise                                 // channel: [ val(meta), path(*_noise.tsv) ]

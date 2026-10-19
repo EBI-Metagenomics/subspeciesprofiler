@@ -22,7 +22,7 @@
                         {
                             "id": "E_coli"
                         },
-                        "synteny_scores_per_region.csv:md5,c527c80ed34d4f00f1a02dfe108158f4"
+                        "synteny_scores_per_region.csv:md5,1f47f57d0867d603e1c8d188c99cca39"
                     ]
                 ],
                 "2": [
@@ -30,10 +30,21 @@
                         {
                             "id": "E_coli"
                         },
-                        "SynTracker_log.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                        [
+                            "stub_region.tab:md5,7e0d707a6657ffaa579835dbba2f24ee"
+                        ],
+                        "sample_names_dictionary.tab:md5,682dff8c6631ea5a40654db1acbb845a"
                     ]
                 ],
                 "3": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        "SynTracker_log.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "4": [
                     [
                         "SYNTRACKER_RUN",
                         "syntracker",
@@ -55,6 +66,17 @@
                         ]
                     ]
                 ],
+                "blast": [
+                    [
+                        {
+                            "id": "E_coli"
+                        },
+                        [
+                            "stub_region.tab:md5,7e0d707a6657ffaa579835dbba2f24ee"
+                        ],
+                        "sample_names_dictionary.tab:md5,682dff8c6631ea5a40654db1acbb845a"
+                    ]
+                ],
                 "log": [
                     [
                         {
@@ -68,7 +90,7 @@
                         {
                             "id": "E_coli"
                         },
-                        "synteny_scores_per_region.csv:md5,c527c80ed34d4f00f1a02dfe108158f4"
+                        "synteny_scores_per_region.csv:md5,1f47f57d0867d603e1c8d188c99cca39"
                     ]
                 ],
                 "versions_syntracker": [
@@ -84,7 +106,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-07T15:15:57.234479"
+        "timestamp": "2026-10-19T10:35:46.326083"
     },
     "e_coli - syntracker sample data": {
         "content": [
@@ -94,7 +116,7 @@
                 "avg_synteny_scores_40_regions.csv",
                 "avg_synteny_scores_60_regions.csv",
                 "avg_synteny_scores_80_regions.csv",
-                "avg_synteny_scores_all_regions.csv"
+                "avg_synteny_scores_all_regions.csv:md5,b9bc8e3255dd2b84b2ec4539dbcaf568"
             ],
             {
                 "versions_syntracker": [

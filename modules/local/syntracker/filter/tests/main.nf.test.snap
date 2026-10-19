@@ -1,0 +1,99 @@
+{
+    "syntracker filter - multi-hit genome loses the region": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "test",
+                        "chunk": "c1_c2"
+                    },
+                    "avg_synteny_scores_all_regions.csv:md5,5754fc4ca35ca32a5983e44c2b23cfba"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "test",
+                        "chunk": "c1_c2"
+                    },
+                    "test_c1_c2_syntracker_multihit.tsv:md5,5b59a2f10da0010fdec46ecf14e1e811"
+                ]
+            ],
+            {
+                "versions_python": [
+                    [
+                        "SYNTRACKER_FILTER",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-19T10:25:20.073871"
+    },
+    "syntracker filter - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "chunk": "c1_c2"
+                        },
+                        "avg_synteny_scores_all_regions.csv:md5,abe6c8f7fe8c38721bc96610f0709fb3"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "chunk": "c1_c2"
+                        },
+                        "test_c1_c2_syntracker_multihit.tsv:md5,c33ae0c0c1d706925f9190272899599d"
+                    ]
+                ],
+                "2": [
+                    [
+                        "SYNTRACKER_FILTER",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "apss": [
+                    [
+                        {
+                            "id": "test",
+                            "chunk": "c1_c2"
+                        },
+                        "avg_synteny_scores_all_regions.csv:md5,abe6c8f7fe8c38721bc96610f0709fb3"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test",
+                            "chunk": "c1_c2"
+                        },
+                        "test_c1_c2_syntracker_multihit.tsv:md5,c33ae0c0c1d706925f9190272899599d"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_FILTER",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-10-19T10:25:23.802457"
+    }
+}

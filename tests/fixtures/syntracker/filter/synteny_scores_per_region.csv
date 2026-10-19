@@ -1,0 +1,10 @@
+"Ref_genome","Sample1","Sample2","Region","Length1","Length2","Overlap","Blocks","Synteny_score"
+"ref","genomeA","genomeB","R1",5000,5000,4900,1,0.9
+"ref","genomeA","genomeB","R2",5000,5000,4900,1,0.5
+"ref","genomeA","genomeB","R3",5000,5000,4900,1,0.8
+"ref","genomeA","genomeC","R1",5000,5000,4900,1,0.9
+"ref","genomeA","genomeC","R2",5000,5000,4900,1,0.5
+"ref","genomeA","genomeC","R3",5000,5000,4900,1,0.8
+"ref","genomeB","genomeC","R1",5000,5000,4900,1,0.9
+"ref","genomeB","genomeC","R2",5000,5000,4900,1,0.5
+"ref","genomeB","genomeC","R3",5000,5000,4900,1,0.8

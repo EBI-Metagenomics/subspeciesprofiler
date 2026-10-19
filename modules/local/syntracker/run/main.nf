@@ -15,6 +15,9 @@ process SYNTRACKER_RUN {
     output:
     tuple val(meta), path("syntracker/summary_output/avg_synteny_scores_*.csv"), emit: apss
     tuple val(meta), path("syntracker/summary_output/synteny_scores_per_region.csv"), emit: per_region
+    // For syntracker/filter: each region's BLAST hits and the Sample.N -> genome names (declaring
+    // them does not change the task hash, so finished runs stay cached on -resume)
+    tuple val(meta), path("syntracker/*/blast_output"), path("syntracker/combined_targets/sample_names_dictionary.tab"), emit: blast
     tuple val(meta), path("syntracker/SynTracker_log.txt")                       , emit: log
     tuple val("${task.process}"), val('syntracker'), val(VERSION), topic: versions, emit: versions_syntracker
 
@@ -80,7 +83,16 @@ process SYNTRACKER_RUN {
         # per-n tables: every pair compared on exactly n regions, as SynTracker writes them
         awk -F, -v OFS=, -v n=\$n 'NR > 1 { \$NF = n } 1' syntracker/summary_output/avg_synteny_scores_all_regions.csv > syntracker/summary_output/avg_synteny_scores_\${n}_regions.csv
     done
+    # per-region table: every pair on one region (score 0.95, the stub APSS), with one single-hit
+    # BLAST output per target and the names dictionary, so syntracker/filter passes them through
     echo '"Ref_genome","Sample1","Sample2","Region","Length1","Length2","Overlap","Blocks","Synteny_score"' > syntracker/summary_output/synteny_scores_per_region.csv
+    awk '{ s[NR] = \$0 } END {
+            for (i = 1; i < NR; i++) for (j = i + 1; j <= NR; j++)
+                printf "\\"stub_ref\\",\\"%s\\",\\"%s\\",\\"stub_region\\",5000,5000,5000,1,0.95\\n", s[i], s[j]
+         }' samples.txt >> syntracker/summary_output/synteny_scores_per_region.csv
+    mkdir -p syntracker/stub_ref/blast_output syntracker/combined_targets
+    awk '{ printf "%s\\tSample.%d\\n", \$0, NR }' samples.txt > syntracker/combined_targets/sample_names_dictionary.tab
+    awk '{ printf "Sample.%d_contig.1\\t1\\t1000\\tplus\\n", NR }' samples.txt > syntracker/stub_ref/blast_output/stub_region.tab
     touch syntracker/SynTracker_log.txt
     """
 }

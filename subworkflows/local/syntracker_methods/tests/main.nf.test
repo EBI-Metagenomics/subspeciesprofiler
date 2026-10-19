@@ -111,6 +111,9 @@ nextflow_workflow {
                 { assert jobs['c1_c2'] == [ [ 'genome1', 'genome4' ], [ 'genome1', 'genome2' ], [ 'genome1', 'genome5' ],
                                             [ 'genome2', 'genome4' ], [ 'genome4', 'genome5' ], [ 'genome2', 'genome5' ] ] as Set },
                 { assert jobs['c2_c3'].size() == 3 },
+                // every job goes through SynTracker's one-hit filter before the merge
+                { assert workflow.out.filtered.collect { it[0].chunk }.toSet() == [ 'c1_c2', 'c1_c3', 'c2_c3' ] as Set },
+                { assert workflow.out.multihit.size() == 3 },
                 // one merged table holding every pair of the 5 targets exactly once
                 { assert workflow.out.apss.size() == 1 },
                 { assert merged.size() == 10 },
