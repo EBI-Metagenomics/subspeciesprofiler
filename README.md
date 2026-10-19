@@ -1,6 +1,6 @@
 # Subspecies Profiler Pipeline (SPP)
 
-<img src="media/cluster_scoring_components.png" align="right" width="235" alt="Cluster scoring components">
+<img src="media/cluster_scoring_components.png" align="right" width="500" alt="Cluster scoring components">
 
 
 ## Introduction
@@ -20,7 +20,7 @@ Outputs are a per-species set of PopPUNK databases, fitted models (with diagnost
 ### Quality control workflow
 
 <p align="center" width="100%">
-   <img src="media/spp_qc.png" width="90%"/>
+   <img src="media/spp_qc.png" width="75%"/>
 </p>
 
 ### Clustering methods
