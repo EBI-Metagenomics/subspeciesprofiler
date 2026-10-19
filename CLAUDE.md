@@ -144,7 +144,7 @@ Follow-ups (documented, not implemented):
 
 ## Planned work (do NOT "clean these up")
 
-- **Finish the Codon run** (`spp_dev/syntracker/spp_final_results`) with `-resume`: every `SYNTRACKER_RUN` should be cached (output declarations are not in the task hash; checked locally), only FILTER, MERGE and downstream re-run, and the P. vulgatus merge must pass strictly. Then check whether B. fragilis's clonal-level fits move from Mixed to Moderate, like PopPUNK's.
+- **Codon run finished (2026-10-19, `spp_dev/syntracker/spp_final_results`, `-resume --syntracker_max_targets 800`).** All 7 species are complete. The 115 earlier `SYNTRACKER_RUN`s were cached (output declarations are not in the task hash) and S. pneumoniae added 55 new jobs (800 of 1,810 HQ genomes; 1,010 marked `capped`). Every strict merge passed with `missing_pairs 0`, P. vulgatus included. The multi-hit filter removed 0.03–0.30% of per-region rows (S. pneumoniae was highest) and lost no pairs. The only failures were 13 ignored dbscan grid points. B. fragilis's SynTracker fits moved from Mixed to 3 Moderate / `synteny_and_ani` (plus 3 Mixed), like PopPUNK's Moderate fits. Microreact ran for exactly the 98 Strong/Moderate PopPUNK fits.
 
 - **`checkm2/predict`** is installed in `modules.json` but unwired _on purpose_. It will be wired behind a flag that generates completeness/contamination when the samplesheet's `qc_csv` is absent. Separate task, not yet started.
 
