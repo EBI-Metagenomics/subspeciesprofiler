@@ -1,9 +1,10 @@
 """
 Tests for bin/syntracker_select.py (SynTracker reference and target choice).
 
-Pins: the reference is the most central HQ genome (mean FastANI) among those with N50 above the
-floor; with none above it, the highest-N50 genome; targets are every HQ genome, the highest-N50
-ones first when capped (0 = no cap), the reference always kept.
+Pins: the reference is the most central HQ genome (mean FastANI to the other HQ genomes) among
+those with N50 above the floor; with none above it, the highest-N50 HQ genome; an MQ genome is never
+the reference; targets are every gated HQ and MQ genome, the highest-N50 ones first when capped
+(0 = no cap), the reference always kept.
 
 Run with:  python3 -m pytest tests/bin/test_syntracker_select.py
 """
@@ -19,9 +20,10 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "bin" / "syntracker_select.py"
 
 
-def write_inputs(d, n50, ani):
-    """n50: {genome: N50}; ani: {(a, b): percent ANI}, written in both directions."""
-    pd.DataFrame({"file": [f"{g}.fna.gz" for g in n50], "format": "FASTA", "N50": list(n50.values())}) \
+def write_inputs(d, n50, ani, mq=()):
+    """n50: {genome: N50}; ani: {(a, b): percent ANI}, written in both directions; mq: the MQ genomes."""
+    pd.DataFrame({"file": [f"{g}.fna.gz" for g in n50], "format": "FASTA", "N50": list(n50.values()),
+                  "label": ["MQ" if g in mq else "HQ" for g in n50]}) \
         .to_csv(d / "stats.tsv", sep="\t", index=False)
     rows = [(f"/x/{a}.fna.gz", f"/x/{b}.fna.gz", v, 100, 100) for (a, b), v in ani.items()]
     rows += [(f"/x/{b}.fna.gz", f"/x/{a}.fna.gz", v, 100, 100) for (a, b), v in ani.items()]
@@ -120,3 +122,31 @@ def test_stats_without_n50_column_fails_clearly(tmp_path):
     proc, _ = run(tmp_path)
     assert proc.returncode != 0
     assert "N50" in proc.stderr
+
+
+def test_mq_genome_is_a_target_but_never_the_reference(tmp_path):
+    # mq is the most central and most contiguous genome, but only HQ genomes can be the reference.
+    n50 = {"mq": 3_000_000, "hub": 200_000, "y": 150_000, "z": 120_000}
+    write_inputs(tmp_path, n50, star("mq", ["hub", "y", "z"]), mq={"mq"})
+    proc, out = run(tmp_path, "--min-n50", "100000")
+    assert proc.returncode == 0, proc.stderr
+    assert out["reference"] != "mq.fna.gz"
+    assert "mq.fna.gz" in out["targets"]
+    table = out["table"].set_index("genome")
+    assert table.loc["mq", "label"] == "MQ" and table.loc["mq", "role"] == "target"
+    assert pd.isna(table.loc["mq", "centrality"])  # centrality is over the HQ genomes only
+
+
+def test_mq_genome_is_not_the_fallback_reference(tmp_path):
+    n50 = {"mq": 3_000_000, "hub": 20_000, "y": 30_000}
+    write_inputs(tmp_path, n50, star("hub", ["mq", "y"]), mq={"mq"})
+    proc, out = run(tmp_path, "--min-n50", "100000")
+    assert proc.returncode == 0, proc.stderr
+    assert out["reference"] == "y.fna.gz"
+
+
+def test_no_hq_genome_is_an_error(tmp_path):
+    write_inputs(tmp_path, {"a": 500_000, "b": 400_000}, {("a", "b"): 99.0}, mq={"a", "b"})
+    proc, _ = run(tmp_path)
+    assert proc.returncode != 0
+    assert "HQ" in proc.stderr

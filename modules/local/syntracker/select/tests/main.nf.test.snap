@@ -23,7 +23,7 @@
                         {
                             "id": "test"
                         },
-                        "test_syntracker_selection.tsv:md5,f21897076df2e05c95ed3481d86e77dd"
+                        "test_syntracker_selection.tsv:md5,0637e677b89744b2521e399e61b75460"
                     ]
                 ],
                 "3": [
@@ -46,7 +46,7 @@
                         {
                             "id": "test"
                         },
-                        "test_syntracker_selection.tsv:md5,f21897076df2e05c95ed3481d86e77dd"
+                        "test_syntracker_selection.tsv:md5,0637e677b89744b2521e399e61b75460"
                     ]
                 ],
                 "targets": [
@@ -70,7 +70,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-09T14:20:43.572514"
+        "timestamp": "2026-11-09T14:31:31.617302"
     },
     "syntracker select - centrality with N50 floor": {
         "content": [
@@ -96,7 +96,7 @@
                         {
                             "id": "test"
                         },
-                        "test_syntracker_selection.tsv:md5,89ab3d453089bd74df49312827d68e77"
+                        "test_syntracker_selection.tsv:md5,8629bcc746f571ab21f192f2fe8ece22"
                     ]
                 ],
                 "3": [
@@ -119,7 +119,7 @@
                         {
                             "id": "test"
                         },
-                        "test_syntracker_selection.tsv:md5,89ab3d453089bd74df49312827d68e77"
+                        "test_syntracker_selection.tsv:md5,8629bcc746f571ab21f192f2fe8ece22"
                     ]
                 ],
                 "targets": [
@@ -143,6 +143,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-09T14:20:39.777895"
+        "timestamp": "2026-11-09T14:31:27.664702"
     }
 }

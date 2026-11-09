@@ -9,6 +9,8 @@ Initial release of ebi-metagenomics/subspeciesprofiler, created with the [nf-cor
 
 ### `Added`
 
+- SynTracker contiguity gate (`SYNTRACKER_GATE`): HQ and MQ genomes go to SynTracker only if their N50, or N90 with `--syntracker_strict`, is at least `--syntracker_min_nx` (default 5000 bp, the SynTracker window). MQ genomes are now SynTracker targets; the reference is still HQ. Report: `<species>/syntracker/selection/<species>_syntracker_gate.tsv`.
+
 ### `Fixed`
 
 ### `Dependencies`

@@ -1,0 +1,85 @@
+name: "syntracker_gate"
+description: |
+  Contiguity gate for the SynTracker targets of one species, with bin/syntracker_gate.py: keeps the
+  HQ and MQ genomes whose N50 (default) or N90 (`--metric N90`) is at least `--min-length` bp
+  (default 5000, the SynTracker window length). SynTracker compares 5-kb windows, so shorter contigs
+  give it no regions.
+keywords:
+  - syntracker
+  - contiguity
+  - n50
+  - n90
+tools:
+  - "python":
+      description: "Runs bin/syntracker_gate.py (pandas)."
+      homepage: "https://www.python.org/"
+      documentation: "https://pandas.pydata.org/docs/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bifidobacterium_longum' ]`
+    - stats:
+        type: file
+        description: "`seqkit stats --all -N 90 --tabular` of the HQ and MQ genomes (one row per FASTA, with N50 and N90)."
+        pattern: "*.tsv"
+        ontologies: []
+    - rfile:
+        type: file
+        description: PopPUNK r-file (`sample<TAB>./genomes/<file>`). Read by the stub only.
+        pattern: "*.{txt,tsv}"
+        ontologies: []
+    - labels:
+        type: file
+        description: Per-genome labels CSV (`genome,label`, HQ or MQ).
+        pattern: "*.csv"
+        ontologies: []
+
+output:
+  report:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_gate.tsv":
+          type: file
+          description: Per genome, its label, N50, N90, the gate metric and threshold, and its status (pass or fail).
+          pattern: "*_syntracker_gate.tsv"
+          ontologies: []
+  stats:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_syntracker_gate_stats.tsv":
+          type: file
+          description: The seqkit stats rows of the genomes that pass, with a `label` column added (input of syntracker/select).
+          pattern: "*_syntracker_gate_stats.tsv"
+          ontologies: []
+  versions_python:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "python":
+          type: string
+          description: The name of the tool
+      - "python --version | sed 's/Python //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

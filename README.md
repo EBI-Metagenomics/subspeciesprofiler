@@ -4,7 +4,6 @@
    <img src="media/cluster_scoring_components.png" width="90%"/>
 </p>
 
-
 ## Introduction
 
 **ebi-metagenomics/subspeciesprofiler** is a bioinformatics pipeline that generates subspecies clusters from a group of genomes of the same species.
@@ -14,10 +13,9 @@ Given, per species, a directory of assembled genomes and a per-genome completene
 1. **Classifies** each genome as HQ / MQ / DISCARDED from its completeness/contamination and decides whether the species group is eligible for subspecies clustering (`speciesqc`).
 2. Builds and QCs a **[PopPUNK](https://poppunk.bacpop.org)** database from the HQ/MQ genomes and derives a **core-distance threshold sweep** from the observed distance distribution.
 3. Fits PopPUNK clustering models and **scores each against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI)**, then selects the model(s) that best recover the ANI-defined subspecies structure.
-4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the HQ genomes against the most central one, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings in synteny space with an ANI-concordance check, in a separate SynTracker model report.
+4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the HQ and MQ genomes with N50 (or N90, `--syntracker_strict`) of at least 5 kb against the most central HQ genome, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings in synteny space with an ANI-concordance check, in a separate SynTracker model report.
 
 Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
-
 
 ### Quality control workflow
 
@@ -30,7 +28,6 @@ Outputs are a per-species set of PopPUNK databases, fitted models (with diagnost
 <p align="center" width="100%">
    <img src="media/spp_methods.png" width="90%"/>
 </p>
-
 
 ## Usage
 
@@ -131,8 +128,6 @@ ebi-metagenomics/subspeciesprofiler was originally written by Alejandra Escobar.
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
 
-
 ## Citations
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
-

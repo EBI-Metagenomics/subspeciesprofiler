@@ -1,10 +1,12 @@
 //
 // SYNTRACKER_METHODS: synteny-based clustering for one eligible species, independent of PopPUNK.
 //
-// 1. SEQKIT_STATS gives each HQ genome's N50; SYNTRACKER_SELECT picks the reference (the most
-//    central HQ genome by mean FastANI, among those with N50 >= --syntracker_ref_min_n50) and the
-//    targets (every HQ genome, reference first and then by N50; --syntracker_max_targets > 0 caps
-//    them, keeping the highest N50).
+// 1. SEQKIT_STATS gives each HQ/MQ genome's N50 and N90. SYNTRACKER_GATE keeps the genomes whose
+//    N50 (N90 with --syntracker_strict) is >= --syntracker_min_nx bp: SynTracker compares 5-kb
+//    windows, so shorter contigs give it no regions. SYNTRACKER_SELECT picks the reference (the
+//    most central HQ genome by mean FastANI to the other HQ genomes, among those with N50 >=
+//    --syntracker_ref_min_n50) and the targets (every gated HQ and MQ genome, reference first and
+//    then by N50; --syntracker_max_targets > 0 caps them, keeping the highest N50).
 // 2. SynTracker scores every target pair (APSS) over the reference's regions. Its cost grows with
 //    the square of the targets, so above 2 x --syntracker_chunk_size they are split round-robin
 //    (in N50 order) into k chunks and SynTracker runs once per chunk pair Ci + Cj, k(k-1)/2 jobs
@@ -26,6 +28,7 @@
 //
 
 include { SEQKIT_STATS                            } from '../../../modules/nf-core/seqkit/stats/main'
+include { SYNTRACKER_GATE                         } from '../../../modules/local/syntracker/gate/main'
 include { SYNTRACKER_SELECT                       } from '../../../modules/local/syntracker/select/main'
 include { SYNTRACKER_RUN                          } from '../../../modules/local/syntracker/run/main'
 include { SYNTRACKER_FILTER                       } from '../../../modules/local/syntracker/filter/main'
@@ -41,38 +44,62 @@ workflow SYNTRACKER_METHODS {
 
     main:
 
-    // HQ genomes only: the r-file maps sample -> ./genomes/<file>, the labels map sample -> HQ/MQ,
+    // HQ and MQ genomes: the r-file maps sample -> ./genomes/<file>, the labels map sample -> HQ/MQ,
     // so no FASTA-suffix logic is needed here.
-    ch_hq = ch_input
+    ch_qc = ch_input
         .map { meta, genomes, rfile, labels ->
             def label_of = labels.splitCsv(header: true).collectEntries { row -> [ row.genome, row.label ] }
-            def hq_files = rfile.splitCsv(sep: '\t')
-                .findAll { row -> label_of[row[0]] == 'HQ' }
+            def qc_files = rfile.splitCsv(sep: '\t')
+                .findAll { row -> label_of[row[0]] in [ 'HQ', 'MQ' ] }
                 .collect { row -> file(row[1]).name } as Set
-            [ meta, [ genomes ].flatten().findAll { genome -> genome.name in hq_files } ]
+            [ meta, [ genomes ].flatten().findAll { genome -> genome.name in qc_files } ]
         }
-        .filter { meta, hq ->
-            if ( hq.size() < 2 ) {
-                log.warn("Species '${meta.id}': fewer than 2 HQ genomes; skipping SynTracker.")
+        .filter { meta, qc ->
+            if ( qc.size() < 2 ) {
+                log.warn("Species '${meta.id}': fewer than 2 HQ/MQ genomes; skipping SynTracker.")
             }
-            hq.size() >= 2
+            qc.size() >= 2
         }
 
-    SEQKIT_STATS( ch_hq )
+    SEQKIT_STATS( ch_qc )
+    SYNTRACKER_GATE(
+        SEQKIT_STATS.out.stats
+            .map { meta, stats -> [ meta.id, meta, stats ] }
+            .join( ch_input.map { meta, genomes, rfile, labels -> [ meta.id, rfile, labels ] } )
+            .map { id, meta, stats, rfile, labels -> [ meta, stats, rfile, labels ] }
+    )
+
+    // A species needs 2 genomes past the gate, one of them HQ (the reference). Its PopPUNK results
+    // are kept either way.
+    def gate_metric = params.syntracker_strict ? 'N90' : 'N50'
+    ch_gated = SYNTRACKER_GATE.out.stats
+        .join( ch_qc.map { meta, qc -> [ meta, qc.size() ] } )
+        .filter { meta, stats, n_qc ->
+            def labels = stats.splitCsv(header: true, sep: '\t')*.label
+            def ok = labels.size() >= 2 && 'HQ' in labels
+            if ( !ok ) {
+                log.warn("Species '${meta.id}': ${labels.size()} of ${n_qc} HQ/MQ genomes " +
+                    "(${labels.count('HQ')} HQ) have ${gate_metric} >= ${params.syntracker_min_nx} bp; " +
+                    "SynTracker needs 2, one of them HQ. Skipping SynTracker.")
+            }
+            ok
+        }
+        .map { meta, stats, n_qc -> [ meta, stats ] }
+
     SYNTRACKER_SELECT(
         ch_ani
             .map { meta, ani -> [ meta.id, ani ] }
-            .join( SEQKIT_STATS.out.stats.map { meta, stats -> [ meta.id, meta, stats ] } )
+            .join( ch_gated.map { meta, stats -> [ meta.id, meta, stats ] } )
             .map { id, ani, meta, stats -> [ meta, ani, stats ] }
     )
 
     // Back from the selected file names to the staged genome files.
-    ch_selected = ch_hq
-        .map { meta, hq -> [ meta.id, meta, hq ] }
+    ch_selected = ch_qc
+        .map { meta, qc -> [ meta.id, meta, qc ] }
         .join( SYNTRACKER_SELECT.out.reference.map { meta, ref -> [ meta.id, ref.text.trim() ] } )
         .join( SYNTRACKER_SELECT.out.targets.map { meta, targets -> [ meta.id, targets.readLines()*.trim().findAll() ] } )
-        .map { id, meta, hq, reference, targets ->
-            def file_of = [ hq ].flatten().collectEntries { [ it.name, it ] }
+        .map { id, meta, qc, reference, targets ->
+            def file_of = [ qc ].flatten().collectEntries { [ it.name, it ] }
             [ meta, file_of[reference], targets.collect { file_of[it] } ]
         }
 
@@ -185,6 +212,7 @@ workflow SYNTRACKER_METHODS {
     coverage     = SYNTRACKER_CLUSTERS.out.coverage                              // channel: [ val(meta), path(*_genome_coverage.tsv) ]
     noise        = SYNTRACKER_CLUSTERS.out.noise                                 // channel: [ val(meta), path(*_noise.tsv) ]
     floors       = SYNTRACKER_CLUSTERS.out.floors                                // channel: [ val(meta), path(*_floors.tsv) ]
+    gate         = SYNTRACKER_GATE.out.report                                    // channel: [ val(meta), path(*_syntracker_gate.tsv) ]
     selection    = SYNTRACKER_SELECT.out.selection                               // channel: [ val(meta), path(*_selection.tsv) ]
     reference    = ch_selected.map { meta, reference, targets -> [ meta, reference ] } // channel: [ val(meta), path(reference fasta) ]
 }

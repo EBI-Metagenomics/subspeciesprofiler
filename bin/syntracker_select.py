@@ -2,19 +2,20 @@
 """
 SynTracker reference and target selection for one species
 ==========================================================
-Picks the SynTracker reference genome and the target list from the species' HQ
-genomes, using the all-vs-all FastANI the pipeline already computes and per-genome
-N50 (seqkit stats).
+Picks the SynTracker reference genome and the target list from the species' HQ and MQ
+genomes that passed the contiguity gate (bin/syntracker_gate.py), using the all-vs-all
+FastANI the pipeline already computes and per-genome N50 (seqkit stats).
 
 Reference: the HQ genome with the highest species-wide centrality (mean ANI to every
 other HQ genome) among those with N50 >= --min-n50. Centrality matters most: SynTracker
 only compares regions of the reference, and a target loses regions the further it is
 from the reference (BLAST keeps hits at >= 97% identity), so a central reference spreads
 that loss evenly across lineages instead of penalising every lineage but its own. The
-N50 floor keeps a fragmented genome from being chosen. If no genome passes the floor,
-the genome with the highest N50 is used, with a warning.
+N50 floor keeps a fragmented genome from being chosen. Only an HQ genome can be the
+reference, and centrality is computed over the HQ genomes only. If no HQ genome passes the
+floor, the HQ genome with the highest N50 is used, with a warning.
 
-Targets: every HQ genome, the reference included, the reference first and then by N50
+Targets: every gated HQ and MQ genome, the reference included, the reference first and then by N50
 (highest first). --max-targets 0 (the pipeline default) keeps them all: the pipeline splits
 large target sets into chunks (see subworkflows/local/syntracker_methods). Above a positive
 --max-targets, the genomes with the highest N50 are kept: contig breaks remove regions and
@@ -23,10 +24,10 @@ bias APSS, and the reference is always kept.
 Outputs (`<p>` = --out-prefix), genomes named by their file names:
   <p>_syntracker_reference.txt   the reference file name
   <p>_syntracker_targets.txt     the target file names, one per line
-  <p>_syntracker_selection.tsv   genome, file, N50, centrality, role (reference/target/capped)
+  <p>_syntracker_selection.tsv   genome, file, label, N50, centrality, role (reference/target/capped)
 
 Usage:
-    syntracker_select.py --ani fastani.txt --stats seqkit_stats.tsv \
+    syntracker_select.py --ani fastani.txt --stats B_longum_syntracker_gate_stats.tsv \
         --min-n50 100000 --max-targets 0 --out-prefix B_longum
 """
 
@@ -41,16 +42,17 @@ from evaluate_poppunk_fastani import normalise_genome_id, read_fastani
 
 
 def read_stats(path: str) -> pd.DataFrame:
-    """seqkit stats --all --tabular: one row per FASTA file, with N50."""
+    """The gated seqkit stats table: one row per FASTA file, with N50 and the HQ/MQ label."""
     try:
         df = pd.read_csv(path, sep="\t")
     except (FileNotFoundError, pd.errors.EmptyDataError) as err:
         sys.exit(f"ERROR: cannot read seqkit stats '{path}': {err}")
-    missing = {"file", "N50"} - set(df.columns)
+    missing = {"file", "N50", "label"} - set(df.columns)
     if missing:
-        sys.exit(f"ERROR: seqkit stats '{path}' lacks columns {sorted(missing)} (run with --all --tabular)")
+        sys.exit(f"ERROR: seqkit stats '{path}' lacks columns {sorted(missing)} (use syntracker_gate.py's output)")
     out = pd.DataFrame({"file": df["file"].map(lambda f: Path(str(f)).name)})
     out["genome"] = out["file"].map(normalise_genome_id)
+    out["label"] = df["label"].astype(str).str.upper()
     out["N50"] = pd.to_numeric(df["N50"], errors="coerce").fillna(0).astype(int)
     if out["genome"].duplicated().any():
         sys.exit(f"ERROR: two files map to the same genome name in '{path}': "
@@ -75,11 +77,12 @@ def select(stats: pd.DataFrame, cent: pd.Series, min_n50: int, max_targets: int)
     table = stats.copy()
     table["centrality"] = table["genome"].map(cent)
 
-    eligible = table[(table["N50"] >= min_n50) & table["centrality"].notna()]
+    hq = table[table["label"] == "HQ"]
+    eligible = hq[(hq["N50"] >= min_n50) & hq["centrality"].notna()]
     if eligible.empty:
         print(f"WARNING: no HQ genome has N50 >= {min_n50} and FastANI values; "
-              "the reference is the genome with the highest N50.", file=sys.stderr)
-        reference = table.sort_values(["N50", "genome"], ascending=[False, True]).iloc[0]["genome"]
+              "the reference is the HQ genome with the highest N50.", file=sys.stderr)
+        reference = hq.sort_values(["N50", "genome"], ascending=[False, True]).iloc[0]["genome"]
     else:
         reference = eligible.sort_values(["centrality", "N50", "genome"], ascending=[False, False, True]).iloc[0]["genome"]
 
@@ -87,7 +90,7 @@ def select(stats: pd.DataFrame, cent: pd.Series, min_n50: int, max_targets: int)
     ordered = [reference] + [g for g in by_n50 if g != reference]
     targets = ordered[:max_targets] if max_targets else ordered
     if len(targets) < len(ordered):
-        print(f"WARNING: {len(ordered)} HQ genomes > --max-targets ({max_targets}); SynTracker runs on the "
+        print(f"WARNING: {len(ordered)} genomes > --max-targets ({max_targets}); SynTracker runs on the "
               f"{max_targets} with the highest N50, leaving {len(ordered) - max_targets} out.", file=sys.stderr)
 
     kept = set(targets)
@@ -100,7 +103,7 @@ def select(stats: pd.DataFrame, cent: pd.Series, min_n50: int, max_targets: int)
 def main():
     parser = argparse.ArgumentParser(description="Choose the SynTracker reference and targets for one species.")
     parser.add_argument("--ani", required=True, help="All-vs-all FastANI output (percent ANI).")
-    parser.add_argument("--stats", required=True, help="seqkit stats --all --tabular of the HQ genomes.")
+    parser.add_argument("--stats", required=True, help="Gated seqkit stats of the HQ/MQ genomes (with a label column).")
     parser.add_argument("--min-n50", type=int, default=100000, help="Minimum N50 of the reference (default 100000).")
     parser.add_argument("--max-targets", type=int, default=0, help="Maximum number of targets; 0 = no cap (default 0).")
     parser.add_argument("--out-prefix", required=True, help="Output prefix.")
@@ -110,14 +113,16 @@ def main():
 
     stats = read_stats(args.stats)
     if len(stats) < 2:
-        sys.exit(f"ERROR: SynTracker needs at least 2 HQ genomes, got {len(stats)}")
-    cent = centrality(read_fastani(args.ani), stats["genome"].tolist())
+        sys.exit(f"ERROR: SynTracker needs at least 2 genomes, got {len(stats)}")
+    if not (stats["label"] == "HQ").any():
+        sys.exit("ERROR: no HQ genome among the SynTracker genomes; the reference must be HQ")
+    cent = centrality(read_fastani(args.ani), stats.loc[stats["label"] == "HQ", "genome"].tolist())
     reference, targets, table = select(stats, cent, args.min_n50, args.max_targets)
 
     file_of = dict(zip(stats["genome"], stats["file"]))
     Path(f"{args.out_prefix}_syntracker_reference.txt").write_text(file_of[reference] + "\n")
     Path(f"{args.out_prefix}_syntracker_targets.txt").write_text("".join(file_of[g] + "\n" for g in targets))
-    table[["genome", "file", "N50", "centrality", "role"]].to_csv(
+    table[["genome", "file", "label", "N50", "centrality", "role"]].to_csv(
         f"{args.out_prefix}_syntracker_selection.tsv", sep="\t", index=False, float_format="%.5f")
     row = table.set_index("genome").loc[reference]
     print(f"reference: {reference} (centrality {row['centrality']:.4f}, N50 {row['N50']}); "
