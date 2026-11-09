@@ -2,8 +2,8 @@ name: "syntracker_select"
 description: |
   Chooses the SynTracker reference and targets for one species with bin/syntracker_select.py:
   the reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those
-  with N50 above a floor; the targets are every HQ and MQ genome that passed syntracker/gate, the
-  highest-N50 ones first when capped.
+  with N50 above a floor; the targets are every HQ and MQ genome that passed speciesqc (quality and
+  contiguity), the highest-N50 ones first when capped.
 keywords:
   - syntracker
   - reference
@@ -29,7 +29,7 @@ input:
         ontologies: []
     - stats:
         type: file
-        description: "The gated seqkit stats of syntracker/gate (one row per FASTA, with N50 and the HQ/MQ `label`)."
+        description: "The per-genome QC table of speciesqc (`*_genome_qc.tsv`: one row per FASTA, with `file`, `N50` and `label`; DISCARDED rows are ignored)."
         pattern: "*.tsv"
         ontologies: []
 

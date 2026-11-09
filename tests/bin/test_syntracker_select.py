@@ -3,7 +3,7 @@ Tests for bin/syntracker_select.py (SynTracker reference and target choice).
 
 Pins: the reference is the most central HQ genome (mean FastANI to the other HQ genomes) among
 those with N50 above the floor; with none above it, the highest-N50 HQ genome; an MQ genome is never
-the reference; targets are every gated HQ and MQ genome, the highest-N50 ones first when capped
+the reference; DISCARDED genomes of the QC table are ignored; targets are every HQ and MQ genome, the highest-N50 ones first when capped
 (0 = no cap), the reference always kept.
 
 Run with:  python3 -m pytest tests/bin/test_syntracker_select.py
@@ -150,3 +150,14 @@ def test_no_hq_genome_is_an_error(tmp_path):
     proc, _ = run(tmp_path)
     assert proc.returncode != 0
     assert "HQ" in proc.stderr
+
+
+def test_discarded_genomes_are_ignored(tmp_path):
+    write_inputs(tmp_path, {"a": 500_000, "b": 400_000, "frag": 3_000}, {("a", "b"): 99.0, ("a", "frag"): 99.0})
+    table = pd.read_csv(tmp_path / "stats.tsv", sep="\t")
+    table.loc[table["file"] == "frag.fna.gz", "label"] = "DISCARDED"
+    table.to_csv(tmp_path / "stats.tsv", sep="\t", index=False)
+    proc, out = run(tmp_path)
+    assert proc.returncode == 0, proc.stderr
+    assert sorted(out["targets"]) == ["a.fna.gz", "b.fna.gz"]
+    assert "frag" not in set(out["table"]["genome"])

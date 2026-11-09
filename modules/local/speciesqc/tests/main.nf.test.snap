@@ -6,7 +6,7 @@
                     {
                         "id": "E_coli"
                     },
-                    "E_coli_spp_eligibility_report.tsv:md5,6e53f2e2d6055a85289dff4a30f63a1d"
+                    "E_coli_spp_eligibility_report.tsv:md5,cbbc3e94553d79c8ab5e326e4de8b3b0"
                 ]
             ],
             [
@@ -24,13 +24,62 @@
                     },
                     "E_coli_labels.csv:md5,1665500306e78391c1c8f68336228bb1"
                 ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_genome_qc.tsv:md5,0fe7a7d71cd26919f0a37988e69ca9b5"
+                ]
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-09T14:18:51.388762"
+        "timestamp": "2026-11-09T15:03:35.136203"
+    },
+    "species qc - csv - strict contiguity (N90)": {
+        "content": [
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_spp_eligibility_report.tsv:md5,b014850cd1bf658d0e4aacb9d2d00422"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_rfile.tsv:md5,69d9d4623248664e804ca8610996505f"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_labels.csv:md5,a739842fdd7d40ad70df54bc3a411bb3"
+                ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_genome_qc.tsv:md5,ccadc570650a113515163f30a4deb91c"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-09T15:03:31.123432"
     },
     "species qc - csv": {
         "content": [
@@ -39,7 +88,7 @@
                     {
                         "id": "E_coli"
                     },
-                    "E_coli_spp_eligibility_report.tsv:md5,0ff00da0e29abdef0e4175a38c068287"
+                    "E_coli_spp_eligibility_report.tsv:md5,268989b5c5d4742daaf0628e770c694e"
                 ]
             ],
             [
@@ -57,12 +106,20 @@
                     },
                     "E_coli_labels.csv:md5,c8cc3d355202bbf8f56ed78476ae92b7"
                 ]
+            ],
+            [
+                [
+                    {
+                        "id": "E_coli"
+                    },
+                    "E_coli_genome_qc.tsv:md5,b808bd2b0e1fe71fd678bdaa848a4105"
+                ]
             ]
         ],
         "meta": {
             "nf-test": "0.9.3",
             "nextflow": "25.04.7"
         },
-        "timestamp": "2026-10-09T14:18:46.646157"
+        "timestamp": "2026-11-09T15:03:27.25381"
     }
 }

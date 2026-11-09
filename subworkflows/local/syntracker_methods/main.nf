@@ -1,12 +1,12 @@
 //
 // SYNTRACKER_METHODS: synteny-based clustering for one eligible species, independent of PopPUNK.
 //
-// 1. SEQKIT_STATS gives each HQ/MQ genome's N50 and N90. SYNTRACKER_GATE keeps the genomes whose
-//    N50 (N90 with --syntracker_strict) is >= --syntracker_min_nx bp: SynTracker compares 5-kb
-//    windows, so shorter contigs give it no regions. SYNTRACKER_SELECT picks the reference (the
-//    most central HQ genome by mean FastANI to the other HQ genomes, among those with N50 >=
-//    --syntracker_ref_min_n50) and the targets (every gated HQ and MQ genome, reference first and
-//    then by N50; --syntracker_max_targets > 0 caps them, keeping the highest N50).
+// 1. The genomes are those that passed SPECIESQC (HQ/MQ, and N50 or N90 >= --qc_min_nx: SynTracker
+//    compares 5-kb windows, so shorter contigs give it no regions). SYNTRACKER_SELECT reads their
+//    N50 and labels from SPECIESQC's genome_qc table and picks the reference (the most central HQ
+//    genome by mean FastANI to the other HQ genomes, among those with N50 >=
+//    --syntracker_ref_min_n50) and the targets (every HQ and MQ genome, reference first and then
+//    by N50; --syntracker_max_targets > 0 caps them, keeping the highest N50).
 // 2. SynTracker scores every target pair (APSS) over the reference's regions. Its cost grows with
 //    the square of the targets, so above 2 x --syntracker_chunk_size they are split round-robin
 //    (in N50 order) into k chunks and SynTracker runs once per chunk pair Ci + Cj, k(k-1)/2 jobs
@@ -27,8 +27,6 @@
 //    species' SynTracker model report (model `syntracker_leiden_apss<t>_r<res>`).
 //
 
-include { SEQKIT_STATS                            } from '../../../modules/nf-core/seqkit/stats/main'
-include { SYNTRACKER_GATE                         } from '../../../modules/local/syntracker/gate/main'
 include { SYNTRACKER_SELECT                       } from '../../../modules/local/syntracker/select/main'
 include { SYNTRACKER_RUN                          } from '../../../modules/local/syntracker/run/main'
 include { SYNTRACKER_FILTER                       } from '../../../modules/local/syntracker/filter/main'
@@ -39,8 +37,9 @@ include { POPPUNK_EVALUATE as SYNTRACKER_EVALUATE } from '../../../modules/local
 workflow SYNTRACKER_METHODS {
 
     take:
-    ch_input // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]  (as POPPUNK_METHODS)
-    ch_ani   // channel: [ val(meta), path(ani) ]  all-vs-all FastANI, from POPPUNK_METHODS
+    ch_input     // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]  (as POPPUNK_METHODS)
+    ch_ani       // channel: [ val(meta), path(ani) ]  all-vs-all FastANI, from POPPUNK_METHODS
+    ch_genome_qc // channel: [ val(meta), path(genome_qc.tsv) ]  per-genome QC (N50, label), from SPECIESQC
 
     main:
 
@@ -61,35 +60,27 @@ workflow SYNTRACKER_METHODS {
             qc.size() >= 2
         }
 
-    SEQKIT_STATS( ch_qc )
-    SYNTRACKER_GATE(
-        SEQKIT_STATS.out.stats
-            .map { meta, stats -> [ meta.id, meta, stats ] }
-            .join( ch_input.map { meta, genomes, rfile, labels -> [ meta.id, rfile, labels ] } )
-            .map { id, meta, stats, rfile, labels -> [ meta, stats, rfile, labels ] }
-    )
-
-    // A species needs 2 genomes past the gate, one of them HQ (the reference). Its PopPUNK results
-    // are kept either way.
-    def gate_metric = params.syntracker_strict ? 'N90' : 'N50'
-    ch_gated = SYNTRACKER_GATE.out.stats
-        .join( ch_qc.map { meta, qc -> [ meta, qc.size() ] } )
-        .filter { meta, stats, n_qc ->
-            def labels = stats.splitCsv(header: true, sep: '\t')*.label
+    // A species needs 2 genomes, one of them HQ (the reference). Its PopPUNK results are kept
+    // either way. The genome_qc table also lists the DISCARDED genomes; keep the r-file's.
+    ch_qc_stats = ch_genome_qc
+        .map { meta, genome_qc -> [ meta.id, genome_qc ] }
+        .join( ch_qc.map { meta, qc -> [ meta.id, meta, qc ] } )
+        .filter { id, genome_qc, meta, qc ->
+            def labels = genome_qc.splitCsv(header: true, sep: '\t')
+                .findAll { row -> row.label in [ 'HQ', 'MQ' ] }*.label
             def ok = labels.size() >= 2 && 'HQ' in labels
             if ( !ok ) {
-                log.warn("Species '${meta.id}': ${labels.size()} of ${n_qc} HQ/MQ genomes " +
-                    "(${labels.count('HQ')} HQ) have ${gate_metric} >= ${params.syntracker_min_nx} bp; " +
+                log.warn("Species '${id}': ${labels.size()} genomes passed QC (${labels.count('HQ')} HQ); " +
                     "SynTracker needs 2, one of them HQ. Skipping SynTracker.")
             }
             ok
         }
-        .map { meta, stats, n_qc -> [ meta, stats ] }
+        .map { id, genome_qc, meta, qc -> [ meta, genome_qc ] }
 
     SYNTRACKER_SELECT(
         ch_ani
             .map { meta, ani -> [ meta.id, ani ] }
-            .join( ch_gated.map { meta, stats -> [ meta.id, meta, stats ] } )
+            .join( ch_qc_stats.map { meta, stats -> [ meta.id, meta, stats ] } )
             .map { id, ani, meta, stats -> [ meta, ani, stats ] }
     )
 
@@ -212,7 +203,6 @@ workflow SYNTRACKER_METHODS {
     coverage     = SYNTRACKER_CLUSTERS.out.coverage                              // channel: [ val(meta), path(*_genome_coverage.tsv) ]
     noise        = SYNTRACKER_CLUSTERS.out.noise                                 // channel: [ val(meta), path(*_noise.tsv) ]
     floors       = SYNTRACKER_CLUSTERS.out.floors                                // channel: [ val(meta), path(*_floors.tsv) ]
-    gate         = SYNTRACKER_GATE.out.report                                    // channel: [ val(meta), path(*_syntracker_gate.tsv) ]
     selection    = SYNTRACKER_SELECT.out.selection                               // channel: [ val(meta), path(*_selection.tsv) ]
     reference    = ch_selected.map { meta, reference, targets -> [ meta, reference ] } // channel: [ val(meta), path(reference fasta) ]
 }

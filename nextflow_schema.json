@@ -31,6 +31,20 @@
                     "help_text": "Species whose `spp_label` (from the species QC eligibility step) is in this list are carried forward; all others are dropped. Allowed values: `STRONG`, `STRONG_BOUNDARY`, `ACCEPTABLE`, `ACCEPTABLE_BOUNDARY`. Defaults to all four (keep every eligible species).",
                     "fa_icon": "fas fa-filter"
                 },
+                "qc_strict_contiguity": {
+                    "type": "boolean",
+                    "description": "Require N90 instead of N50 to reach `--qc_min_nx`.",
+                    "help_text": "Besides completeness and contamination (HQ/MQ), a genome passes the species QC only if its N50 is at least `--qc_min_nx` (half of the assembly in contigs of that length or longer). With this flag, its N90 must be (90% of the assembly). The genomes that fail are DISCARDED for every branch (PopPUNK, FastANI, SynTracker), and the species' eligibility label is computed from the genomes that pass. The per-genome result is in `<species>/speciesqc/<species>_genome_qc.tsv`.",
+                    "fa_icon": "fas fa-lock"
+                },
+                "qc_min_nx": {
+                    "type": "integer",
+                    "default": 5000,
+                    "minimum": 0,
+                    "description": "Minimum N50 (or N90 with `--qc_strict_contiguity`) of a genome, in bp.",
+                    "help_text": "Default 5000, the SynTracker window length: SynTracker compares 5-kb windows, so shorter contigs give it no regions. Genomes at the threshold pass. 0 turns the contiguity filter off.",
+                    "fa_icon": "fas fa-ruler-horizontal"
+                },
                 "outdir": {
                     "type": "string",
                     "format": "directory-path",
@@ -94,33 +108,19 @@
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Synteny-based clustering with SynTracker, an independent signal scored alongside the PopPUNK fits.",
-            "help_text": "For each species, the HQ and MQ genomes go through a contiguity gate (N50, or N90 with `--syntracker_strict`, of at least `--syntracker_min_nx` bp). The SynTracker reference is the most central gated HQ genome (mean FastANI to the other HQ genomes) among those with N50 >= `--syntracker_ref_min_n50`; every gated HQ and MQ genome is a target (uncapped by default). SynTracker scores every target pair by synteny (APSS, all regions), in chunk pairs for large species, merged into one table. Pairs on fewer than `--syntracker_min_regions` regions and low-coverage genomes are left out; the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored in APSS space (gap margin = 2x the APSS standard error) and in ANI space (concordance), and reported as a `syntracker_leiden_apss<t>_r<res>` row in the species' SynTracker model report.",
+            "help_text": "For each species, SynTracker runs on the HQ and MQ genomes that passed the species QC (completeness, contamination and contiguity, see `--qc_min_nx`). The reference is the most central HQ genome (mean FastANI to the other HQ genomes) among those with N50 >= `--syntracker_ref_min_n50`; every HQ and MQ genome is a target (uncapped by default). SynTracker scores every target pair by synteny (APSS, all regions), in chunk pairs for large species, merged into one table. Pairs on fewer than `--syntracker_min_regions` regions and low-coverage genomes are left out; the APSS graph is pruned at each `--syntracker_min_apss` and clustered with Leiden at each `--syntracker_resolutions`. Each clustering is scored in APSS space (gap margin = 2x the APSS standard error) and in ANI space (concordance), and reported as a `syntracker_leiden_apss<t>_r<res>` row in the species' SynTracker model report.",
             "properties": {
                 "skip_syntracker": {
                     "type": "boolean",
                     "description": "Skip the SynTracker branch.",
                     "fa_icon": "fas fa-fast-forward"
                 },
-                "syntracker_strict": {
-                    "type": "boolean",
-                    "description": "Gate SynTracker genomes on N90 instead of N50.",
-                    "help_text": "SynTracker compares 5-kb windows around the reference's regions, so contigs shorter than a window give it no regions. By default an HQ or MQ genome is a SynTracker target only if its N50 is at least `--syntracker_min_nx` (half of the assembly in contigs of that length or longer). With this flag, its N90 must be (90% of the assembly). The per-genome result is in `<species>/syntracker/selection/<species>_syntracker_gate.tsv`. A species with fewer than 2 genomes past the gate, or no HQ genome past it, gets no SynTracker results.",
-                    "fa_icon": "fas fa-lock"
-                },
-                "syntracker_min_nx": {
-                    "type": "integer",
-                    "default": 5000,
-                    "minimum": 0,
-                    "description": "Minimum N50 (or N90 with `--syntracker_strict`) of a SynTracker genome, in bp.",
-                    "help_text": "Default 5000, the SynTracker window length. Genomes at the threshold pass.",
-                    "fa_icon": "fas fa-ruler-horizontal"
-                },
                 "syntracker_max_targets": {
                     "type": "integer",
                     "default": 0,
                     "minimum": 0,
                     "description": "Maximum number of HQ/MQ genomes passed to SynTracker as targets (0 = no cap).",
-                    "help_text": "By default every gated HQ and MQ genome is a target, and large target sets run in chunk pairs (`--syntracker_chunk_size`). A positive value keeps only the genomes with the highest N50 (the reference always is), with a warning; it must then be at least 2. Capping can split clonal groups: in B. fragilis, 21 of 150 targets lost every clonal partner to a 150 cap.",
+                    "help_text": "By default every HQ and MQ genome that passed QC is a target, and large target sets run in chunk pairs (`--syntracker_chunk_size`). A positive value keeps only the genomes with the highest N50 (the reference always is), with a warning; it must then be at least 2. Capping can split clonal groups: in B. fragilis, 21 of 150 targets lost every clonal partner to a 150 cap.",
                     "fa_icon": "fas fa-compress-arrows-alt"
                 },
                 "syntracker_chunk_size": {

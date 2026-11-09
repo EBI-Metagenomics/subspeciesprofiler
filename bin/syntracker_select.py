@@ -3,8 +3,9 @@
 SynTracker reference and target selection for one species
 ==========================================================
 Picks the SynTracker reference genome and the target list from the species' HQ and MQ
-genomes that passed the contiguity gate (bin/syntracker_gate.py), using the all-vs-all
-FastANI the pipeline already computes and per-genome N50 (seqkit stats).
+genomes that passed the species QC (quality and contiguity, bin/spp_eligibility_from_qc.py),
+using the all-vs-all FastANI the pipeline already computes and the per-genome N50 of the QC's
+genome_qc table.
 
 Reference: the HQ genome with the highest species-wide centrality (mean ANI to every
 other HQ genome) among those with N50 >= --min-n50. Centrality matters most: SynTracker
@@ -15,7 +16,7 @@ N50 floor keeps a fragmented genome from being chosen. Only an HQ genome can be 
 reference, and centrality is computed over the HQ genomes only. If no HQ genome passes the
 floor, the HQ genome with the highest N50 is used, with a warning.
 
-Targets: every gated HQ and MQ genome, the reference included, the reference first and then by N50
+Targets: every HQ and MQ genome, the reference included, the reference first and then by N50
 (highest first). --max-targets 0 (the pipeline default) keeps them all: the pipeline splits
 large target sets into chunks (see subworkflows/local/syntracker_methods). Above a positive
 --max-targets, the genomes with the highest N50 are kept: contig breaks remove regions and
@@ -27,7 +28,7 @@ Outputs (`<p>` = --out-prefix), genomes named by their file names:
   <p>_syntracker_selection.tsv   genome, file, label, N50, centrality, role (reference/target/capped)
 
 Usage:
-    syntracker_select.py --ani fastani.txt --stats B_longum_syntracker_gate_stats.tsv \
+    syntracker_select.py --ani fastani.txt --stats B_longum_genome_qc.tsv \
         --min-n50 100000 --max-targets 0 --out-prefix B_longum
 """
 
@@ -42,14 +43,18 @@ from evaluate_poppunk_fastani import normalise_genome_id, read_fastani
 
 
 def read_stats(path: str) -> pd.DataFrame:
-    """The gated seqkit stats table: one row per FASTA file, with N50 and the HQ/MQ label."""
+    """The species QC's genome_qc table: one row per FASTA file, with N50 and the label.
+
+    DISCARDED genomes (failed quality or contiguity) are dropped; the HQ and MQ genomes are kept.
+    """
     try:
         df = pd.read_csv(path, sep="\t")
     except (FileNotFoundError, pd.errors.EmptyDataError) as err:
         sys.exit(f"ERROR: cannot read seqkit stats '{path}': {err}")
     missing = {"file", "N50", "label"} - set(df.columns)
     if missing:
-        sys.exit(f"ERROR: seqkit stats '{path}' lacks columns {sorted(missing)} (use syntracker_gate.py's output)")
+        sys.exit(f"ERROR: seqkit stats '{path}' lacks columns {sorted(missing)} (use the genome_qc table of spp_eligibility_from_qc.py)")
+    df = df[df["label"].astype(str).str.upper().isin(["HQ", "MQ"])].reset_index(drop=True)
     out = pd.DataFrame({"file": df["file"].map(lambda f: Path(str(f)).name)})
     out["genome"] = out["file"].map(normalise_genome_id)
     out["label"] = df["label"].astype(str).str.upper()
@@ -103,7 +108,7 @@ def select(stats: pd.DataFrame, cent: pd.Series, min_n50: int, max_targets: int)
 def main():
     parser = argparse.ArgumentParser(description="Choose the SynTracker reference and targets for one species.")
     parser.add_argument("--ani", required=True, help="All-vs-all FastANI output (percent ANI).")
-    parser.add_argument("--stats", required=True, help="Gated seqkit stats of the HQ/MQ genomes (with a label column).")
+    parser.add_argument("--stats", required=True, help="Per-genome QC table (file, N50, label) of spp_eligibility_from_qc.py.")
     parser.add_argument("--min-n50", type=int, default=100000, help="Minimum N50 of the reference (default 100000).")
     parser.add_argument("--max-targets", type=int, default=0, help="Maximum number of targets; 0 = no cap (default 0).")
     parser.add_argument("--out-prefix", required=True, help="Output prefix.")

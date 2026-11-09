@@ -10,7 +10,7 @@ nextflow_process {
     tag "syntracker"
     tag "syntracker/select"
 
-    // Fixture: genome1 (N50 250 kb) and genome2 (N50 30 kb, below the 100 kb floor).
+    // Fixture: genome1 (N50 250 kb), genome2 (N50 30 kb, below the 100 kb floor), genome3 DISCARDED (ignored).
     test("syntracker select - centrality with N50 floor") {
 
         when {
@@ -19,7 +19,7 @@ nextflow_process {
                 input[0] = [
                     [ id:'test' ],
                     file("${projectDir}/tests/fixtures/syntracker/fastani.txt", checkIfExists: true),
-                    file("${projectDir}/tests/fixtures/syntracker/seqkit_stats.tsv", checkIfExists: true)
+                    file("${projectDir}/tests/fixtures/syntracker/genome_qc.tsv", checkIfExists: true)
                 ]
                 """
             }
@@ -46,7 +46,7 @@ nextflow_process {
                 input[0] = [
                     [ id:'test' ],
                     file("${projectDir}/tests/fixtures/syntracker/fastani.txt", checkIfExists: true),
-                    file("${projectDir}/tests/fixtures/syntracker/seqkit_stats.tsv", checkIfExists: true)
+                    file("${projectDir}/tests/fixtures/syntracker/genome_qc.tsv", checkIfExists: true)
                 ]
                 """
             }

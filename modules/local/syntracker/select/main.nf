@@ -10,7 +10,7 @@ process SYNTRACKER_SELECT {
 
     input:
     // ani   = all-vs-all FastANI of the species (percent ANI)
-    // stats = gated seqkit stats of syntracker/gate (one row per FASTA, with N50 and the HQ/MQ label)
+    // stats = per-genome QC table of speciesqc (genome_qc.tsv: one row per FASTA, with N50 and the label)
     tuple val(meta), path(ani), path(stats)
 
     output:
@@ -36,10 +36,10 @@ process SYNTRACKER_SELECT {
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
-    // Reference = the first genome of the stats table, every genome a target. The seqkit stub
-    // writes an empty table, so fall back to the FastANI genomes, then to two fixed names.
+    // Reference = the first non-DISCARDED genome of the QC table, every such genome a target.
+    // With an empty table, fall back to the FastANI genomes, then to two fixed names.
     """
-    tail -n +2 ${stats} | cut -f1 | sed 's#.*/##' > files.txt
+    awk -F'\\t' 'NR == 1 { for (i = 1; i <= NF; i++) col[\$i] = i; next } (col["file"] && \$col["label"] != "DISCARDED") { print \$col["file"] }' ${stats} | sed 's#.*/##' > files.txt
     if [ ! -s files.txt ]; then cut -f1 ${ani} | sed 's#.*/##' | awk 'NF && !seen[\$0]++' >| files.txt; fi
     if [ ! -s files.txt ]; then printf 'genome1.fna.gz\\ngenome2.fna.gz\\n' >| files.txt; fi
     head -n 1 files.txt > ${prefix}_syntracker_reference.txt

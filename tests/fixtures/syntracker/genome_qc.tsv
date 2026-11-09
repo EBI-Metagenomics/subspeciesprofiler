@@ -1,0 +1,4 @@
+genome	file	completeness	contamination	N50	N90	quality	label	reason
+genome1	genome1.fna.gz	99.5	0.5	250000	60000	HQ	HQ	pass
+genome2	genome2.fna.gz	98.2	0.8	30000	8000	HQ	HQ	pass
+genome3	genome3.fna.gz	99.0	0.5	3000	900	HQ	DISCARDED	contiguity

@@ -8,6 +8,8 @@ nextflow_process {
     tag "modules_local"
     tag "speciesqc"
 
+    // Fixture: genome1 HQ (N50 2.5 Mb, N90 600 kb), genome2 MQ (N50 30 kb, N90 3 kb).
+
     test("species qc - csv") {
 
         when {
@@ -16,6 +18,7 @@ nextflow_process {
                 input[0] = [
                     [ id:'E_coli' ],
                     file("${projectDir}/tests/fixtures/E_coli_qc.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/E_coli_seqkit_stats.tsv", checkIfExists: true)
                 ]
                 """
             }
@@ -27,7 +30,44 @@ nextflow_process {
                 { assert snapshot(
                     process.out.report,
                     process.out.rfile,
-                    process.out.labels
+                    process.out.labels,
+                    process.out.genome_qc
+                ).match() }
+            )
+        }
+
+    }
+
+    test("species qc - csv - strict contiguity (N90)") {
+
+        config "./nextflow.config"
+
+        when {
+            params {
+                module_args = '--contiguity_metric N90 --min_contiguity 5000'
+            }
+            process {
+                """
+                input[0] = [
+                    [ id:'E_coli' ],
+                    file("${projectDir}/tests/fixtures/E_coli_qc.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/E_coli_seqkit_stats.tsv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // genome2's N90 (3 kb) is below 5 kb: discarded for contiguity
+                { assert path(process.out.rfile[0][1].toString()).readLines()*.tokenize('\t')*.get(0) == [ 'genome1' ] },
+                { assert path(process.out.genome_qc[0][1].toString()).readLines().find { it.startsWith('genome2\t') }.endsWith('\tMQ\tDISCARDED\tcontiguity') },
+                { assert snapshot(
+                    process.out.report,
+                    process.out.rfile,
+                    process.out.labels,
+                    process.out.genome_qc
                 ).match() }
             )
         }
@@ -44,6 +84,7 @@ nextflow_process {
                 input[0] = [
                     [ id:'E_coli' ],
                     file("${projectDir}/tests/fixtures/E_coli_qc.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/E_coli_seqkit_stats.tsv", checkIfExists: true)
                 ]
                 """
             }
@@ -55,7 +96,8 @@ nextflow_process {
                 { assert snapshot(
                     process.out.report,
                     process.out.rfile,
-                    process.out.labels
+                    process.out.labels,
+                    process.out.genome_qc
                 ).match() }
             )
         }

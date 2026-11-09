@@ -1,0 +1,6 @@
+genome	file	completeness	contamination	N50	N90	quality	label	reason
+genome1	genome1.fna.gz	99.0	0.5	999000	100000	MQ	MQ	pass
+genome2	genome2.fna.gz	99.0	0.5	998000	100000	MQ	MQ	pass
+genome3	genome3.fna.gz	99.0	0.5	997000	100000	MQ	MQ	pass
+genome4	genome4.fna.gz	99.0	0.5	996000	100000	MQ	MQ	pass
+genome5	genome5.fna.gz	99.0	0.5	995000	100000	MQ	MQ	pass

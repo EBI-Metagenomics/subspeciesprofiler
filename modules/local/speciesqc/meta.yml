@@ -1,10 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: "speciesqc"
-description: Assess SPP subspecies-clustering eligibility for a species from its per-genome QC table
+description: |
+  Per-genome QC for one species (HQ/MQ/DISCARDED from completeness/contamination, then an N50 or
+  N90 contiguity gate) and the SPP subspecies-clustering eligibility label of the genomes that pass
 keywords:
   - qc
   - completeness
   - contamination
+  - contiguity
   - eligibility
   - metagenomics
 tools:
@@ -27,6 +30,12 @@ input:
           Comma-separated per-genome QC table for this species, with a header row and
           columns containing 'completeness' and 'contamination' values.
         pattern: "*.csv"
+    - stats:
+        type: file
+        description: |
+          `seqkit stats --all -N 90 --tabular` of the species' genome files (one row per
+          FASTA, with N50 and N90). Every genome of the QC table must have a row.
+        pattern: "*.tsv"
 
 output:
   report:
@@ -39,7 +48,8 @@ output:
           type: file
           description: |
             Single-row TSV with columns: species_name, spp_label, n_hq, n_mq, n_eff,
-            hq_ratio, n_total_passing_qc, n_discarded.
+            hq_ratio, n_total_passing_qc, n_discarded, n_discarded_contiguity. The counts
+            and the label use only the genomes that pass both quality and contiguity.
           pattern: "*_spp_eligibility_report.tsv"
   rfile:
     - - meta:
@@ -51,7 +61,7 @@ output:
           type: file
           description: |
             PopPUNK r-file (`--r-files` input): no header, tab-separated, one row per
-            HQ/MQ genome as `sample_name<TAB>./genomes/<filename>` (DISCARDED genomes
+            passing HQ/MQ genome as `sample_name<TAB>./genomes/<filename>` (DISCARDED genomes
             excluded). Paths are relative to the `genomes/` directory staged by the
             downstream poppunk/createdb module.
           pattern: "*_rfile.tsv"
@@ -64,9 +74,22 @@ output:
       - "*_labels.csv":
           type: file
           description: |
-            Per-genome quality labels CSV (`genome,label`) for the HQ/MQ genomes,
+            Per-genome quality labels CSV (`genome,label`) for the passing HQ/MQ genomes,
             consumed by the ANI cluster-evaluation step.
           pattern: "*_labels.csv"
+  genome_qc:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing species information
+            e.g. `[ id:'Escherichia_coli' ]`
+      - "*_genome_qc.tsv":
+          type: file
+          description: |
+            Every genome of the QC table: genome, file, completeness, contamination, N50, N90,
+            quality (class from completeness/contamination), label (final class) and reason
+            (pass, quality or contiguity).
+          pattern: "*_genome_qc.tsv"
 
 topics:
   versions:

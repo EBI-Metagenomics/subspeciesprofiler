@@ -3,6 +3,7 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+include { SEQKIT_STATS           } from '../modules/nf-core/seqkit/stats/main'
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
 include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
 include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
@@ -29,10 +30,22 @@ workflow SUBSPECIESPROFILER {
     ch_multiqc_files = channel.empty()
 
     //
-    // MODULE: Assess subspecies-clustering eligibility from each species' genome QC table
+    // MODULE: N50/N90 of every genome in each species' genomes_dir, for the contiguity gate
+    //
+    SEQKIT_STATS (
+        ch_samplesheet.map { meta, genomes_dir, qc_csv -> [ meta, files("${genomes_dir}/*", checkIfExists: true) ] }
+    )
+
+    //
+    // MODULE: per-genome QC (HQ/MQ by completeness/contamination, then N50 or N90 >= --qc_min_nx)
+    // and the species' eligibility label. Its r-file and labels are the one set of genomes that
+    // every branch below uses.
     //
     SPECIESQC (
-        ch_samplesheet.map { meta, genomes_dir, qc_csv -> [ meta, qc_csv ] }
+        ch_samplesheet
+            .map { meta, genomes_dir, qc_csv -> [ meta.id, meta, qc_csv ] }
+            .join( SEQKIT_STATS.out.stats.map { meta, stats -> [ meta.id, stats ] } )
+            .map { id, meta, qc_csv, stats -> [ meta, qc_csv, stats ] }
     )
 
     // Combined eligibility report: append every species' single-row report into one table,
@@ -124,7 +137,7 @@ workflow SUBSPECIESPROFILER {
     }
     model_report.call( POPPUNK_METHODS.out.tool_metrics, 'poppunk', 'model_report' )
     if ( !params.skip_syntracker ) {
-        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani )
+        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani, SPECIESQC.out.genome_qc )
         model_report.call( SYNTRACKER_METHODS.out.tool_metrics, 'syntracker', 'syntracker_model_report' )
     }
 

@@ -1,0 +1,3 @@
+file	format	type	num_seqs	sum_len	N50	N50_num	N90
+genome1.fna.gz	FASTA	DNA	3	5000000	2500000	1	600000
+genome2.fna.gz	FASTA	DNA	400	5000000	30000	50	3000

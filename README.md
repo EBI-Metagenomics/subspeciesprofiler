@@ -10,10 +10,10 @@
 
 Given, per species, a directory of assembled genomes and a per-genome completeness/contamination table, for each eligible species the pipeline:
 
-1. **Classifies** each genome as HQ / MQ / DISCARDED from its completeness/contamination and decides whether the species group is eligible for subspecies clustering (`speciesqc`).
+1. **Classifies** each genome as HQ / MQ / DISCARDED from its completeness/contamination and contiguity (N50, or N90, of at least 5 kb) and decides whether the species group is eligible for subspecies clustering (`speciesqc`).
 2. Builds and QCs a **[PopPUNK](https://poppunk.bacpop.org)** database from the HQ/MQ genomes and derives a **core-distance threshold sweep** from the observed distance distribution.
 3. Fits PopPUNK clustering models and **scores each against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI)**, then selects the model(s) that best recover the ANI-defined subspecies structure.
-4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the HQ and MQ genomes with N50 (or N90, `--syntracker_strict`) of at least 5 kb against the most central HQ genome, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings in synteny space with an ANI-concordance check, in a separate SynTracker model report.
+4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the same HQ and MQ genomes against the most central HQ genome, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings in synteny space with an ANI-concordance check, in a separate SynTracker model report.
 
 Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
 
@@ -86,7 +86,7 @@ Each genome is classified from its completeness (`comp`) and contamination (`con
 | **MQ**        | `comp ≥ 80` and `cont ≤ 5%`              |
 | **DISCARDED** | otherwise (dropped; not sent to PopPUNK) |
 
-Only HQ + MQ genomes are used to build the PopPUNK database. Each species is then given an eligibility label from its HQ / effective-genome counts (`STRONG`, `ACCEPTABLE`, `NOT_ELIGIBLE`, `DISCARDED`, with `_BOUNDARY` / `_NEAR_THRESHOLD` variants). Only species whose label is in `--qc_filter` (default `STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY`) proceed to clustering.
+An HQ or MQ genome is also DISCARDED if its N50 (or N90, with `--qc_strict_contiguity`) is below `--qc_min_nx` (default 5000 bp, the SynTracker window length), from [SeqKit](https://bioinf.shenwei.me/seqkit/) stats. Only the genomes that pass both are used, by every branch (PopPUNK, FastANI, SynTracker). Each species is then given an eligibility label from its HQ / effective-genome counts, after both filters (`STRONG`, `ACCEPTABLE`, `NOT_ELIGIBLE`, `DISCARDED`, with `_BOUNDARY` / `_NEAR_THRESHOLD` variants). Only species whose label is in `--qc_filter` (default `STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY`) proceed to clustering.
 
 ### Model scoring and selection
 
@@ -104,7 +104,7 @@ Results are organised per species under `<outdir>/`:
 
 | Path                                  | Contents                                                                                                                                                                       |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `speciesqc/<species>/`                | Eligibility report + the PopPUNK r-file and per-genome HQ/MQ labels.                                                                                                           |
+| `speciesqc/<species>/`                | Eligibility report, per-genome QC table (`*_genome_qc.tsv`) and seqkit stats, the PopPUNK r-file and per-genome HQ/MQ labels.                                                  |
 | `<species>/<species>_ani_overview.*`  | Per-species figure (PNG + PDF): pairwise ANI histogram with a density curve, and the ANI heatmap ordered by UPGMA clustering with dendrograms and an HQ/MQ strip.              |
 | `poppunk/<species>/createdb/`         | The PopPUNK sketch database + core/accessory distances (with diagnostic plots).                                                                                                |
 | `poppunk/<species>/qcdb/`             | The QC'd (pruned) database (with plots).                                                                                                                                       |
