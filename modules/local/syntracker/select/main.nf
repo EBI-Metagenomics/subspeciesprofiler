@@ -10,7 +10,7 @@ process SYNTRACKER_SELECT {
 
     input:
     // ani   = all-vs-all FastANI of the species (percent ANI)
-    // stats = seqkit stats --all --tabular of the HQ genomes (one row per FASTA, with N50)
+    // stats = gated seqkit stats of syntracker/gate (one row per FASTA, with N50 and the HQ/MQ label)
     tuple val(meta), path(ani), path(stats)
 
     output:
@@ -44,6 +44,6 @@ process SYNTRACKER_SELECT {
     if [ ! -s files.txt ]; then printf 'genome1.fna.gz\\ngenome2.fna.gz\\n' >| files.txt; fi
     head -n 1 files.txt > ${prefix}_syntracker_reference.txt
     cp files.txt ${prefix}_syntracker_targets.txt
-    printf 'genome\\tfile\\tN50\\tcentrality\\trole\\n' > ${prefix}_syntracker_selection.tsv
+    printf 'genome\\tfile\\tlabel\\tN50\\tcentrality\\trole\\n' > ${prefix}_syntracker_selection.tsv
     """
 }

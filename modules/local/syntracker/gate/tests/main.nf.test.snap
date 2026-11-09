@@ -1,0 +1,173 @@
+{
+    "syntracker gate - N90 (strict)": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate.tsv:md5,2797ab4bd26c4d9188ff42fe350255fc"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate_stats.tsv:md5,c1d19e4cb1c19985996a2f31b4546d4c"
+                    ]
+                ],
+                "2": [
+                    [
+                        "SYNTRACKER_GATE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate.tsv:md5,2797ab4bd26c4d9188ff42fe350255fc"
+                    ]
+                ],
+                "stats": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate_stats.tsv:md5,c1d19e4cb1c19985996a2f31b4546d4c"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_GATE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-09T14:31:19.025974"
+    },
+    "syntracker gate - N50": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate.tsv:md5,ae661bb2d8e2f9a35d97a70de73ecf41"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate_stats.tsv:md5,f38d2dac2547fbc882502b0152a642ea"
+                    ]
+                ],
+                "2": [
+                    [
+                        "SYNTRACKER_GATE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate.tsv:md5,ae661bb2d8e2f9a35d97a70de73ecf41"
+                    ]
+                ],
+                "stats": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate_stats.tsv:md5,f38d2dac2547fbc882502b0152a642ea"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_GATE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-09T14:31:14.39283"
+    },
+    "syntracker gate - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate.tsv:md5,bb596b0c18864d927379b1b5c51b8c0b"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate_stats.tsv:md5,de8ce9fce3b16fe04e9b9784476e52ed"
+                    ]
+                ],
+                "2": [
+                    [
+                        "SYNTRACKER_GATE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate.tsv:md5,bb596b0c18864d927379b1b5c51b8c0b"
+                    ]
+                ],
+                "stats": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_syntracker_gate_stats.tsv:md5,de8ce9fce3b16fe04e9b9784476e52ed"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "SYNTRACKER_GATE",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-09T14:31:23.09011"
+    }
+}

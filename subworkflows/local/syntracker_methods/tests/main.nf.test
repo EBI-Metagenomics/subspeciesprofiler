@@ -8,11 +8,11 @@ nextflow_workflow {
     tag "subworkflows_local"
     tag "syntracker_methods"
 
-    // Stub runs: verify the wiring (HQ genomes -> seqkit N50 + FastANI centrality -> reference and
-    // targets -> SynTracker, in chunk pairs for large target sets -> merged APSS -> Leiden sweep ->
-    // APSS evaluation). Scientific behaviour is covered by the module tests and
-    // tests/bin/test_syntracker_*.py. Fixture: 5 HQ genomes (the select stub takes the targets from
-    // the FastANI names, since the seqkit stub writes no N50).
+    // Stub runs: verify the wiring (HQ/MQ genomes -> seqkit N50/N90 -> contiguity gate -> FastANI
+    // centrality -> reference and targets -> SynTracker, in chunk pairs for large target sets ->
+    // merged APSS -> Leiden sweep -> APSS evaluation). Scientific behaviour is covered by the module
+    // tests and tests/bin/test_syntracker_*.py. Fixture: 4 HQ genomes and 1 MQ (genome5); the gate
+    // stub passes every r-file genome, since the seqkit stub writes no N50/N90.
     test("select reference -> syntracker -> leiden sweep -> apss evaluate - wiring - stub") {
 
         options "-stub"
@@ -47,6 +47,7 @@ nextflow_workflow {
                 { assert workflow.out.reference.size() == 1 },
                 { assert workflow.out.reference.get(0).get(1).toString().endsWith('genome1.fna.gz') },
                 { assert workflow.out.selection.size() == 1 },
+                { assert workflow.out.gate.size() == 1 },
                 // 5 targets <= 2 x the default chunk size: one SynTracker job on every target
                 { assert workflow.out.runs.size() == 1 },
                 { assert workflow.out.runs.get(0).get(0).chunk == 'all' },
@@ -65,7 +66,7 @@ nextflow_workflow {
                 { assert workflow.out.tool_metrics.every { !it[0].containsKey('chunk') } },
                 // APSS rows carry the ANI-concordance signal
                 { assert workflow.out.tool_metrics.collect { path(it[1].toString()).readLines()[0].tokenize('\t') }.every { 'signal' in it } },
-                // every HQ genome is a target (no dereplication)
+                // every gated HQ and MQ genome is a target (no dereplication)
                 { assert path(workflow.out.clusters.get(0).get(1)[0].toString()).readLines().drop(1)*.tokenize(',')*.get(0) == genomes }
             )
         }
@@ -164,6 +165,41 @@ nextflow_workflow {
                 { assert workflow.out.tool_metrics.size() == 0 },
                 // and says which job is missing (log.warn goes to the Nextflow log)
                 { assert file("${launchDir}/meta/nextflow.log").text.contains("1 of 3 SynTracker jobs failed after retries (c1_c3)") }
+            )
+        }
+
+    }
+
+    test("gate leaves no HQ genome - species skipped with a warning - stub") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([
+                    [ id:'test' ],
+                    ( 1..5 ).collect { file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome\${it}.fna.gz", checkIfExists: true) },
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/labels_all_mq.csv", checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/fastani.txt", checkIfExists: true)
+                ])
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                // the gate runs and reports, but no reference can be chosen: nothing downstream runs
+                { assert workflow.success },
+                { assert workflow.out.gate.size() == 1 },
+                { assert workflow.out.selection.size() == 0 },
+                { assert workflow.out.runs.size() == 0 },
+                { assert workflow.out.tool_metrics.size() == 0 },
+                { assert file("${launchDir}/meta/nextflow.log").text.contains("5 of 5 HQ/MQ genomes (0 HQ) have N50 >= 5000 bp") }
             )
         }
 
