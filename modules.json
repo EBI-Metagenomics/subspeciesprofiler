@@ -15,6 +15,11 @@
                         "git_sha": "af27af1be706e6a2bb8fe454175b0cdf77f47b49",
                         "installed_by": ["modules"]
                     },
+                    "panaroo/run": {
+                        "branch": "master",
+                        "git_sha": "7b3452a23773f687ededb4befd037920e5a51341",
+                        "installed_by": ["modules"]
+                    },
                     "seqkit/stats": {
                         "branch": "master",
                         "git_sha": "d07a945f421a4a91ce4e5a22db63e0e7f8741607",

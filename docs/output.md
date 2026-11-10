@@ -14,6 +14,7 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
 - [ANI overview](#ani-overview) - Per-species figure: pairwise ANI histogram and clustered ANI heatmap
 - [Subspecies clustering](#subspecies-clustering) - PopPUNK database, model sweep, FastANI evaluation and per-model report
 - [SynTracker](#syntracker) - Synteny-based clustering, an independent signal scored like the PopPUNK fits
+- [Pangenome](#pangenome) - Gene calls (ggCaller) and the gene presence/absence table (Panaroo)
 - [MultiQC](#multiqc) - Aggregate subspecies dashboard for the whole run
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
 
@@ -32,12 +33,16 @@ Results are organised **species-first**: each species in the samplesheet gets it
 │   │   ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
 │   │   ├── evaluate/<model>/
 │   │   └── microreact/                    # Strong + Moderate models, one file set each
-│   └── syntracker/
-│       ├── <species>_syntracker_model_report.tsv  # every SynTracker clustering + its verdict
-│       ├── selection/                     # reference and target choice
-│       ├── apss/                          # SynTracker APSS tables + its log
-│       ├── clusters/                      # one Taxon,Cluster table per min_apss x resolution, coverage, noise
-│       └── evaluate/<model>/              # APSS (+ ANI concordance) evaluation of each clustering
+│   ├── syntracker/
+│   │   ├── <species>_syntracker_model_report.tsv  # every SynTracker clustering + its verdict
+│   │   ├── selection/                     # reference and target choice
+│   │   ├── apss/                          # SynTracker APSS tables + its log
+│   │   ├── clusters/                      # one Taxon,Cluster table per min_apss x resolution, coverage, noise
+│   │   └── evaluate/<model>/              # APSS (+ ANI concordance) evaluation of each clustering
+│   └── pangenome/
+│       ├── ggcaller/                      # gene calls: proteins, CDSs, one GFF per genome
+│       └── panaroo/                       # gene families, incl. gene_presence_absence.Rtab
+├── databases/ggcaller_db/                 # only with --save_ggcaller_db
 ├── multiqc/
 └── pipeline_info/
 ```
@@ -127,6 +132,25 @@ A first look at a species' population structure, drawn from the all-vs-all FastA
 [SynTracker](https://github.com/leylabmpi/SynTracker) compares genomes by **synteny**, the arrangement of genes, in regions of a single reference genome, which makes it independent of PopPUNK's k-mer distances and able to separate genomes of near-identical ANI that differ by rearrangements. APSS is close to 1 minus the share of 5-kb windows that a pair has broken into more than one synteny block.
 
 SynTracker runs on the HQ and MQ genomes that passed the species QC, which includes the contiguity filter (`--qc_min_nx`): SynTracker compares 5-kb windows, so contigs shorter than that give it no regions. A species with fewer than 2 such genomes, or with no HQ genome, gets no SynTracker results (a warning in the Nextflow log says so). The reference is the most central HQ genome (highest mean FastANI to the other HQ genomes) among those with N50 of at least `--syntracker_ref_min_n50`: a target loses regions the further it is from the reference, and a central reference spreads that loss evenly across lineages. An MQ genome can be a target but never the reference. Every HQ and MQ genome is a target. SynTracker's cost grows with the square of their number, so above 2 × `--syntracker_chunk_size` (default 75) targets they are split round-robin, in N50 order, into k chunks and SynTracker runs once per pair of chunks (k(k−1)/2 jobs, the same reference in all); the jobs' all-regions tables are then merged. Before merging, each job's per-region scores go through SynTracker's own **one-hit-per-genome rule**: a region in which a genome has more than one BLAST hit (it is multi-copy there) is dropped from that genome's pairs, and the all-regions APSS is recomputed. SynTracker 1.4.0 defines that rule but applies it only when deciding whether a region is analysed, not when extracting the sequences, so without the filter whether such a pair gets the region depends on the other genomes in the run. This removes about 0.05% of per-region scores and moves no APSS by more than 0.002. With it, a pair's all-regions APSS depends only on the two genomes and the reference, not on the other targets in the run, so the merged table is the one a single run would give; a pair computed in two jobs must agree exactly, or the run stops. A job that fails is retried (twice after a resource or kill error, once otherwise). If a job still fails, that species gets no SynTracker results, with a warning in the Nextflow log naming the failed chunks, because a partial merge would make the missing pairs' genomes look unconnected. Its PopPUNK results are not affected, and `-resume` re-runs only the failed jobs. A positive `--syntracker_max_targets` still caps the targets, keeping the highest N50. The all-regions APSS is turned into clusters as in the SynTracker paper's network analysis: an APSS-weighted graph of the targets, pruned at the APSS floor, partitioned into Leiden (modularity) communities, over a sweep of floors evenly spaced across the species' own APSS range and of Leiden resolutions. Each clustering is scored in APSS space, with a gap margin of twice the APSS standard error, and in ANI space for concordance. See the [curation guide](curation.md) for reading these rows.
+
+### Pangenome
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `<species>/pangenome/ggcaller/`:
+  - `<species>_gene_calls.faa`: the protein sequence of every gene called, all genomes in one file, headers `<sample>_<ORF id>`.
+  - `<species>_gene_calls.ffn`: the same genes as nucleotide CDS sequences.
+  - `gff/<sample>.gff`: one GFF3 per genome, with the genome sequence appended (the input of Panaroo).
+- `<species>/pangenome/panaroo/`: the [Panaroo](https://github.com/gtonkinhill/panaroo) results, including:
+  - `gene_presence_absence.Rtab`: one row per gene family, one column per genome, 1 = present and 0 = absent.
+  - `gene_presence_absence.csv` and `gene_presence_absence_roary.csv`: the same table with the gene IDs per genome and the family annotations.
+  - `pan_genome_reference.fa`: one representative sequence per gene family. `summary_statistics.txt`: core, soft-core, shell and cloud gene counts. `final_graph.gml`: the pangenome graph.
+- `databases/ggcaller_db/` (only with `--save_ggcaller_db`): the downloaded ggCaller database, to reuse with `--ggcaller_db`.
+
+</details>
+
+The pangenome is built once per species, over the genomes that passed the species QC (the same set that PopPUNK, FastANI and SynTracker use). [ggCaller](https://github.com/bacpop/ggCaller) calls genes in all of them together, on one de Bruijn graph of the species, so a gene broken across contigs in one assembly is called consistently with the other genomes. Panaroo then clusters the gene calls into gene families. Contaminated genomes are already removed by the species QC, so Panaroo runs in `sensitive` mode (`--panaroo_clean_mode`), in which it removes no genes, and without refinding missed genes (`--refind-mode off`). Genes with a premature stop codon or a bad length are left out (`--remove-invalid-genes`). Genome names in every file are the PopPUNK sample names (the file name without its FASTA extension).
 
 ### MultiQC
 

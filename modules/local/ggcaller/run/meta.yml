@@ -1,0 +1,95 @@
+name: "ggcaller"
+description: |
+  Calls genes in all the genomes of one species at once with ggCaller (on a Bifrost de Bruijn
+  graph, so gene calls are consistent across fragmented assemblies). Writes one GFF3 per genome
+  (with the FASTA, ready for Panaroo) and the protein and nucleotide gene calls. Genomes are
+  renamed from ggCaller's file-name stems to the r-file sample names.
+keywords:
+  - ggcaller
+  - gene calling
+  - pangenome
+  - gff
+tools:
+  - "ggcaller":
+      description: "ggCaller: a gene caller for Bifrost graphs, for consistent gene calls across a collection of genomes."
+      homepage: "https://github.com/bacpop/ggCaller"
+      documentation: "https://ggcaller.readthedocs.io/"
+      tool_dev_url: "https://github.com/bacpop/ggCaller"
+      doi: "10.1101/gr.277733.123"
+      licence: ["MIT"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Streptococcus_pneumoniae' ]`
+    - genomes:
+        type: file
+        description: The genome FASTA files of the r-file (optionally gzipped), staged under genomes/.
+        pattern: "*.{fasta,fa,fna}{,.gz}"
+        ontologies: []
+    - rfile:
+        type: file
+        description: SPECIESQC r-file (`sample<TAB>./genomes/<file>`, no header); one row per genome.
+        pattern: "*.tsv"
+        ontologies: []
+  - db:
+      type: directory
+      description: ggCaller database directory, as written by ggcaller/downloaddb.
+      pattern: "*"
+
+output:
+  gff:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "gff/*.gff":
+          type: file
+          description: One GFF3 per genome, named `<sample>.gff`, with the genome FASTA appended.
+          pattern: "gff/*.gff"
+          ontologies: []
+  proteins:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_gene_calls.faa":
+          type: file
+          description: Protein sequences of every gene call, all genomes, headers `<sample>_<ORF id>`.
+          pattern: "*_gene_calls.faa"
+          ontologies: []
+  genes:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_gene_calls.ffn":
+          type: file
+          description: Nucleotide sequences of every gene call, all genomes, headers `<sample>_<ORF id>`.
+          pattern: "*_gene_calls.ffn"
+          ontologies: []
+  versions_ggcaller:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "ggcaller":
+          type: string
+          description: The name of the tool
+      - "ggcaller --version | sed 's/^ggcaller //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - ggcaller:
+          type: string
+          description: The name of the tool
+      - ggcaller --version | sed 's/^ggcaller //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

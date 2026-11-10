@@ -7,6 +7,7 @@ include { SEQKIT_STATS           } from '../modules/nf-core/seqkit/stats/main'
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
 include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
 include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
+include { PANGENOME              } from '../subworkflows/local/pangenome/main'
 include { ANI_PLOT               } from '../modules/local/ani/plot/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
@@ -136,6 +137,13 @@ workflow SUBSPECIESPROFILER {
         }
     }
     model_report.call( POPPUNK_METHODS.out.tool_metrics, 'poppunk', 'model_report' )
+    //
+    // SUBWORKFLOW: gene presence/absence (ggCaller gene calls -> Panaroo), over the same genomes.
+    //
+    if ( !params.skip_pangenome ) {
+        PANGENOME( ch_poppunk_in )
+    }
+
     if ( !params.skip_syntracker ) {
         SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani, SPECIESQC.out.genome_qc )
         model_report.call( SYNTRACKER_METHODS.out.tool_metrics, 'syntracker', 'syntracker_model_report' )

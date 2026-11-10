@@ -1,0 +1,90 @@
+nextflow_process {
+
+    name "Test Process GGCALLER"
+    script "../main.nf"
+    process "GGCALLER"
+
+    tag "modules"
+    tag "modules_local"
+    tag "ggcaller"
+    tag "ggcaller/run"
+
+    // Fixture: five S. pneumoniae CPS loci (~25 kb each, from ggCaller's own tests), files
+    // <accession>.fa.gz, r-file samples <accession>. ggCaller names them <accession>.fa.
+    test("ggcaller - five cps loci") {
+
+        setup {
+            run("GGCALLER_DOWNLOADDB") {
+                script "../../downloaddb/main.nf"
+            }
+        }
+
+        when {
+            process {
+                """
+                def samples = [ 'CR931658', 'CR931659', 'CR931660', 'CR931717', 'CR931719' ]
+                input[0] = [
+                    [ id:'test' ],
+                    samples.collect { file("${projectDir}/tests/fixtures/pangenome/genomes/\${it}.fa.gz", checkIfExists: true) },
+                    file("${projectDir}/tests/fixtures/pangenome/rfile.tsv", checkIfExists: true)
+                ]
+                input[1] = GGCALLER_DOWNLOADDB.out.db
+                """
+            }
+        }
+
+        then {
+            def samples = [ 'CR931658', 'CR931659', 'CR931660', 'CR931717', 'CR931719' ]
+            def gffs    = process.out.gff[0][1].collect { file(it.toString()) }
+            def headers = [ process.out.proteins[0][1], process.out.genes[0][1] ].collectMany { f ->
+                path(f.toString()).readLines().findAll { it.startsWith('>') }
+            }
+            assertAll(
+                { assert process.success },
+                // one GFF per r-file sample, named after the sample, each with the FASTA for Panaroo
+                { assert gffs*.name.sort() == samples.collect { "${it}.gff" } },
+                { assert gffs.every { it.text.contains('##FASTA') } },
+                { assert gffs.every { g -> g.readLines().findAll { it.contains('\tCDS\t') }.every { it.contains("ID=${g.name - '.gff'}_") } } },
+                // every gene call is renamed to its sample
+                { assert headers.size() > 0 },
+                { assert headers.every { h -> samples.any { h.startsWith(">${it}_") } } },
+                { assert snapshot(process.out.versions_ggcaller).match() }
+            )
+        }
+
+    }
+
+    test("ggcaller - stub") {
+
+        options "-stub"
+
+        setup {
+            run("GGCALLER_DOWNLOADDB") {
+                script "../../downloaddb/main.nf"
+            }
+        }
+
+        when {
+            process {
+                """
+                def samples = [ 'CR931658', 'CR931659', 'CR931660', 'CR931717', 'CR931719' ]
+                input[0] = [
+                    [ id:'test' ],
+                    samples.collect { file("${projectDir}/tests/fixtures/pangenome/genomes/\${it}.fa.gz", checkIfExists: true) },
+                    file("${projectDir}/tests/fixtures/pangenome/rfile.tsv", checkIfExists: true)
+                ]
+                input[1] = GGCALLER_DOWNLOADDB.out.db
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

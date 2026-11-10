@@ -1,0 +1,53 @@
+name: "ggcaller_downloaddb"
+description: |
+  Downloads and unpacks the ggCaller database (BALROG gene models and annotation files, ~120 MB
+  from ftp.ebi.ac.uk), including the BALROG models, so that ggcaller/run can use it read-only.
+keywords:
+  - ggcaller
+  - database
+  - balrog
+  - gene calling
+tools:
+  - "ggcaller":
+      description: "ggCaller: a gene caller for Bifrost graphs, for consistent gene calls across a collection of genomes."
+      homepage: "https://github.com/bacpop/ggCaller"
+      documentation: "https://ggcaller.readthedocs.io/"
+      tool_dev_url: "https://github.com/bacpop/ggCaller"
+      doi: "10.1101/gr.277733.123"
+      licence: ["MIT"]
+      identifier: ""
+
+output:
+  db:
+    - ggcaller_db:
+        type: directory
+        description: |
+          ggCaller database directory: ggCallerdb.tar.bz2 and the unpacked ggCallerdb/, with
+          ggCallerdb/balrog_models/. Pass it to ggCaller with --balrog-db.
+        pattern: "ggcaller_db"
+  versions_ggcaller:
+    - - "${task.process}":
+          type: string
+          description: The name of the process
+      - "ggcaller":
+          type: string
+          description: The name of the tool
+      - "ggcaller --version | sed 's/^ggcaller //'":
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - ggcaller:
+          type: string
+          description: The name of the tool
+      - ggcaller --version | sed 's/^ggcaller //':
+          type: eval
+          description: The expression to obtain the version of the tool
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

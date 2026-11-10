@@ -194,6 +194,40 @@
                 }
             }
         },
+        "pangenome_options": {
+            "title": "Pangenome options",
+            "type": "object",
+            "fa_icon": "fas fa-th",
+            "description": "Gene presence/absence table per species: ggCaller gene calls clustered by Panaroo.",
+            "help_text": "For each eligible species, ggCaller calls genes in all of its genomes that passed the species QC at once, on a Bifrost graph (consistent calls across fragmented assemblies), and writes one GFF3 per genome. Panaroo clusters them into gene families and writes `<species>/pangenome/panaroo/gene_presence_absence.Rtab`, one column per genome (the r-file sample names). Panaroo runs with `--refind-mode off` (no refinding) and `--remove-invalid-genes`.",
+            "properties": {
+                "skip_pangenome": {
+                    "type": "boolean",
+                    "description": "Skip the pangenome (ggCaller + Panaroo) branch.",
+                    "fa_icon": "fas fa-fast-forward"
+                },
+                "ggcaller_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "ggCaller database directory (BALROG gene models). Downloaded once per run if not given.",
+                    "help_text": "The `ggcaller_db` directory written by the pipeline with `--save_ggcaller_db` (`<outdir>/databases/ggcaller_db`): it holds `ggCallerdb.tar.bz2` and the unpacked `ggCallerdb/` with `ggCallerdb/balrog_models/`. Without it, the pipeline downloads ~120 MB from ftp.ebi.ac.uk, which needs internet access from the compute node.",
+                    "fa_icon": "fas fa-database"
+                },
+                "save_ggcaller_db": {
+                    "type": "boolean",
+                    "description": "Publish the downloaded ggCaller database to `<outdir>/databases/`, for reuse with `--ggcaller_db`.",
+                    "fa_icon": "fas fa-save"
+                },
+                "panaroo_clean_mode": {
+                    "type": "string",
+                    "default": "sensitive",
+                    "enum": ["strict", "moderate", "sensitive"],
+                    "description": "Panaroo `--clean-mode`.",
+                    "help_text": "Default `sensitive`: Panaroo deletes no genes, only merges. Contaminated genomes (> 5%) are already removed by the species QC, and ggCaller's graph-based calls correct for fragmentation.",
+                    "fa_icon": "fas fa-broom"
+                }
+            }
+        },
         "institutional_config_options": {
             "title": "Institutional config options",
             "type": "object",
@@ -361,6 +395,9 @@
         },
         {
             "$ref": "#/$defs/syntracker_options"
+        },
+        {
+            "$ref": "#/$defs/pangenome_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

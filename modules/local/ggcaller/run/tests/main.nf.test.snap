@@ -1,0 +1,103 @@
+{
+    "ggcaller - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "CR931658.gff:md5,76182e9e183211eedf5deef2f7029665",
+                            "CR931659.gff:md5,563d733f1d31e19bb01f0f15ee0f02a7",
+                            "CR931660.gff:md5,414e5df4310c5e9cb530d8057ec89ba9",
+                            "CR931717.gff:md5,c543248a6c1e85feac5d16e01c231486",
+                            "CR931719.gff:md5,ebd4b0debe4b06c1b0479408d4de97bc"
+                        ]
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_gene_calls.faa:md5,8a83c2f2b77bddb6a157d301a8a8118a"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_gene_calls.ffn:md5,8953d50dfe1a3a0321d336e7cb11e259"
+                    ]
+                ],
+                "3": [
+                    [
+                        "GGCALLER",
+                        "ggcaller",
+                        "1.5.2"
+                    ]
+                ],
+                "genes": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_gene_calls.ffn:md5,8953d50dfe1a3a0321d336e7cb11e259"
+                    ]
+                ],
+                "gff": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        [
+                            "CR931658.gff:md5,76182e9e183211eedf5deef2f7029665",
+                            "CR931659.gff:md5,563d733f1d31e19bb01f0f15ee0f02a7",
+                            "CR931660.gff:md5,414e5df4310c5e9cb530d8057ec89ba9",
+                            "CR931717.gff:md5,c543248a6c1e85feac5d16e01c231486",
+                            "CR931719.gff:md5,ebd4b0debe4b06c1b0479408d4de97bc"
+                        ]
+                    ]
+                ],
+                "proteins": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_gene_calls.faa:md5,8a83c2f2b77bddb6a157d301a8a8118a"
+                    ]
+                ],
+                "versions_ggcaller": [
+                    [
+                        "GGCALLER",
+                        "ggcaller",
+                        "1.5.2"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-10T11:01:52.547618"
+    },
+    "ggcaller - five cps loci": {
+        "content": [
+            [
+                [
+                    "GGCALLER",
+                    "ggcaller",
+                    "1.5.2"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-10T11:01:45.822645"
+    }
+}

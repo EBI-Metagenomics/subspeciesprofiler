@@ -26,6 +26,22 @@
 
 > Enav, H., Paz, I. & Ley, R.E. Strain tracking in complex microbiomes using synteny analysis reveals per-species modes of evolution. Nat Biotechnol 43, 773–783 (2025). https://doi.org/10.1038/s41587-024-02276-2
 
+- [ggCaller](https://doi.org/10.1101/gr.277733.123)
+
+> Horsfield ST, Tonkin-Hill G, Croucher NJ, Lees JA. Accurate and fast graph-based pangenome annotation and clustering with ggCaller. Genome Res. 2023;33(9):1622-1637. doi: 10.1101/gr.277733.123.
+
+- [Bifrost](https://doi.org/10.1186/s13059-020-02135-8)
+
+> Holley G, Melsted P. Bifrost: highly parallel construction and indexing of colored and compacted de Bruijn graphs. Genome Biol. 2020;21(1):249. doi: 10.1186/s13059-020-02135-8.
+
+- [Balrog](https://doi.org/10.1371/journal.pcbi.1008797)
+
+> Sommer MJ, Salzberg SL. Balrog: A universal protein model for prokaryotic gene prediction. PLoS Comput Biol. 2021;17(2):e1008797. doi: 10.1371/journal.pcbi.1008797.
+
+- [Panaroo](https://doi.org/10.1186/s13059-020-02090-4)
+
+> Tonkin-Hill G, MacAlasdair N, Ruis C, Weimann A, Horesh G, Lees JA, Gladstone RA, Lo S, Beaudoin C, Floto RA, Frost SDW, Corander J, Bentley SD, Parkhill J. Producing polished prokaryotic pangenomes with the Panaroo pipeline. Genome Biol. 2020;21(1):180. doi: 10.1186/s13059-020-02090-4.
+
 - [igraph](https://igraph.org/)
 
 > Csardi G, Nepusz T. The igraph software package for complex network research. InterJournal, Complex Systems. 2006;1695.

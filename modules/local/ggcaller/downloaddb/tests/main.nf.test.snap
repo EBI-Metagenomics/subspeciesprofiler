@@ -1,0 +1,63 @@
+{
+    "ggcaller downloaddb - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        [
+                            [
+                                
+                            ]
+                        ],
+                        "ggCallerdb.tar.bz2:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        "GGCALLER_DOWNLOADDB",
+                        "ggcaller",
+                        "1.5.2"
+                    ]
+                ],
+                "db": [
+                    [
+                        [
+                            [
+                                
+                            ]
+                        ],
+                        "ggCallerdb.tar.bz2:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions_ggcaller": [
+                    [
+                        "GGCALLER_DOWNLOADDB",
+                        "ggcaller",
+                        "1.5.2"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-10T11:00:39.828948"
+    },
+    "ggcaller downloaddb": {
+        "content": [
+            [
+                [
+                    "GGCALLER_DOWNLOADDB",
+                    "ggcaller",
+                    "1.5.2"
+                ]
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-10T11:00:35.069185"
+    }
+}

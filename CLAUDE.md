@@ -53,7 +53,7 @@ nf-core pipelines schema build
 
 ### Flow
 
-`main.nf` (boilerplate) → `workflows/subspeciesprofiler.nf` → `SEQKIT_STATS` → `SPECIESQC` gate → `POPPUNK_METHODS` subworkflow → MultiQC.
+`main.nf` (boilerplate) → `workflows/subspeciesprofiler.nf` → `SEQKIT_STATS` → `SPECIESQC` gate → `POPPUNK_METHODS`, `SYNTRACKER_METHODS` and `PANGENOME` subworkflows → MultiQC.
 
 1. **`SPECIESQC`** (`modules/local/speciesqc`, runs `bin/spp_eligibility_from_qc.py`) classifies genomes HQ/MQ/DISCARDED and labels the _species group_ (`STRONG`, `ACCEPTABLE`, …). **This is the only genome filter.** An HQ/MQ genome is also DISCARDED (`reason contiguity`) if its N50 (N90 with `--qc_strict_contiguity`) is < `--qc_min_nx` (5000 = the SynTracker window; the threshold itself passes). The N50/N90 come from nf-core `SEQKIT_STATS` (`--all -N 90`), run in the main workflow on every file of `genomes_dir`. A `qc_csv` genome with no stats row is an error. The species label is computed **after** both filters, so contiguity can drop a species at `--qc_filter`. `conf/test.config` sets `qc_min_nx = 0` because the fixture genomes are a few bp long. It emits four things the rest of the pipeline depends on: the eligibility report, an **r-file** (`name<TAB>./genomes/<file>`), a **labels CSV** (`genome,label`) and the **genome_qc table** (`genome, file, completeness, contamination, N50, N90, quality, label, reason`; every `qc_csv` genome, DISCARDED included). Every branch (PopPUNK, FastANI, SynTracker, the planned presence/absence table) uses this one set of genomes, so don't add a second genome filter downstream.
 2. `workflows/subspeciesprofiler.nf` branches on `params.qc_filter`; species whose label isn't in the list are dropped with a `log.warn` and never reach PopPUNK.
@@ -112,6 +112,18 @@ Versions use **both** `ch_versions` and `Channel.topic("versions")`; local modul
 - Never hand-edit `modules/nf-core/` or `subworkflows/nf-core/` — vendored and SHA-pinned in `modules.json`; use `nf-core modules install/update`.
 - PRs target `dev`, not `master`.
 - New tool → add to `CITATIONS.md` and `docs/output.md`.
+
+### The pangenome branch (`PANGENOME`)
+
+`subworkflows/local/pangenome/main.nf`, skipped with `--skip_pangenome`. For each eligible species, on the r-file genomes only (the others are not staged): `GGCALLER` (local `modules/local/ggcaller/run`, ggCaller 1.5.2) → nf-core `PANAROO_RUN` → `<species>/pangenome/panaroo/gene_presence_absence.Rtab`. The planned presence/absence analysis reads `PANGENOME.out.rtab`.
+
+- **ggCaller ≥ 1.4 does not write the Rtab.** It only calls genes (GFF3 per genome with the FASTA appended, `gene_calls.{faa,ffn}`); its own clustering was removed in favour of Panaroo (ggCallaroo). `--gene-finding-only` is deprecated and does nothing.
+- **Bifrost thread trap:** with `--threads` above the cores the node has, Bifrost prints `Number of threads cannot exceed N`, builds no graph, and ggCaller **exits 0 with no genes**. The module caps threads at `nproc` and fails if any r-file genome has no GFF. Seen under Docker Desktop (2-CPU VM).
+- **Names:** ggCaller names a genome `splitext(basename)` (`x.fa.gz` → `x.fa`) in the GFF file names, the GFF `ID=`s and the FASTA headers. The module renames all three to the r-file sample names (the FASTA headers in one `awk` pass, not one `sed -i` per genome, which is quadratic for 1,800 genomes), so the Rtab columns match `normalise_genome_id`.
+- **Database:** ggCaller always calls `download_db()`, even with `--no-filter`. With `--balrog-db <dir>` it uses `<dir>/ggCallerdb.tar.bz2`, `<dir>/ggCallerdb/` and `<dir>/ggCallerdb/balrog_models/`, and downloads or unpacks any that is missing (so a read-only or offline input needs all three). `GGCALLER_DOWNLOADDB` makes that layout: the directory must exist before `ggcaller --balrog-db` (otherwise wget saves the tarball as a _file_ of that name), and it unpacks `balrog_models.tar.gz` itself. `--ggcaller_db` skips the download; `--save_ggcaller_db` publishes it to `<outdir>/databases/`.
+- **Panaroo args** (`conf/modules.config`): `--clean-mode sensitive` (`--panaroo_clean_mode`; contamination is filtered by SPECIESQC, ggCaller corrects for fragmentation) and `--refind-mode off`, which is "no refind": Panaroo 1.6.0 (the nf-core pin) and 1.8.1 have no `--no_refind` flag. `--remove-invalid-genes` is a safety net; it removed nothing on the test fixture.
+- Failures **terminate** (after resource retries): a missing pangenome is not a grid point.
+- Test fixture `tests/fixtures/pangenome/`: five S. pneumoniae CPS loci from ggCaller's own `test/` folder (MIT). Real ggCaller + Panaroo runs pass under emulation on Apple Silicon (unlike PopPUNK) with Docker; the module tests download the 120 MB database.
 
 ### The SynTracker branch (`SYNTRACKER_METHODS`)
 

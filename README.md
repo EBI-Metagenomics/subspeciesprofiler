@@ -14,6 +14,7 @@ Given, per species, a directory of assembled genomes and a per-genome completene
 2. Builds and QCs a **[PopPUNK](https://poppunk.bacpop.org)** database from the HQ/MQ genomes and derives a **core-distance threshold sweep** from the observed distance distribution.
 3. Fits PopPUNK clustering models and **scores each against all-vs-all [FastANI](https://github.com/ParBLiSS/FastANI)**, then selects the model(s) that best recover the ANI-defined subspecies structure.
 4. Independently, clusters the species by **synteny** with [SynTracker](https://github.com/leylabmpi/SynTracker), run on the same HQ and MQ genomes against the most central HQ genome, clustered into Leiden communities of the synteny (APSS) graph, and scores those clusterings in synteny space with an ANI-concordance check, in a separate SynTracker model report.
+5. Builds the species' **pangenome** from the same genomes: gene calls with [ggCaller](https://github.com/bacpop/ggCaller), clustered by [Panaroo](https://github.com/gtonkinhill/panaroo) into a gene presence/absence table (`gene_presence_absence.Rtab`).
 
 Outputs are a per-species set of PopPUNK databases, fitted models (with diagnostic plots), ANI-based scores, and a [MultiQC](http://multiqc.info/) report.
 
@@ -113,6 +114,7 @@ Results are organised per species under `<outdir>/`:
 | `poppunk/<species>/fitmodel/<model>/` | Each fitted PopPUNK model — cluster assignments (`*_clusters.csv`) and fit plots — one dir per model.                                                                          |
 | `poppunk/<species>/evaluate/<model>/` | The per-model verdict: `*.tool_metrics.tsv` (`model`, `poppunk_network_score`, `tool_status`, scores, `decision`, `eval_summary`) plus per-cluster and per-genome metrics.     |
 | `<species>/syntracker/`               | SynTracker branch: reference/target selection, APSS tables, one `Taxon,Cluster` table per APSS floor × resolution, their APSS/ANI evaluations and the SynTracker model report. |
+| `<species>/pangenome/`                | ggCaller gene calls (proteins, CDSs, GFFs) and the Panaroo pangenome, including `gene_presence_absence.Rtab`.                                                                  |
 
 For more details about the output files and reports, please refer to the
 [output documentation](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/output.md).

@@ -1,0 +1,112 @@
+nextflow_workflow {
+
+    name "Test Subworkflow PANGENOME"
+    script "../main.nf"
+    workflow "PANGENOME"
+
+    tag "subworkflows"
+    tag "subworkflows_local"
+    tag "pangenome"
+
+    // Fixture: five S. pneumoniae CPS loci (~25 kb each, from ggCaller's own tests); the r-file
+    // lists all five. Plus a sixth file in the genome list that is not in the r-file (a DISCARDED
+    // genome): it must not reach ggCaller.
+    test("ggcaller -> panaroo - gene presence/absence of the r-file genomes") {
+
+        when {
+            workflow {
+                """
+                def samples = [ 'CR931658', 'CR931659', 'CR931660', 'CR931717', 'CR931719' ]
+                input[0] = Channel.of([
+                    [ id:'test' ],
+                    samples.collect { file("${projectDir}/tests/fixtures/pangenome/genomes/\${it}.fa.gz", checkIfExists: true) } +
+                        [ file("${projectDir}/tests/fixtures/genomes/E_coli/genome1.fna.gz", checkIfExists: true) ],
+                    file("${projectDir}/tests/fixtures/pangenome/rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/pangenome/labels.csv", checkIfExists: true)
+                ])
+                """
+            }
+        }
+
+        then {
+            def samples = [ 'CR931658', 'CR931659', 'CR931660', 'CR931717', 'CR931719' ]
+            def rtab    = path(workflow.out.rtab[0][1].toString()).readLines()*.tokenize('\t')
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.out.rtab.size() == 1 },
+                // one column per r-file sample, named as in the r-file; at least one gene family
+                { assert rtab[0] == [ 'Gene' ] + samples },
+                { assert rtab.size() > 1 },
+                { assert rtab.drop(1).every { row -> row.drop(1).every { it in [ '0', '1' ] } } },
+                { assert workflow.out.gff[0][1].collect { file(it).name }.sort() == samples.collect { "${it}.gff" } },
+                { assert workflow.out.proteins.size() == 1 }
+            )
+        }
+
+    }
+
+    test("wiring - database downloaded once - stub") {
+
+        options "-stub"
+
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [ [ id:'sp1' ], [ file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome1.fna.gz", checkIfExists: true),
+                                      file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome2.fna.gz", checkIfExists: true) ],
+                      file("${projectDir}/tests/fixtures/syntracker/rfile.tsv", checkIfExists: true),
+                      file("${projectDir}/tests/fixtures/syntracker/labels_species.csv", checkIfExists: true) ],
+                    [ [ id:'sp2' ], [ file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome1.fna.gz", checkIfExists: true),
+                                      file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome2.fna.gz", checkIfExists: true) ],
+                      file("${projectDir}/tests/fixtures/syntracker/rfile.tsv", checkIfExists: true),
+                      file("${projectDir}/tests/fixtures/syntracker/labels_species.csv", checkIfExists: true) ]
+                )
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                // one database download for the run, one ggCaller + Panaroo per species
+                { assert workflow.trace.tasks().findAll { it.name.contains('GGCALLER_DOWNLOADDB') }.size() == 1 },
+                { assert workflow.out.rtab.collect { it[0].id }.sort() == [ 'sp1', 'sp2' ] },
+                { assert workflow.out.rtab.every { it[1].toString().endsWith('gene_presence_absence.Rtab') } },
+                { assert workflow.out.gff.every { it[1].collect { g -> file(g).name }.sort() == [ 'genome1.gff', 'genome2.gff' ] } }
+            )
+        }
+
+    }
+
+    test("wiring - --ggcaller_db given, no download - stub") {
+
+        options "-stub"
+
+        when {
+            params {
+                ggcaller_db = "${projectDir}/tests/fixtures/pangenome"
+            }
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [ [ id:'sp1' ], [ file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome1.fna.gz", checkIfExists: true),
+                                      file("${projectDir}/tests/fixtures/syntracker/chunked/genomes/genome2.fna.gz", checkIfExists: true) ],
+                      file("${projectDir}/tests/fixtures/syntracker/rfile.tsv", checkIfExists: true),
+                      file("${projectDir}/tests/fixtures/syntracker/labels_species.csv", checkIfExists: true) ]
+                )
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.tasks().findAll { it.name.contains('GGCALLER_DOWNLOADDB') }.size() == 0 },
+                { assert workflow.out.rtab.size() == 1 }
+            )
+        }
+
+    }
+
+}
