@@ -10,13 +10,26 @@ this script produces:
 
   1) An ordination plot (PCoA on Jaccard distance of the presence/absence
      matrix) with genomes coloured by their cluster. Singleton clusters
-     (size 1) are coloured grey. Each non-singleton cluster with >= 3 genomes
+     (size 1) are drawn as hollow markers with a dark-grey rim. Each non-singleton cluster with >= 3 genomes
      is drawn with a 90% confidence ellipse.
   2) A pairwise ANOSIM table (Analysis of Similarities) between groups,
      with the R statistic, permutation p-value and BH-adjusted FDR.
   3) A gene-enrichment table based on Fisher's exact tests, with odds ratio,
      p-value, BH-adjusted FDR and direction (enriched / depleted). See the
      enrichment logic below.
+  4) An iTOL TREE_COLORS annotation file: one coloured range per genome, in the
+     cluster colours of the ordination plot (singletons left uncoloured), to drop onto the
+     Newick tree (e.g. the pipeline's <species>_ani_nj_tree.nwk) in iTOL.
+
+ITOL NODE NAMES
+---------------
+iTOL applies an annotation only to a leaf whose label equals the node ID exactly;
+anything else is silently ignored. The pipeline's tree (bin/fastani_to_tree.py)
+names leaves after the genome with every character outside [A-Za-z0-9_.-]
+replaced by '_', so the same replacement is applied to the cluster names. With
+--tree, every node ID is checked against the tree's leaf labels: unmatched
+genomes and uncoloured leaves are reported, only matched genomes are written,
+and the script fails if none match. Without --tree the names are not checked.
 
 ENRICHMENT LOGIC
 ----------------
@@ -36,6 +49,7 @@ INPUTS
                 id (matching Rtab gene names), second column = annotation string.
                 Delimiter auto-detected; header expected (use --anno-no-header
                 if there is none).
+--tree          (optional) Newick tree to check the iTOL node names against.
 
 OUTPUTS (written to --outdir, prefixed with --prefix)
 -------
@@ -43,6 +57,7 @@ OUTPUTS (written to --outdir, prefixed with --prefix)
   <prefix>_ordination_coords.csv   per-genome PCoA coordinates + cluster
   <prefix>_anosim.csv              pairwise ANOSIM table
   <prefix>_enrichment.csv          gene enrichment table (or a note if skipped)
+  <prefix>_itol_colors.txt         iTOL TREE_COLORS file (coloured range per genome)
 
 DEPENDENCIES
 ------------
@@ -54,6 +69,10 @@ EXAMPLES
   python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
       --annotations anno.tsv --outdir results --prefix subspecies
 
+  # also check the iTOL colour file against the tree it will be dropped on
+  python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
+      --annotations anno.tsv --tree B_longum_ani_nj_tree.nwk --outdir results
+
   # one-vs-rest enrichment for a chosen cluster
   python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
       --annotations anno.tsv --enrich-cluster 2 --outdir results
@@ -61,6 +80,7 @@ EXAMPLES
 
 import argparse
 import os
+import re
 import sys
 import numpy as np
 import pandas as pd
@@ -70,6 +90,7 @@ from scipy.stats import fisher_exact, chi2, rankdata
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_hex
 from matplotlib.patches import Ellipse
 
 
@@ -157,6 +178,78 @@ def anosim(dist_square, labels, n_perm=999, rng=None):
     return r_obs, p
 
 
+def itol_node_id(name):
+    """Leaf name as bin/fastani_to_tree.py writes it: [^A-Za-z0-9_.-] -> '_'."""
+    return re.sub(r"[^A-Za-z0-9_.-]", "_", str(name))
+
+
+def newick_leaf_names(path):
+    """Leaf labels of a Newick file (names right after '(' or ',').
+
+    Internal node labels (after ')') and branch lengths are skipped; quoted
+    labels are unquoted.
+    """
+    with open(path, encoding="utf-8") as fh:
+        text = re.sub(r"\[[^\]]*\]", "", fh.read())  # drop [comments]
+    names = re.findall(r"[(,]\s*('[^']*'|[^\s(),:;]+)", text)
+    return [n[1:-1].replace("''", "'") if n.startswith("'") else n for n in names]
+
+
+def write_itol_colors(path, genomes, cluster_of, sizes, singletons, color_of,
+                      leaves=None):
+    """Write an iTOL TREE_COLORS file: one coloured range per genome.
+
+    Colours are those of the ordination plot; singletons get no line, so iTOL
+    leaves them uncoloured (their names are still checked). With
+    `leaves` (the tree's leaf labels), only genomes whose node ID is a leaf are
+    written, and both kinds of mismatch are reported. Returns (n_coloured,
+    unmatched genomes, leaves without a cluster).
+    """
+    node_of = {g: itol_node_id(g) for g in genomes}
+    clashes = pd.Series(node_of).loc[lambda s: s.duplicated(keep=False)]
+    if not clashes.empty:
+        eprint(f"ERROR: genomes collide on the same iTOL node ID: "
+               f"{sorted(clashes.index)[:10]}")
+        sys.exit(1)
+
+    unmatched, uncoloured = [], []
+    if leaves is not None:
+        leaf_set = set(leaves)
+        unmatched = sorted(g for g in genomes if node_of[g] not in leaf_set)
+        uncoloured = sorted(leaf_set - set(node_of.values()))
+        if len(unmatched) == len(genomes):
+            eprint(f"ERROR: no genome of the clustering is a leaf of the tree "
+                   f"(e.g. genome '{genomes[0]}' -> node '{node_of[genomes[0]]}'; "
+                   f"tree leaves e.g. {sorted(leaf_set)[:3]}). iTOL would colour "
+                   f"nothing.")
+            sys.exit(1)
+        if unmatched:
+            eprint(f"WARNING: {len(unmatched)} genome(s) are not leaves of the tree "
+                   f"and are left out of the iTOL file: {unmatched[:10]}"
+                   + (" ..." if len(unmatched) > 10 else ""))
+        if uncoloured:
+            eprint(f"WARNING: {len(uncoloured)} tree leaves have no cluster and "
+                   f"stay uncoloured: {uncoloured[:10]}"
+                   + (" ..." if len(uncoloured) > 10 else ""))
+
+    skip = set(unmatched)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("TREE_COLORS\n"
+                 "#Cluster colours of the ordination plot, one coloured range per "
+                 "genome (singletons left uncoloured).\n"
+                 "#Drop this file onto the tree in iTOL.\n"
+                 "SEPARATOR TAB\n"
+                 "DATA\n"
+                 "#NODE_ID\tTYPE\tCOLOR\tLABEL\n")
+        n = 0
+        for g, c in zip(genomes, cluster_of):
+            if g in skip or c in singletons:
+                continue
+            fh.write(f"{node_of[g]}\trange\t{to_hex(color_of[c])}\t{c} (n={sizes[c]})\n")
+            n += 1
+    return n, unmatched, uncoloured
+
+
 def read_annotations(path, has_header):
     header = 0 if has_header else None
     df = pd.read_csv(path, sep=None, engine="python", header=header, dtype=str)
@@ -242,6 +335,9 @@ def main():
                     help="Number of ANOSIM permutations.")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--anno-no-header", action="store_true")
+    ap.add_argument("--tree", default=None,
+                    help="Newick tree the iTOL colour file is for; its leaf "
+                         "labels are checked against the genome names.")
     args = ap.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -317,8 +413,8 @@ def main():
     fig, axp = plt.subplots(figsize=(8.5, 6.5))
     sing_mask = np.array([c in singletons for c in cluster_of])
     if sing_mask.any():
-        axp.scatter(ax1[sing_mask], ax2[sing_mask], c="grey", s=55,
-                    edgecolor="black", linewidth=0.4, alpha=0.8,
+        axp.scatter(ax1[sing_mask], ax2[sing_mask], s=55, facecolors="none",
+                    edgecolors="#404040", linewidth=1.0, alpha=0.9,
                     label="Singleton")
     for c in non_single:
         m = cluster_of == c
@@ -343,6 +439,12 @@ def main():
     fig.savefig(png_path, dpi=300)
     fig.savefig(pdf_path)
     plt.close(fig)
+
+    # ---- iTOL colour ranges (same colours as the plot) -------------------- #
+    itol_path = os.path.join(args.outdir, f"{args.prefix}_itol_colors.txt")
+    leaves = newick_leaf_names(args.tree) if args.tree else None
+    n_itol, itol_unmatched, _ = write_itol_colors(
+        itol_path, common, cluster_of, sizes, singletons, color_of, leaves)
 
     # ---- Pairwise ANOSIM -------------------------------------------------- #
     anosim_path = os.path.join(args.outdir, f"{args.prefix}_anosim.csv")
@@ -434,6 +536,9 @@ def main():
     print(f"Coordinates table      : {coords_path}")
     print(f"ANOSIM groups (>= {args.anosim_min_size:>2}) : {anosim_groups}")
     print(f"Pairwise ANOSIM table  : {anosim_path} ({n_anosim} pair[s])")
+    print(f"iTOL colour file       : {itol_path} ({n_itol} genome[s] coloured"
+          + (f", {len(itol_unmatched)} not in the tree)" if args.tree
+             else ", names not checked: no --tree)"))
     if enr is not None:
         print(f"Enrichment table       : {enrich_path} "
               f"({enr['Comparison'].iloc[0]}, {n_tests} tests)")
