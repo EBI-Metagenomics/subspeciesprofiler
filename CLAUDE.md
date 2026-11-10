@@ -60,6 +60,10 @@ nf-core pipelines schema build
 3. **`POPPUNK_METHODS`** (`subworkflows/local/poppunk_methods/main.nf`) does the real work — see below. Its `take:` contract expects `meta.spp_label` and `meta.n_genomes`, both folded on from the `SPECIESQC` report.
 4. **`ANI_PLOT`**, fed by `POPPUNK_METHODS`'s FastANI (`modules/local/ani/plot`, `bin/plot_ani.py`): one figure per species, `<species>/<species>_ani_overview.{png,pdf,tsv}`, with a pairwise ANI histogram plus KDE next to a UPGMA-clustered ANI heatmap with dendrograms and an HQ/MQ strip. It runs on the **poppunk image on purpose**: that is the only image in the pipeline with matplotlib + scipy (no seaborn, so the clustered heatmap is built from scipy + matplotlib). Its tests (`tests/bin/test_plot_ani.py`) skip without scipy, so run them in that image.
 
+5. **`ANI_TREE`** (`modules/local/ani/tree`, `bin/fastani_to_tree.py`): neighbour-joining Newick of the FastANI distances (1 − ANI/100, both directions averaged), `<species>/<species>_ani_nj_tree.nwk`. Container **`biopython:1.84`**: the `biopython:1.65` image is Python 2.7 and cannot even parse the script. Biopython's NJ is pure Python, O(n³): 400 genomes ≈ 20 s, ~1,800 ≈ 30 min. Tips use the script's own `genome_label` (the same extensions as `normalise_genome_id`, `.contigs` included, plus Newick-safe characters): keep the two in step. A missing FastANI pair fails the task and is ignored (no tree), like `ANI_PLOT`.
+
+FastANI (`FASTANI_ALLVSALL`, run inside `POPPUNK_METHODS`) publishes to `<species>/fastani/`, not under `poppunk/`: every branch uses it.
+
 **r-file staging contract**: the r-file's second column holds _relative_ `./genomes/<file>` paths, so any process consuming it must stage genomes with `path(genomes, stageAs: 'genomes/*')`. `POPPUNK_CREATEDB` and `FASTANI_ALLVSALL` both do. This is why `FASTANI_ALLVSALL` is a local module rather than the nf-core one (that one needs absolute paths).
 
 ### The model sweep (`POPPUNK_METHODS`)

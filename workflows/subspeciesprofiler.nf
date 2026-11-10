@@ -9,6 +9,7 @@ include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/m
 include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
 include { PANGENOME              } from '../subworkflows/local/pangenome/main'
 include { ANI_PLOT               } from '../modules/local/ani/plot/main'
+include { ANI_TREE               } from '../modules/local/ani/tree/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -115,6 +116,11 @@ workflow SUBSPECIESPROFILER {
             .join( ch_poppunk_in.map { meta, genomes, rfile, labels -> [ meta.id, labels ] } )
             .map { id, meta, ani, labels -> [ meta, ani, labels ] }
     )
+
+    //
+    // MODULE: per-species neighbour-joining tree (Newick) of the FastANI distances (1 - ANI/100).
+    //
+    ANI_TREE( POPPUNK_METHODS.out.ani )
 
     //
     // SUBWORKFLOW: SynTracker (synteny), an independent non-PopPUNK signal. Its clusterings are

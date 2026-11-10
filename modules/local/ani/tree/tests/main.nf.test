@@ -1,0 +1,63 @@
+nextflow_process {
+
+    name "Test Process ANI_TREE"
+    script "../main.nf"
+    process "ANI_TREE"
+
+    tag "modules"
+    tag "modules_local"
+    tag "ani"
+    tag "ani/tree"
+
+    // Fixture: all-vs-all FastANI of five genomes (genome1..genome5).
+    test("ani tree - five genomes") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/fastani.txt", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            def newick = path(process.out.tree[0][1].toString()).text.trim()
+            assertAll(
+                { assert process.success },
+                { assert newick.endsWith(';') },
+                // every genome is a tip, named as the pipeline's sample names
+                { assert ( 1..5 ).every { newick =~ /[(,]genome${it}:/ } },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("ani tree - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/fastani.txt", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

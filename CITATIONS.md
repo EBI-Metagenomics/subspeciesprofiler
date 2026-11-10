@@ -42,6 +42,14 @@
 
 > Tonkin-Hill G, MacAlasdair N, Ruis C, Weimann A, Horesh G, Lees JA, Gladstone RA, Lo S, Beaudoin C, Floto RA, Frost SDW, Corander J, Bentley SD, Parkhill J. Producing polished prokaryotic pangenomes with the Panaroo pipeline. Genome Biol. 2020;21(1):180. doi: 10.1186/s13059-020-02090-4.
 
+- [Biopython](https://doi.org/10.1093/bioinformatics/btp163)
+
+> Cock PJA, Antao T, Chang JT, Chapman BA, Cox CJ, Dalke A, Friedberg I, Hamelryck T, Kauff F, Wilczynski B, de Hoon MJL. Biopython: freely available Python tools for computational molecular biology and bioinformatics. Bioinformatics. 2009;25(11):1422-1423. doi: 10.1093/bioinformatics/btp163.
+
+- [Neighbour joining](https://doi.org/10.1093/oxfordjournals.molbev.a040454)
+
+> Saitou N, Nei M. The neighbor-joining method: a new method for reconstructing phylogenetic trees. Mol Biol Evol. 1987;4(4):406-425. doi: 10.1093/oxfordjournals.molbev.a040454.
+
 - [igraph](https://igraph.org/)
 
 > Csardi G, Nepusz T. The igraph software package for complex network research. InterJournal, Complex Systems. 2006;1695.

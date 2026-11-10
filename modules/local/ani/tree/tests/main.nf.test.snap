@@ -1,0 +1,112 @@
+{
+    "ani tree - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_nj_tree.nwk:md5,2d5a4a286998e37bbdc679111e23c43f"
+                    ]
+                ],
+                "1": [
+                    [
+                        "ANI_TREE",
+                        "python",
+                        "3.12.12"
+                    ]
+                ],
+                "2": [
+                    [
+                        "ANI_TREE",
+                        "biopython",
+                        "1.84"
+                    ]
+                ],
+                "tree": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_nj_tree.nwk:md5,2d5a4a286998e37bbdc679111e23c43f"
+                    ]
+                ],
+                "versions_biopython": [
+                    [
+                        "ANI_TREE",
+                        "biopython",
+                        "1.84"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "ANI_TREE",
+                        "python",
+                        "3.12.12"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-10T12:31:42.042469"
+    },
+    "ani tree - five genomes": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_nj_tree.nwk:md5,9e99e2d06f59daddb8469106a87e21f4"
+                    ]
+                ],
+                "1": [
+                    [
+                        "ANI_TREE",
+                        "python",
+                        "3.12.12"
+                    ]
+                ],
+                "2": [
+                    [
+                        "ANI_TREE",
+                        "biopython",
+                        "1.84"
+                    ]
+                ],
+                "tree": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_nj_tree.nwk:md5,9e99e2d06f59daddb8469106a87e21f4"
+                    ]
+                ],
+                "versions_biopython": [
+                    [
+                        "ANI_TREE",
+                        "biopython",
+                        "1.84"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "ANI_TREE",
+                        "python",
+                        "3.12.12"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-10T12:31:37.023514"
+    }
+}

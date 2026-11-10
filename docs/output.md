@@ -25,11 +25,12 @@ Results are organised **species-first**: each species in the samplesheet gets it
 ├── species_eligibility_report.tsv        # combined eligibility, one row per species
 ├── <species>/
 │   ├── <species>_ani_overview.{png,pdf,tsv}  # ANI histogram + clustered ANI heatmap
+│   ├── <species>_ani_nj_tree.nwk          # neighbour-joining tree of the ANI distances
+│   ├── fastani/                           # all-vs-all FastANI of the QC-passing genomes
 │   ├── speciesqc/                         # this species' eligibility report + QC classification
 │   ├── poppunk/
 │   │   ├── <species>_model_report.tsv     # every PopPUNK model tried + its verdict
 │   │   ├── createdb/  qcdb/  quantiles/
-│   │   ├── fastani/
 │   │   ├── fitmodel/<model>/              # incl. PopPUNK diagnostic plots (*.png)
 │   │   ├── evaluate/<model>/
 │   │   └── microreact/                    # Strong + Moderate models, one file set each
@@ -67,11 +68,13 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 <summary>Output files</summary>
 
 - `<species>/<species>_ani_overview.png` (200 dpi) and `.pdf` (vector): one figure with two panels side by side.
+- `<species>/<species>_ani_nj_tree.nwk`: a neighbour-joining tree (Newick) of the same genomes, with distance 1 − ANI/100 (the two FastANI directions averaged). Tips are the genome sample names. A species where FastANI left out a pair (genomes too distant to be the same species) gets no tree; the Nextflow log names the missing pairs.
+- `<species>/fastani/<species>.ani.txt`: the all-vs-all FastANI output (query, reference, ANI in %, matched and total fragments). It does not depend on PopPUNK: the PopPUNK and SynTracker evaluations, the ANI overview and the tree all use it.
 - `<species>/<species>_ani_overview.tsv`: `n_genomes`, `n_pairs`, `n_missing_pairs`, `ani_min`, `ani_median`, `ani_max` and `colour_min` (the bottom of the heatmap colour scale), ANI in %.
 
 </details>
 
-A first look at a species' population structure, drawn from the all-vs-all FastANI of its HQ and MQ genomes (`poppunk/fastani/`), before any model is fitted:
+A first look at a species' population structure, drawn from the all-vs-all FastANI of its HQ and MQ genomes (`fastani/`), before any model is fitted:
 
 - **Left, pairwise ANI histogram:** one count per genome pair (the two FastANI directions averaged), in 0.1% bins, with a black kernel density estimate. A single mode means a continuum of relatedness; separate modes mean discrete groups, e.g. the low-ANI mode of the between-group pairs when a species has subspecies.
 - **Right, clustered ANI heatmap:** ANI between every pair of genomes, rows and columns ordered by UPGMA hierarchical clustering on 100 − ANI, with the dendrograms on top and left. Blocks along the diagonal are groups of closely related genomes. A strip beside the heatmap marks each genome HQ or MQ, to show whether MQ genomes fall on their own branches. Pairs FastANI did not report (it reports nothing below about 80% ANI) are grey, counted in the title, and treated as the most distant observed pair for the clustering. Genome names are shown up to 50 genomes.
@@ -90,7 +93,6 @@ A first look at a species' population structure, drawn from the all-vs-all FastA
   The binary `decision` is kept only in the per-fit `evaluate/<model>/*.tool_metrics.tsv`. See the [curation guide](curation.md) for how to read this table and choose a model.
 
 - `<species>/poppunk/createdb/`, `qcdb/`, `quantiles/`: the PopPUNK database, its distance-QC output, and the core-distance quantiles that seed the threshold sweep.
-- `<species>/poppunk/fastani/`: the all-vs-all FastANI distances used to score each model externally.
 - `<species>/poppunk/fitmodel/<model>/`: per-model fit output, including PopPUNK diagnostic plots (`*.png`) and the run log (`*_fit.log`).
 - `<species>/poppunk/evaluate/<model>/`: per-model evaluation metrics (`*.tool_metrics.tsv`, `*.cluster_metrics.tsv`, `*.genome_metrics.tsv`).
 - `<species>/poppunk/microreact/`: [Microreact](https://microreact.org) visualisations for every model the evaluator rated **Strong or Moderate**, so the credible candidates can be inspected side by side and the best one picked by eye. All models share this one directory and each file carries the model name (family plus its swept parameters), e.g.:

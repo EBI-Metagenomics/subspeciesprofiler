@@ -1,0 +1,8 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # bin/fastani_to_tree.py: Biopython (Bio.Phylo neighbour joining) and the standard library.
+  - conda-forge::biopython=1.84
