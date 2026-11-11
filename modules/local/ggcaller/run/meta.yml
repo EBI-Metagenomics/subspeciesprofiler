@@ -44,28 +44,28 @@ output:
     - - meta:
           type: map
           description: Groovy Map containing species information
-      - "gff/*.gff":
+      - "gff/*.gff.gz":
           type: file
-          description: One GFF3 per genome, named `<sample>.gff`, with the genome FASTA appended.
-          pattern: "gff/*.gff"
+          description: One gzipped GFF3 per genome, named `<sample>.gff.gz`, with the genome FASTA appended.
+          pattern: "gff/*.gff.gz"
           ontologies: []
   proteins:
     - - meta:
           type: map
           description: Groovy Map containing species information
-      - "*_gene_calls.faa":
+      - "faa/*.faa.gz":
           type: file
-          description: Protein sequences of every gene call, all genomes, headers `<sample>_<ORF id>`.
-          pattern: "*_gene_calls.faa"
+          description: Gzipped protein sequences of the gene calls, one file per genome (`<sample>.faa.gz`), headers `<sample>_<ORF id>`.
+          pattern: "faa/*.faa.gz"
           ontologies: []
   genes:
     - - meta:
           type: map
           description: Groovy Map containing species information
-      - "*_gene_calls.ffn":
+      - "ffn/*.ffn.gz":
           type: file
-          description: Nucleotide sequences of every gene call, all genomes, headers `<sample>_<ORF id>`.
-          pattern: "*_gene_calls.ffn"
+          description: Gzipped nucleotide CDS sequences of the gene calls, one file per genome (`<sample>.ffn.gz`), headers `<sample>_<ORF id>`.
+          pattern: "ffn/*.ffn.gz"
           ontologies: []
   versions_ggcaller:
     - - "${task.process}":

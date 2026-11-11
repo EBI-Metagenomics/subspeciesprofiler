@@ -2,8 +2,8 @@
 // PANGENOME: the gene presence/absence table of one species, over the genomes that passed SPECIESQC.
 //
 // 1. GGCALLER calls genes in all of the species' genomes at once on a Bifrost graph, so the calls are
-//    consistent across fragmented assemblies, and writes one GFF3 per genome (renamed to the r-file
-//    sample names). Its BALROG database comes from --ggcaller_db, or is downloaded once per run
+//    consistent across fragmented assemblies, and writes one gzipped GFF3, protein and CDS file per
+//    genome (renamed to the r-file sample names). Its BALROG database comes from --ggcaller_db, or is downloaded once per run
 //    (GGCALLER_DOWNLOADDB).
 // 2. PANAROO_RUN clusters the GFFs into gene families and writes gene_presence_absence.Rtab, one
 //    column per sample. Contamination is already filtered by SPECIESQC, so Panaroo runs in its
@@ -41,7 +41,7 @@ workflow PANGENOME {
     emit:
     rtab     = PANAROO_RUN.out.results.map { meta, files -> [ meta, files.find { it.name == 'gene_presence_absence.Rtab' } ] } // channel: [ val(meta), path(gene_presence_absence.Rtab) ]
     panaroo  = PANAROO_RUN.out.results // channel: [ val(meta), [ Panaroo result files ] ]
-    gff      = GGCALLER.out.gff        // channel: [ val(meta), [ <sample>.gff ] ]
-    proteins = GGCALLER.out.proteins   // channel: [ val(meta), path(*_gene_calls.faa) ]
-    genes    = GGCALLER.out.genes      // channel: [ val(meta), path(*_gene_calls.ffn) ]
+    gff      = GGCALLER.out.gff        // channel: [ val(meta), [ <sample>.gff.gz ] ]
+    proteins = GGCALLER.out.proteins   // channel: [ val(meta), [ <sample>.faa.gz ] ]
+    genes    = GGCALLER.out.genes      // channel: [ val(meta), [ <sample>.ffn.gz ] ]
 }

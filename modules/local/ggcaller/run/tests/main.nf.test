@@ -36,18 +36,25 @@ nextflow_process {
         then {
             def samples = [ 'CR931658', 'CR931659', 'CR931660', 'CR931717', 'CR931719' ]
             def gffs    = process.out.gff[0][1].collect { file(it.toString()) }
-            def headers = [ process.out.proteins[0][1], process.out.genes[0][1] ].collectMany { f ->
-                path(f.toString()).readLines().findAll { it.startsWith('>') }
-            }
+            def faas    = process.out.proteins[0][1].collect { file(it.toString()) }
+            def ffns    = process.out.genes[0][1].collect { file(it.toString()) }
+            def lines   = { f -> path(f.toString()).linesGzip }
             assertAll(
                 { assert process.success },
-                // one GFF per r-file sample, named after the sample, each with the FASTA for Panaroo
-                { assert gffs*.name.sort() == samples.collect { "${it}.gff" } },
-                { assert gffs.every { it.text.contains('##FASTA') } },
-                { assert gffs.every { g -> g.readLines().findAll { it.contains('\tCDS\t') }.every { it.contains("ID=${g.name - '.gff'}_") } } },
-                // every gene call is renamed to its sample
-                { assert headers.size() > 0 },
-                { assert headers.every { h -> samples.any { h.startsWith(">${it}_") } } },
+                // one gzipped GFF per r-file sample, named after the sample, each with the FASTA for Panaroo
+                { assert gffs*.name.sort() == samples.collect { "${it}.gff.gz" } },
+                { assert gffs.every { g -> lines(g).contains('##FASTA') } },
+                { assert gffs.every { g -> lines(g).findAll { it.contains('\tCDS\t') }.every { it.contains("ID=${g.name - '.gff.gz'}_") } } },
+                // one gzipped protein and CDS file per sample, each holding only that sample's genes
+                { assert faas*.name.sort() == samples.collect { "${it}.faa.gz" } },
+                { assert ffns*.name.sort() == samples.collect { "${it}.ffn.gz" } },
+                { assert (faas + ffns).every { f ->
+                    def headers = lines(f).findAll { it.startsWith('>') }
+                    headers.size() > 0 && headers.every { it.startsWith(">${f.name.tokenize('.')[0]}_") } } },
+                // the protein and CDS files hold the same genes
+                { assert samples.every { s ->
+                    lines(faas.find { it.name == "${s}.faa.gz" }).findAll { it.startsWith('>') } ==
+                        lines(ffns.find { it.name == "${s}.ffn.gz" }).findAll { it.startsWith('>') } } },
                 { assert snapshot(process.out.versions_ggcaller).match() }
             )
         }

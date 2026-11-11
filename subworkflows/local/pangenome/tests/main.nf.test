@@ -38,8 +38,10 @@ nextflow_workflow {
                 { assert rtab[0] == [ 'Gene' ] + samples },
                 { assert rtab.size() > 1 },
                 { assert rtab.drop(1).every { row -> row.drop(1).every { it in [ '0', '1' ] } } },
-                { assert workflow.out.gff[0][1].collect { file(it).name }.sort() == samples.collect { "${it}.gff" } },
-                { assert workflow.out.proteins.size() == 1 }
+                // gzipped GFF, proteins and CDSs, one file of each per r-file sample
+                { assert workflow.out.gff[0][1].collect { file(it).name }.sort() == samples.collect { "${it}.gff.gz" } },
+                { assert workflow.out.proteins[0][1].collect { file(it).name }.sort() == samples.collect { "${it}.faa.gz" } },
+                { assert workflow.out.genes[0][1].collect { file(it).name }.sort() == samples.collect { "${it}.ffn.gz" } }
             )
         }
 
@@ -73,7 +75,7 @@ nextflow_workflow {
                 { assert workflow.trace.tasks().findAll { it.name.contains('GGCALLER_DOWNLOADDB') }.size() == 1 },
                 { assert workflow.out.rtab.collect { it[0].id }.sort() == [ 'sp1', 'sp2' ] },
                 { assert workflow.out.rtab.every { it[1].toString().endsWith('gene_presence_absence.Rtab') } },
-                { assert workflow.out.gff.every { it[1].collect { g -> file(g).name }.sort() == [ 'genome1.gff', 'genome2.gff' ] } }
+                { assert workflow.out.gff.every { it[1].collect { g -> file(g).name }.sort() == [ 'genome1.gff.gz', 'genome2.gff.gz' ] } }
             )
         }
 

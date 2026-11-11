@@ -41,7 +41,7 @@ Results are organised **species-first**: each species in the samplesheet gets it
 │   │   ├── clusters/                      # one Taxon,Cluster table per min_apss x resolution, coverage, noise
 │   │   └── evaluate/<model>/              # APSS (+ ANI concordance) evaluation of each clustering
 │   └── pangenome/
-│       ├── ggcaller/                      # gene calls: proteins, CDSs, one GFF per genome
+│       ├── ggcaller/                      # gene calls per genome: gff/, faa/, ffn/ (gzipped)
 │       └── panaroo/                       # gene families, incl. gene_presence_absence.Rtab
 ├── databases/ggcaller_db/                 # only with --save_ggcaller_db
 ├── multiqc/
@@ -141,9 +141,12 @@ SynTracker runs on the HQ and MQ genomes that passed the species QC, which inclu
 <summary>Output files</summary>
 
 - `<species>/pangenome/ggcaller/`:
-  - `<species>_gene_calls.faa`: the protein sequence of every gene called, all genomes in one file, headers `<sample>_<ORF id>`.
-  - `<species>_gene_calls.ffn`: the same genes as nucleotide CDS sequences.
-  - `gff/<sample>.gff`: one GFF3 per genome, with the genome sequence appended (the input of Panaroo).
+  - `faa/<sample>.faa.gz`: the protein sequences of the genes called in that genome, headers `<sample>_<ORF id>`.
+  - `ffn/<sample>.ffn.gz`: the same genes as nucleotide CDS sequences, with the same headers.
+  - `gff/<sample>.gff.gz`: one GFF3 per genome, with the genome sequence appended (the input of Panaroo).
+
+  ggCaller writes the gene calls of all genomes into one file; the pipeline splits them per genome. All files are gzipped.
+
 - `<species>/pangenome/panaroo/`: the [Panaroo](https://github.com/gtonkinhill/panaroo) results, including:
   - `gene_presence_absence.Rtab`: one row per gene family, one column per genome, 1 = present and 0 = absent.
   - `gene_presence_absence.csv` and `gene_presence_absence_roary.csv`: the same table with the gene IDs per genome and the family annotations.

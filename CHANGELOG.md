@@ -13,7 +13,7 @@ Initial release of ebi-metagenomics/subspeciesprofiler, created with the [nf-cor
 - SynTracker now runs on the HQ and MQ genomes (before: HQ only); the reference is still HQ.
 - ANI tree (`ANI_TREE`, `bin/fastani_to_tree.py`, Biopython 1.84): a neighbour-joining Newick tree of each species' FastANI distances, `<species>/<species>_ani_nj_tree.nwk`.
 - FastANI is published to `<species>/fastani/` (was `<species>/poppunk/fastani/`): it does not depend on PopPUNK.
-- Pangenome branch (`PANGENOME`, skip with `--skip_pangenome`): ggCaller 1.5.2 gene calls (`GGCALLER`, with its database from `--ggcaller_db` or downloaded by `GGCALLER_DOWNLOADDB`) clustered by Panaroo (nf-core `panaroo/run`, `--clean-mode sensitive --refind-mode off`) into `<species>/pangenome/panaroo/gene_presence_absence.Rtab`, over the genomes that passed the species QC. The gene-call proteins are published in `<species>/pangenome/ggcaller/`.
+- Pangenome branch (`PANGENOME`, skip with `--skip_pangenome`): ggCaller 1.5.2 gene calls (`GGCALLER`, with its database from `--ggcaller_db` or downloaded by `GGCALLER_DOWNLOADDB`) clustered by Panaroo (nf-core `panaroo/run`, `--clean-mode sensitive --refind-mode off`) into `<species>/pangenome/panaroo/gene_presence_absence.Rtab`, over the genomes that passed the species QC. The gene calls are published in `<species>/pangenome/ggcaller/` as one gzipped GFF, protein (`.faa.gz`) and CDS (`.ffn.gz`) file per genome; the nf-core `panaroo/run` module is patched to decompress the GFFs, because Panaroo reads only uncompressed `.gff`.
 
 ### `Fixed`
 

@@ -24,12 +24,23 @@ process PANAROO_RUN {
     script:
     prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ''
+    // Panaroo reads only uncompressed .gff/.gff3 files: decompress the .gz inputs first
     """
+    mkdir gff_input
+    for f in ${gff}; do
+        case "\$f" in
+            *.gz) gzip -cd "\$f" > "gff_input/\$(basename "\$f" .gz)" ;;
+            *)    ln -s "\$PWD/\$f" "gff_input/\$(basename "\$f")" ;;
+        esac
+    done
+
     panaroo \\
         ${args} \\
         -t ${task.cpus} \\
         -o ${prefix} \\
-        -i ${gff}
+        -i gff_input/*
+
+    rm -r gff_input
     """
 
     stub:

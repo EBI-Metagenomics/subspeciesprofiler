@@ -1,0 +1,36 @@
+Changes in component 'nf-core/panaroo/run'
+'modules/nf-core/panaroo/run/environment.yml' is unchanged
+'modules/nf-core/panaroo/run/meta.yml' is unchanged
+Changes in 'panaroo/run/main.nf':
+--- modules/nf-core/panaroo/run/main.nf
++++ modules/nf-core/panaroo/run/main.nf
+@@ -24,12 +24,23 @@
+     script:
+     prefix = task.ext.prefix ?: "${meta.id}"
+     def args = task.ext.args ?: ''
++    // Panaroo reads only uncompressed .gff/.gff3 files: decompress the .gz inputs first
+     """
++    mkdir gff_input
++    for f in ${gff}; do
++        case "\$f" in
++            *.gz) gzip -cd "\$f" > "gff_input/\$(basename "\$f" .gz)" ;;
++            *)    ln -s "\$PWD/\$f" "gff_input/\$(basename "\$f")" ;;
++        esac
++    done
++
+     panaroo \\
+         ${args} \\
+         -t ${task.cpus} \\
+         -o ${prefix} \\
+-        -i ${gff}
++        -i gff_input/*
++
++    rm -r gff_input
+     """
+ 
+     stub:
+
+'modules/nf-core/panaroo/run/tests/main.nf.test.snap' is unchanged
+'modules/nf-core/panaroo/run/tests/nextflow.config' is unchanged
+'modules/nf-core/panaroo/run/tests/main.nf.test' is unchanged
+************************************************************

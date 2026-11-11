@@ -18,7 +18,8 @@
                     "panaroo/run": {
                         "branch": "master",
                         "git_sha": "7b3452a23773f687ededb4befd037920e5a51341",
-                        "installed_by": ["modules"]
+                        "installed_by": ["modules"],
+                        "patch": "modules/nf-core/panaroo/run/panaroo-run.diff"
                     },
                     "seqkit/stats": {
                         "branch": "master",
