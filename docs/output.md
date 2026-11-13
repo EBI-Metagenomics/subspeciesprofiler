@@ -147,10 +147,10 @@ SynTracker runs on the HQ and MQ genomes that passed the species QC, which inclu
 
   ggCaller writes the gene calls of all genomes into one file; the pipeline splits them per genome. All files are gzipped.
 
-- `<species>/pangenome/panaroo/`: the [Panaroo](https://github.com/gtonkinhill/panaroo) results, including:
+- `<species>/pangenome/panaroo/`: the [Panaroo](https://github.com/gtonkinhill/panaroo) results. Only these three files are published; the other Panaroo files (graph, alignments, reference FASTA) stay in the work directory:
   - `gene_presence_absence.Rtab`: one row per gene family, one column per genome, 1 = present and 0 = absent.
-  - `gene_presence_absence.csv` and `gene_presence_absence_roary.csv`: the same table with the gene IDs per genome and the family annotations.
-  - `pan_genome_reference.fa`: one representative sequence per gene family. `summary_statistics.txt`: core, soft-core, shell and cloud gene counts. `final_graph.gml`: the pangenome graph.
+  - `gene_presence_absence.csv`: the same table with the gene IDs per genome and the family annotations.
+  - `summary_statistics.txt`: core, soft-core, shell and cloud gene counts.
 - `databases/ggcaller_db/` (only with `--save_ggcaller_db`): the downloaded ggCaller database, to reuse with `--ggcaller_db`.
 
 </details>
