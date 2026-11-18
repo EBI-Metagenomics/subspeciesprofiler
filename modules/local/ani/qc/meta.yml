@@ -1,0 +1,124 @@
+name: "ani_qc"
+description: |
+  Makes the final genome list of one species with bin/ani_qc.py. It discards the fewest genomes
+  needed so that every remaining pair has a FastANI value at or above the minimum ANI.
+keywords:
+  - ani
+  - fastani
+  - quality control
+tools:
+  - "python":
+      description: "Runs bin/ani_qc.py (pandas)."
+      homepage: "https://www.python.org/"
+      documentation: "https://pandas.pydata.org/docs/"
+      licence: ["PSF-2.0"]
+      identifier: ""
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing species information, e.g. `[ id:'Bacteroides_fragilis' ]`
+    - ani:
+        type: file
+        description: All-vs-all FastANI output of the species (percent ANI).
+        pattern: "*.txt"
+        ontologies: []
+    - rfile:
+        type: file
+        description: The r-file of speciesqc (sample and `./genomes/<file>`, no header).
+        pattern: "*.tsv"
+        ontologies: []
+    - labels:
+        type: file
+        description: The labels of speciesqc (`genome,label`).
+        pattern: "*.csv"
+        ontologies: []
+    - genome_qc:
+        type: file
+        description: The per-genome QC table of speciesqc.
+        pattern: "*.tsv"
+        ontologies: []
+
+output:
+  rfile:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_qc_rfile.tsv":
+          type: file
+          description: The r-file of the kept genomes.
+          pattern: "*_ani_qc_rfile.tsv"
+          ontologies: []
+  labels:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_qc_labels.csv":
+          type: file
+          description: The labels of the kept genomes.
+          pattern: "*_ani_qc_labels.csv"
+          ontologies: []
+  genome_qc:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_qc_genome_qc.tsv":
+          type: file
+          description: The per-genome QC table. Discarded genomes have label `DISCARDED` and reason `ani`.
+          pattern: "*_ani_qc_genome_qc.tsv"
+          ontologies: []
+  ani:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*.qc.ani.txt":
+          type: file
+          description: The FastANI rows of the kept genomes.
+          pattern: "*.qc.ani.txt"
+          ontologies: []
+  discarded:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_qc.tsv":
+          type: file
+          description: The discarded genomes, in discard order, with their bad pairs.
+          pattern: "*_ani_qc.tsv"
+          ontologies: []
+  report:
+    - - meta:
+          type: map
+          description: Groovy Map containing species information
+      - "*_ani_qc_eligibility.tsv":
+          type: file
+          description: The species label and genome counts after this step.
+          pattern: "*_ani_qc_eligibility.tsv"
+          ontologies: []
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The name of the process
+      - python:
+          type: string
+          description: The name of the tool
+      - python --version | sed 's/Python //':
+          type: eval
+          description: The expression to obtain the version of the tool
+
+authors:
+  - "@Ales-ibt"
+maintainers:
+  - "@Ales-ibt"

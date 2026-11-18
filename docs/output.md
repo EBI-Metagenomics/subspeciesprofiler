@@ -28,6 +28,7 @@ Results are organised **species-first**: each species in the samplesheet gets it
 │   ├── <species>_ani_nj_tree.nwk          # neighbour-joining tree of the ANI distances
 │   ├── fastani/                           # all-vs-all FastANI of the QC-passing genomes
 │   ├── speciesqc/                         # this species' eligibility report + QC classification
+│   │   └── ani_qc/                        # final genome list after the FastANI check
 │   ├── poppunk/
 │   │   ├── <species>_model_report.tsv     # every PopPUNK model tried + its verdict
 │   │   ├── createdb/  qcdb/  quantiles/
@@ -57,10 +58,18 @@ Results are organised **species-first**: each species in the samplesheet gets it
 - `<species>/speciesqc/`: the per-species eligibility report and the derived inputs of every branch (r-file + HQ/MQ labels), plus:
   - `<species>_seqkit_stats.tsv`: `seqkit stats --all -N 90` of every genome in `genomes_dir`.
   - `<species>_genome_qc.tsv`: every genome of the `qc_csv` with its `completeness`, `contamination`, `N50`, `N90`, `quality` (HQ/MQ/DISCARDED from completeness and contamination alone), final `label` and `reason`: `pass`, `quality`, or `contiguity` (an HQ/MQ genome whose N50, or N90 with `--qc_strict_contiguity`, is below `--qc_min_nx`, default 5000 bp).
+- `<species>/speciesqc/ani_qc/`: the final genome list, which every branch uses:
+  - `<species>_ani_qc.tsv`: the genomes discarded by the ANI QC, in discard order, with `label`, `N50`, `n_bad_pairs` and `bad_pairs` (each other genome with its ANI, or `missing`).
+  - `<species>_ani_qc_rfile.tsv` and `<species>_ani_qc_labels.csv`: the r-file and labels of the kept genomes.
+  - `<species>_ani_qc_genome_qc.tsv`: the genome QC table, where a discarded genome has `label` `DISCARDED` and `reason` `ani`.
+  - `<species>.qc.ani.txt`: the FastANI rows of the kept genomes.
+  - `<species>_ani_qc_eligibility.tsv`: the species label and genome counts after the ANI QC, with `n_discarded_ani`.
 
 </details>
 
-Each species' genome QC table is classified into HQ / MQ genomes and assigned a subspecies-clustering eligibility label. Only species whose label is kept by `--qc_filter` continue to clustering.
+Each species' genome QC table is classified into HQ / MQ genomes and assigned a subspecies-clustering eligibility label. Only species whose label is kept by `--qc_filter` continue.
+
+The ANI QC then checks every genome pair in the all-vs-all FastANI. A bad pair has ANI below 90%, or no FastANI value. FastANI omits a pair when the ANI is too low or the genomes share too little sequence. The step discards the genome with the most bad pairs until none remain. On a tie, it discards MQ before HQ, then the lower N50, then the first name in sort order. `--qc_filter` is applied again to the new label. `species_eligibility_report.tsv` shows the counts before this step.
 
 ### ANI overview
 
@@ -68,8 +77,8 @@ Each species' genome QC table is classified into HQ / MQ genomes and assigned a 
 <summary>Output files</summary>
 
 - `<species>/<species>_ani_overview.png` (200 dpi) and `.pdf` (vector): one figure with two panels side by side.
-- `<species>/<species>_ani_nj_tree.nwk`: a neighbour-joining tree (Newick) of the same genomes, with distance 1 − ANI/100 (the two FastANI directions averaged). Tips are the genome sample names. A species where FastANI left out a pair (genomes too distant to be the same species) gets no tree; the Nextflow log names the missing pairs.
-- `<species>/fastani/<species>.ani.txt`: the all-vs-all FastANI output (query, reference, ANI in %, matched and total fragments). It does not depend on PopPUNK: the PopPUNK and SynTracker evaluations, the ANI overview and the tree all use it.
+- `<species>/<species>_ani_nj_tree.nwk`: a neighbour-joining tree (Newick) of the same genomes, with distance 1 − ANI/100 (the two FastANI directions averaged). Tips are the genome sample names.
+- `<species>/fastani/<species>.ani.txt`: the all-vs-all FastANI output (query, reference, ANI in %, matched and total fragments), before the ANI QC. The evaluations, the ANI overview and the tree use its filtered copy, `speciesqc/ani_qc/<species>.qc.ani.txt`.
 - `<species>/<species>_ani_overview.tsv`: `n_genomes`, `n_pairs`, `n_missing_pairs`, `ani_min`, `ani_median`, `ani_max` and `colour_min` (the bottom of the heatmap colour scale), ANI in %.
 
 </details>

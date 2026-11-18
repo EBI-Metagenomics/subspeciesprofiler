@@ -1,0 +1,70 @@
+nextflow_process {
+
+    name "Test Process ANI_QC"
+    script "../main.nf"
+    process "ANI_QC"
+    config "./nextflow.config"
+
+    tag "modules"
+    tag "modules_local"
+    tag "ani"
+    tag "ani/qc"
+
+    // Fixture: the five genomes of tests/fixtures/syntracker/chunked, without the FastANI rows of
+    // the pair genome4 (HQ) and genome5 (MQ). The tie goes against the MQ genome.
+    test("ani qc - missing pair") {
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/ani_qc/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/labels.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/genome_qc.tsv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert path(process.out.rfile[0][1].toString()).readLines().size() == 4 },
+                { assert !path(process.out.rfile[0][1].toString()).text.contains('genome5') },
+                { assert path(process.out.discarded[0][1].toString()).readLines()[1].contains('genome5') },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+    test("ani qc - stub") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = [
+                    [ id:'test', spp_label:'STRONG', n_genomes:5 ],
+                    file("${projectDir}/tests/fixtures/ani_qc/fastani.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/rfile.tsv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/labels.csv", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/syntracker/chunked/genome_qc.tsv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert snapshot(process.out).match() }
+            )
+        }
+
+    }
+
+}

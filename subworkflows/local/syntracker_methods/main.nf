@@ -38,8 +38,8 @@ workflow SYNTRACKER_METHODS {
 
     take:
     ch_input     // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]  (as POPPUNK_METHODS)
-    ch_ani       // channel: [ val(meta), path(ani) ]  all-vs-all FastANI, from POPPUNK_METHODS
-    ch_genome_qc // channel: [ val(meta), path(genome_qc.tsv) ]  per-genome QC (N50, label), from SPECIESQC
+    ch_ani       // channel: [ val(meta), path(ani) ]  FastANI of the final genome list, from ANI_QC
+    ch_genome_qc // channel: [ val(meta), path(genome_qc.tsv) ]  per-genome QC (N50, label), from ANI_QC
 
     main:
 

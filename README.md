@@ -87,13 +87,15 @@ Each genome is classified from its completeness (`comp`) and contamination (`con
 | **MQ**        | `comp ≥ 80` and `cont ≤ 5%`              |
 | **DISCARDED** | otherwise (dropped; not sent to PopPUNK) |
 
-An HQ or MQ genome is also DISCARDED if its N50 (or N90, with `--qc_strict_contiguity`) is below `--qc_min_nx` (default 5000 bp, the SynTracker window length), from [SeqKit](https://bioinf.shenwei.me/seqkit/) stats. Only the genomes that pass both are used, by every branch (PopPUNK, FastANI, SynTracker). Each species is then given an eligibility label from its HQ / effective-genome counts, after both filters (`STRONG`, `ACCEPTABLE`, `NOT_ELIGIBLE`, `DISCARDED`, with `_BOUNDARY` / `_NEAR_THRESHOLD` variants). Only species whose label is in `--qc_filter` (default `STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY`) proceed to clustering.
+An HQ or MQ genome is also DISCARDED if its N50 (or N90, with `--qc_strict_contiguity`) is below `--qc_min_nx` (default 5000 bp, the SynTracker window length), from [SeqKit](https://bioinf.shenwei.me/seqkit/) stats. Each species is then given an eligibility label from its HQ / effective-genome counts, after both filters (`STRONG`, `ACCEPTABLE`, `NOT_ELIGIBLE`, `DISCARDED`, with `_BOUNDARY` / `_NEAR_THRESHOLD` variants). Only species whose label is in `--qc_filter` (default `STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY`) proceed.
+
+FastANI then compares the remaining genomes. The ANI QC step discards the fewest genomes needed so that every remaining pair has a FastANI value of at least 90%. The label is computed again and `--qc_filter` is applied again. Every branch (PopPUNK, SynTracker, pangenome, ANI plot and tree) uses this final genome list.
 
 ### Model scoring and selection
 
 Candidate PopPUNK models are scored against all-vs-all FastANI:
 
-- **Within-species ANI gate** — every genome pair in a species group must be ≥ `--min-ani` (0–1 scale, default `0.90`) similar. A pair below the threshold, or one FastANI cannot align, **fails the species**: it flags a genome too distant to belong (e.g. a mis-assignment during data preparation).
+- **Within-species ANI gate** — every genome pair in a species group must be ≥ `--min-ani` (0–1 scale, default `0.90`) similar. The ANI QC step removes genomes behind a pair below the threshold or a pair with no FastANI value, so this gate is a safety check.
 - **`tool_status`** ∈ `Strong` / `Moderate` / `Weak` / `Mixed` — the clustering quality, weighted towards the trustworthy HQ genomes (cluster cohesion + separation, penalising over-splitting).
 - **`decision`** ∈ `ACCEPT` / `TRY_NEXT_MODEL` — `ACCEPT` when `tool_status` is in `--accept-status` (default `Strong`).
 

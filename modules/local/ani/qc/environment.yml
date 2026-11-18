@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # The same packages as syntracker/select, so that this file matches the shared Seqera image.
+  # pandas < 3: evaluate_poppunk_fastani.py, imported by ani_qc.py, breaks under pandas 3.
+  - "conda-forge::matplotlib-base=3.10.0"
+  - "conda-forge::pandas=2.2.0"
+  - "conda-forge::procps-ng=4.0.6"
+  - "conda-forge::python-igraph=1.0.0"
+  - "conda-forge::python=3.12.0"

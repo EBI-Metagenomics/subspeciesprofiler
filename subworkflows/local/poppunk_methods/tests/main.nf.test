@@ -28,6 +28,10 @@ nextflow_workflow {
                     file("${projectDir}/tests/fixtures/poppunk_rfile.tsv", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
                 ])
+                input[1] = Channel.of([
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true)
+                ])
                 """
             }
         }
@@ -76,6 +80,10 @@ nextflow_workflow {
                     ],
                     file("${projectDir}/tests/fixtures/poppunk_rfile.tsv", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/eval/labels.csv", checkIfExists: true)
+                ])
+                input[1] = Channel.of([
+                    [ id:'test' ],
+                    file("${projectDir}/tests/fixtures/eval/fastani.txt", checkIfExists: true)
                 ])
                 """
             }

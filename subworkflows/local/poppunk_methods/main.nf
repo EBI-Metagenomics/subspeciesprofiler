@@ -1,8 +1,7 @@
 //
 // POPPUNK_METHODS: PopPUNK model profiling for one eligible species.
 //
-// Stage 0 (one-time): build + QC the database, derive core-distance quantiles,
-// and compute all-vs-all FastANI (model-independent).
+// Stage 0 (one-time): build + QC the database and derive core-distance quantiles.
 //
 // Stage 1: fan out a sweep across three model families (threshold / bgmm /
 // dbscan), then refine every dbscan fit with PopPUNK's standard refinement.
@@ -28,13 +27,13 @@ include { POPPUNK_FITMODEL as POPPUNK_REFINE_DBSCAN } from '../../../modules/loc
 include { POPPUNK_EVALUATE  } from '../../../modules/local/poppunk/evaluate/main'
 include { POPPUNK_EVALUATE as POPPUNK_EVALUATE_DBSCAN_REFINE } from '../../../modules/local/poppunk/evaluate/main'
 include { POPPUNK_VISUALISE } from '../../../modules/local/poppunk/visualise/main'
-include { FASTANI_ALLVSALL  } from '../../../modules/local/fastani_allvsall/main'
 
 workflow POPPUNK_METHODS {
 
     take:
     ch_input // channel: [ val(meta), [ genome files ], path(rfile), path(labels) ]
              // meta.n_genomes (post-QC genome count) gates the BGMM family -- see below.
+    ch_ani   // channel: [ val(meta), path(ani) ]  FastANI of the final genome list, from ANI_QC
 
     main:
 
@@ -43,9 +42,6 @@ workflow POPPUNK_METHODS {
     POPPUNK_CREATEDB( ch_db_in )
     POPPUNK_QCDB( POPPUNK_CREATEDB.out.db )
     POPPUNK_QUANTILES( POPPUNK_QCDB.out.qc_db )
-
-    // All-vs-all ANI: model-independent, computed once per species
-    FASTANI_ALLVSALL( ch_db_in )
 
     // Stage 1: fan out one fit per model family, each paired with its species' QC'd database.
     // meta.id stays the species id (for the join back); meta.model labels the fit. This is a
@@ -93,7 +89,7 @@ workflow POPPUNK_METHODS {
     // Score every swept fit against the species' FastANI + labels (join back on meta.id)
     ch_eval_in = POPPUNK_FITMODEL.out.model
         .map { meta, model -> [ meta.id, meta, model ] }
-        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
+        .combine( ch_ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
         .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
         .map { id, meta, model, ani, labels -> [ meta, model, ani, labels, [] ] }
     POPPUNK_EVALUATE( ch_eval_in )
@@ -111,7 +107,7 @@ workflow POPPUNK_METHODS {
 
     ch_refine_eval_in = POPPUNK_REFINE_DBSCAN.out.model
         .map { meta, model -> [ meta.id, meta, model ] }
-        .combine( FASTANI_ALLVSALL.out.ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
+        .combine( ch_ani.map { meta, ani -> [ meta.id, ani ] }, by: 0 )
         .combine( ch_input.map { meta, g, r, labels -> [ meta.id, labels ] }, by: 0 )
         .map { id, meta, model, ani, labels -> [ meta, model, ani, labels, [] ] }
     POPPUNK_EVALUATE_DBSCAN_REFINE( ch_refine_eval_in )
@@ -173,5 +169,4 @@ workflow POPPUNK_METHODS {
     accepted_models = ch_accepted                       // channel: [ val(species_id), [ all ACCEPT rows ] ]
     best_model      = ch_best                           // channel: [ val(species_id), map(best row) ]
     microreact      = POPPUNK_VISUALISE.out.microreact  // channel: [ val(meta), path(.microreact) ]  (Strong/Moderate fits)
-    ani             = FASTANI_ALLVSALL.out.ani          // channel: [ val(meta), path(ani) ]  (reused by SYNTRACKER_METHODS)
 }

@@ -5,6 +5,8 @@
 */
 include { SEQKIT_STATS           } from '../modules/nf-core/seqkit/stats/main'
 include { SPECIESQC              } from '../modules/local/speciesqc/main'
+include { FASTANI_ALLVSALL       } from '../modules/local/fastani_allvsall/main'
+include { ANI_QC                 } from '../modules/local/ani/qc/main'
 include { POPPUNK_METHODS        } from '../subworkflows/local/poppunk_methods/main'
 include { SYNTRACKER_METHODS     } from '../subworkflows/local/syntracker_methods/main'
 include { PANGENOME              } from '../subworkflows/local/pangenome/main'
@@ -40,8 +42,7 @@ workflow SUBSPECIESPROFILER {
 
     //
     // MODULE: per-genome QC (HQ/MQ by completeness/contamination, then N50 or N90 >= --qc_min_nx)
-    // and the species' eligibility label. Its r-file and labels are the one set of genomes that
-    // every branch below uses.
+    // and the species' eligibility label. ANI_QC below makes the final genome list from its r-file.
     //
     SPECIESQC (
         ch_samplesheet
@@ -97,21 +98,69 @@ workflow SUBSPECIESPROFILER {
         .subscribe { meta, genomes_dir, rfile, labels -> log.warn("Species '${meta.id}' dropped: spp_label='${meta.spp_label}' not in --qc_filter (${params.qc_filter})") }
 
     //
+    // MODULE: all-vs-all FastANI of the genomes that passed SPECIESQC, once per eligible species.
+    //
+    FASTANI_ALLVSALL(
+        ch_eligibility.pass.map { meta, genomes_dir, rfile, labels ->
+            [ meta, files("${genomes_dir}/*", checkIfExists: true), rfile ]
+        }
+    )
+
+    //
+    // MODULE: discard the fewest genomes so that every remaining pair has a FastANI value at or
+    // above the minimum ANI. Its outputs are the one set of genomes that every branch below uses.
+    //
+    ANI_QC(
+        FASTANI_ALLVSALL.out.ani
+            .map { meta, ani -> [ meta.id, meta, ani ] }
+            .join( ch_eligibility.pass.map { meta, genomes_dir, rfile, labels -> [ meta.id, rfile, labels ] } )
+            .join( SPECIESQC.out.genome_qc.map { meta, genome_qc -> [ meta.id, genome_qc ] } )
+            .map { id, meta, ani, rfile, labels, genome_qc -> [ meta, ani, rfile, labels, genome_qc ] }
+    )
+
+    // ANI_QC can lower the genome counts, so apply --qc_filter again with its label and count.
+    ch_eligibility.pass
+        .map { meta, genomes_dir, rfile, labels -> [ meta.id, meta, genomes_dir ] }
+        .join(
+            ANI_QC.out.report
+                .splitCsv(header: true, sep: '\t')
+                .map { meta, row -> [ meta.id, [ spp_label: row.spp_label, n_genomes: row.n_total_passing_qc as Integer ] ] }
+        )
+        .join( ANI_QC.out.rfile.map { meta, rfile -> [ meta.id, rfile ] } )
+        .join( ANI_QC.out.labels.map { meta, labels -> [ meta.id, labels ] } )
+        .join( ANI_QC.out.ani.map { meta, ani -> [ meta.id, ani ] } )
+        .join( ANI_QC.out.genome_qc.map { meta, genome_qc -> [ meta.id, genome_qc ] } )
+        .map { id, meta, genomes_dir, spp_info, rfile, labels, ani, genome_qc ->
+            [ meta + spp_info, genomes_dir, rfile, labels, ani, genome_qc ]
+        }
+        .branch { meta, genomes_dir, rfile, labels, ani, genome_qc ->
+            pass: meta.spp_label in qc_keep
+            fail: true
+        }
+        .set { ch_ani_qc }
+
+    ch_ani_qc.fail
+        .subscribe { meta, genomes_dir, rfile, labels, ani, genome_qc -> log.warn("Species '${meta.id}' dropped after ANI QC: spp_label='${meta.spp_label}' not in --qc_filter (${params.qc_filter})") }
+
+    def ch_ani       = ch_ani_qc.pass.map { meta, genomes_dir, rfile, labels, ani, genome_qc -> [ meta, ani ] }
+    def ch_genome_qc = ch_ani_qc.pass.map { meta, genomes_dir, rfile, labels, ani, genome_qc -> [ meta, genome_qc ] }
+
+    //
     // SUBWORKFLOW: staged PopPUNK model selection for each eligible species.
     // Expand genomes_dir into the assembly files (staged as genomes/); carry the
     // r-file + HQ/MQ labels through.
     //
-    ch_poppunk_in = ch_eligibility.pass.map { meta, genomes_dir, rfile, labels ->
+    ch_poppunk_in = ch_ani_qc.pass.map { meta, genomes_dir, rfile, labels, ani, genome_qc ->
         [ meta, files("${genomes_dir}/*", checkIfExists: true), rfile, labels ]
     }
-    POPPUNK_METHODS( ch_poppunk_in )
+    POPPUNK_METHODS( ch_poppunk_in, ch_ani )
 
     //
     // MODULE: per-species ANI overview (pairwise ANI histogram + UPGMA-clustered ANI heatmap with
-    // an HQ/MQ strip), from the all-vs-all FastANI that POPPUNK_METHODS computes.
+    // an HQ/MQ strip), from the FastANI table of the final genome list.
     //
     ANI_PLOT(
-        POPPUNK_METHODS.out.ani
+        ch_ani
             .map { meta, ani -> [ meta.id, meta, ani ] }
             .join( ch_poppunk_in.map { meta, genomes, rfile, labels -> [ meta.id, labels ] } )
             .map { id, meta, ani, labels -> [ meta, ani, labels ] }
@@ -120,7 +169,7 @@ workflow SUBSPECIESPROFILER {
     //
     // MODULE: per-species neighbour-joining tree (Newick) of the FastANI distances (1 - ANI/100).
     //
-    ANI_TREE( POPPUNK_METHODS.out.ani )
+    ANI_TREE( ch_ani )
 
     //
     // SUBWORKFLOW: SynTracker (synteny), an independent non-PopPUNK signal. Its clusterings are
@@ -151,7 +200,7 @@ workflow SUBSPECIESPROFILER {
     }
 
     if ( !params.skip_syntracker ) {
-        SYNTRACKER_METHODS( ch_poppunk_in, POPPUNK_METHODS.out.ani, SPECIESQC.out.genome_qc )
+        SYNTRACKER_METHODS( ch_poppunk_in, ch_ani, ch_genome_qc )
         model_report.call( SYNTRACKER_METHODS.out.tool_metrics, 'syntracker', 'syntracker_model_report' )
     }
 

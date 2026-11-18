@@ -6,7 +6,8 @@ Turns one species' all-vs-all FastANI output (five columns: query, reference, AN
 percent, matched and total fragments) into a Newick tree. The distance of a pair is
 1 - ANI/100, averaged over the A->B and B->A estimates; the tree is built by
 neighbour joining (Biopython), or by hand for two genomes. Every pair must be present:
-FastANI omits pairs that are too divergent, which fails the run with examples.
+FastANI omits pairs with too low an ANI or too little shared genome, which fails the run
+with examples. In the pipeline, ANI_QC discards such genomes first.
 
 Tip names are the file names minus their FASTA extension, as in
 normalise_genome_id() (bin/evaluate_poppunk_fastani.py), with any character outside
@@ -128,8 +129,8 @@ def create_distance_matrix(genomes, pairwise_ani):
 
         raise ValueError(
             f"{len(missing_pairs)} genome pairs are missing. "
-            f"Examples: {examples}. fastANI may omit pairs that are "
-            f"too divergent."
+            f"Examples: {examples}. fastANI omits pairs with too low "
+            f"an ANI or too little shared genome."
         )
 
     # Biopython requires the lower triangular matrix, including the diagonal.

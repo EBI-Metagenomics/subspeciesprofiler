@@ -48,6 +48,10 @@ TREATMENT_REP3,AEG588A6_S6_L004_R1_001.fastq.gz,
 
 An [example samplesheet](../assets/samplesheet.csv) has been provided with the pipeline.
 
+## Genome filtering
+
+The pipeline filters genomes in two steps. The first step uses completeness, contamination and contiguity. The second step uses all-vs-all FastANI. It discards the fewest genomes needed so that every remaining pair has a FastANI value of at least 90%. See [the output documentation](output.md#species-eligibility) for the rule and the output files.
+
 ## Running the pipeline
 
 The typical command for running the pipeline is as follows:

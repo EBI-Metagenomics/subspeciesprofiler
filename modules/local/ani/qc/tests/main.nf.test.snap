@@ -1,0 +1,268 @@
+{
+    "ani qc - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_rfile.tsv:md5,bb3cf3f9d0ccc3753e96469311438276"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_labels.csv:md5,e665b0c608ee59a05d6157c6e8ec33dd"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_genome_qc.tsv:md5,44bc9df652665838697508feeac3d49d"
+                    ]
+                ],
+                "3": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test.qc.ani.txt:md5,e78ac6eb126ac015c9c0c5f01d1e0049"
+                    ]
+                ],
+                "4": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc.tsv:md5,4d61dfeaf87f5b40b610ee185b1e60e6"
+                    ]
+                ],
+                "5": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_eligibility.tsv:md5,18f4cf7b16d133b05c64f116427d8ce6"
+                    ]
+                ],
+                "6": [
+                    [
+                        "ANI_QC",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "ani": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test.qc.ani.txt:md5,e78ac6eb126ac015c9c0c5f01d1e0049"
+                    ]
+                ],
+                "discarded": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc.tsv:md5,4d61dfeaf87f5b40b610ee185b1e60e6"
+                    ]
+                ],
+                "genome_qc": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_genome_qc.tsv:md5,44bc9df652665838697508feeac3d49d"
+                    ]
+                ],
+                "labels": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_labels.csv:md5,e665b0c608ee59a05d6157c6e8ec33dd"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_eligibility.tsv:md5,18f4cf7b16d133b05c64f116427d8ce6"
+                    ]
+                ],
+                "rfile": [
+                    [
+                        {
+                            "id": "test",
+                            "spp_label": "STRONG",
+                            "n_genomes": 5
+                        },
+                        "test_ani_qc_rfile.tsv:md5,bb3cf3f9d0ccc3753e96469311438276"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "ANI_QC",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-18T11:51:55.422674"
+    },
+    "ani qc - missing pair": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_rfile.tsv:md5,54c69c7a492572f71d36e58db3c64cb8"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_labels.csv:md5,e5b5a4bc0549e89ec3451d771c390f13"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_genome_qc.tsv:md5,334e4a97ab162d3cf062b8d88322c02a"
+                    ]
+                ],
+                "3": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.qc.ani.txt:md5,77bd3c6c64ac128988a6ea1528b789ed"
+                    ]
+                ],
+                "4": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc.tsv:md5,d99f6db9165be0847789592047c2516c"
+                    ]
+                ],
+                "5": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_eligibility.tsv:md5,5ff9144e26acf2f988cbd8040e3b7c72"
+                    ]
+                ],
+                "6": [
+                    [
+                        "ANI_QC",
+                        "python",
+                        "3.12.0"
+                    ]
+                ],
+                "ani": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.qc.ani.txt:md5,77bd3c6c64ac128988a6ea1528b789ed"
+                    ]
+                ],
+                "discarded": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc.tsv:md5,d99f6db9165be0847789592047c2516c"
+                    ]
+                ],
+                "genome_qc": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_genome_qc.tsv:md5,334e4a97ab162d3cf062b8d88322c02a"
+                    ]
+                ],
+                "labels": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_labels.csv:md5,e5b5a4bc0549e89ec3451d771c390f13"
+                    ]
+                ],
+                "report": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_eligibility.tsv:md5,5ff9144e26acf2f988cbd8040e3b7c72"
+                    ]
+                ],
+                "rfile": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_ani_qc_rfile.tsv:md5,54c69c7a492572f71d36e58db3c64cb8"
+                    ]
+                ],
+                "versions_python": [
+                    [
+                        "ANI_QC",
+                        "python",
+                        "3.12.0"
+                    ]
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-18T11:51:51.441645"
+    }
+}
