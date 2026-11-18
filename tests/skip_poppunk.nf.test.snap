@@ -1,0 +1,65 @@
+{
+    "--skip_poppunk - stub": {
+        "content": [
+            {
+                "ANI_PLOT": {
+                    "matplotlib": "3.10.8",
+                    "python": "3.10.19",
+                    "scipy": "1.15.2"
+                },
+                "ANI_QC": {
+                    "python": "3.12.0"
+                },
+                "ANI_TREE": {
+                    "biopython": 1.84,
+                    "python": "3.12.12"
+                },
+                "FASTANI_ALLVSALL": {
+                    "fastani": 1.34
+                },
+                "GGCALLER": {
+                    "ggcaller": "1.5.2"
+                },
+                "GGCALLER_DOWNLOADDB": {
+                    "ggcaller": "1.5.2"
+                },
+                "PANAROO_RUN": {
+                    "panaroo": "1.6.0"
+                },
+                "SEQKIT_STATS": {
+                    "seqkit": "2.13.0"
+                },
+                "SPECIESQC": {
+                    "python": "3.12.2"
+                },
+                "SYNTRACKER_CLUSTERS": {
+                    "python-igraph": "1.0.0",
+                    "python": "3.12.0"
+                },
+                "SYNTRACKER_EVALUATE": {
+                    "python": "3.11.0"
+                },
+                "SYNTRACKER_FILTER": {
+                    "python": "3.12.0"
+                },
+                "SYNTRACKER_MERGE": {
+                    "python": "3.12.0"
+                },
+                "SYNTRACKER_RUN": {
+                    "syntracker": "1.4.0"
+                },
+                "SYNTRACKER_SELECT": {
+                    "python": "3.12.0"
+                },
+                "Workflow": {
+                    "ebi-metagenomics/subspeciesprofiler": "v1.0.0dev"
+                }
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.7"
+        },
+        "timestamp": "2026-11-18T12:35:45.733049"
+    }
+}

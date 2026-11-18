@@ -26,9 +26,9 @@
                 "qc_filter": {
                     "type": "string",
                     "default": "STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY",
-                    "pattern": "^(STRONG|STRONG_BOUNDARY|ACCEPTABLE|ACCEPTABLE_BOUNDARY)(,(STRONG|STRONG_BOUNDARY|ACCEPTABLE|ACCEPTABLE_BOUNDARY))*$",
+                    "pattern": "^(STRONG|STRONG_BOUNDARY|ACCEPTABLE|ACCEPTABLE_BOUNDARY|NOT_ELIGIBLE|DISCARDED|DISCARDED_NEAR_THRESHOLD)(,(STRONG|STRONG_BOUNDARY|ACCEPTABLE|ACCEPTABLE_BOUNDARY|NOT_ELIGIBLE|DISCARDED|DISCARDED_NEAR_THRESHOLD))*$",
                     "description": "Comma-separated SPP eligibility labels to keep for downstream processing.",
-                    "help_text": "Species whose `spp_label` (from the species QC eligibility step) is in this list are carried forward; all others are dropped. Allowed values: `STRONG`, `STRONG_BOUNDARY`, `ACCEPTABLE`, `ACCEPTABLE_BOUNDARY`. Defaults to all four (keep every eligible species).",
+                    "help_text": "Species whose `spp_label` (from the species QC eligibility step) is in this list are carried forward; all others are dropped. Allowed values: `STRONG`, `STRONG_BOUNDARY`, `ACCEPTABLE`, `ACCEPTABLE_BOUNDARY`, `NOT_ELIGIBLE`, `DISCARDED`, `DISCARDED_NEAR_THRESHOLD`. The default keeps the first four (every eligible species). Add the others to process species with fewer genomes, for example for SynTracker, which needs at least 2 genomes and 1 HQ genome.",
                     "fa_icon": "fas fa-filter"
                 },
                 "qc_strict_contiguity": {
@@ -72,6 +72,12 @@
             "description": "Parameter grids swept within each PopPUNK model family.",
             "help_text": "All three families (threshold, BGMM, DBSCAN) are swept, except that BGMM is skipped for species at or above `--poppunk_bgmm_max_genomes`. Every DBSCAN fit is additionally refined with PopPUNK's standard `--fit-model refine`. Every fit is scored against all-vs-all ANI. Trim the grids (e.g. `--poppunk_bgmm_k 2,3,4`) to cut compute for very large or challenging species.",
             "properties": {
+                "skip_poppunk": {
+                    "type": "boolean",
+                    "description": "Skip the PopPUNK branch.",
+                    "help_text": "FastANI, the ANI QC, the ANI overview and tree, SynTracker and the pangenome still run. Use this for species that are too small for PopPUNK, for example with SynTracker only.",
+                    "fa_icon": "fas fa-fast-forward"
+                },
                 "poppunk_bgmm_k": {
                     "type": "string",
                     "default": "2,3,4,5,6,8,10",

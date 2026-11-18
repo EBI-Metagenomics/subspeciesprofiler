@@ -1,0 +1,43 @@
+nextflow_pipeline {
+
+    name "Test pipeline without PopPUNK"
+    script "../main.nf"
+    tag "pipeline"
+    tag "skip_poppunk"
+
+    // Stub run: the other branches must not depend on any PopPUNK output.
+    test("--skip_poppunk - stub") {
+
+        options "-stub"
+
+        when {
+            params {
+                // nf-test runs in its own directory, so the samplesheet needs absolute paths.
+                def samplesheet = new File("$outputDir/samplesheet.csv")
+                samplesheet.parentFile.mkdirs()
+                samplesheet.text = new File("$baseDir/tests/fixtures/samplesheet.csv").text.replace(',tests/', ",$baseDir/tests/")
+
+                input        = samplesheet.path
+                outdir       = "$outputDir"
+                skip_poppunk = true
+            }
+        }
+
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert !path("$outputDir/E_coli/poppunk").exists() },
+                { assert path("$outputDir/E_coli/speciesqc/ani_qc/E_coli_ani_qc_rfile.tsv").exists() },
+                { assert path("$outputDir/E_coli/E_coli_ani_nj_tree.nwk").exists() },
+                { assert path("$outputDir/E_coli/syntracker/E_coli_syntracker_model_report.tsv").exists() },
+                { assert path("$outputDir/E_coli/pangenome/panaroo").exists() },
+                { assert path("$outputDir/multiqc/multiqc_report.html").exists() },
+                // The versions file must not list any PopPUNK process.
+                { assert !path("$outputDir/pipeline_info/nf_core_subspeciesprofiler_software_mqc_versions.yml").text.contains('POPPUNK_') },
+                { assert snapshot(
+                    removeNextflowVersion("$outputDir/pipeline_info/nf_core_subspeciesprofiler_software_mqc_versions.yml")
+                ).match() }
+            )
+        }
+    }
+}

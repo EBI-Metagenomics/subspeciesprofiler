@@ -180,7 +180,7 @@ def validateInputParameters() {
 def toolCitationText() {
     def citation_text = [
             "Tools used in the workflow included:",
-            "PopPUNK (Lees et al. 2019),",
+            params.skip_poppunk ? "" : "PopPUNK (Lees et al. 2019),",
             "FastANI (Jain et al. 2018),",
             params.skip_syntracker ? "" : "SeqKit (Shen et al. 2024),",
             params.skip_syntracker ? "" : "SynTracker (Enav et al. 2025),",
@@ -193,7 +193,7 @@ def toolCitationText() {
 
 def toolBibliographyText() {
     def reference_text = [
-            "<li>Lees, J. A., Harris, S. R., Tonkin-Hill, G., Gladstone, R. A., Lo, S. W., Weiser, J. N., Corander, J., Bentley, S. D., & Croucher, N. J. (2019). Fast and flexible bacterial genomic epidemiology with PopPUNK. Genome Research, 29(2), 304–316. doi: 10.1101/gr.241455.118</li>",
+            params.skip_poppunk ? "" : "<li>Lees, J. A., Harris, S. R., Tonkin-Hill, G., Gladstone, R. A., Lo, S. W., Weiser, J. N., Corander, J., Bentley, S. D., & Croucher, N. J. (2019). Fast and flexible bacterial genomic epidemiology with PopPUNK. Genome Research, 29(2), 304–316. doi: 10.1101/gr.241455.118</li>",
             "<li>Jain, C., Rodriguez-R, L. M., Phillippy, A. M., Konstantinidis, K. T., & Aluru, S. (2018). High throughput ANI analysis of 90K prokaryotic genomes reveals clear species boundaries. Nature Communications, 9(1), 5114. doi: 10.1038/s41467-018-07641-9</li>",
             params.skip_syntracker ? "" : "<li>Shen, W., Sipos, B., & Zhao, L. (2024). SeqKit2: A Swiss army knife for sequence and alignment processing. iMeta, 3(3), e191. doi: 10.1002/imt2.191</li>",
             params.skip_syntracker ? "" : "<li>Enav, H., Paz, I., & Ley, R. E. (2025). Strain tracking in complex microbiomes using synteny analysis reveals per-species modes of evolution. Nature Biotechnology, 43, 773–783. doi: 10.1038/s41587-024-02276-2</li>",

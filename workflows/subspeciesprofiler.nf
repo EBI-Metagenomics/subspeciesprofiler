@@ -148,12 +148,14 @@ workflow SUBSPECIESPROFILER {
     //
     // SUBWORKFLOW: staged PopPUNK model selection for each eligible species.
     // Expand genomes_dir into the assembly files (staged as genomes/); carry the
-    // r-file + HQ/MQ labels through.
+    // r-file + HQ/MQ labels through. The other branches use the same input channel.
     //
     ch_poppunk_in = ch_ani_qc.pass.map { meta, genomes_dir, rfile, labels, ani, genome_qc ->
         [ meta, files("${genomes_dir}/*", checkIfExists: true), rfile, labels ]
     }
-    POPPUNK_METHODS( ch_poppunk_in, ch_ani )
+    if ( !params.skip_poppunk ) {
+        POPPUNK_METHODS( ch_poppunk_in, ch_ani )
+    }
 
     //
     // MODULE: per-species ANI overview (pairwise ANI histogram + UPGMA-clustered ANI heatmap with
@@ -191,7 +193,9 @@ workflow SUBSPECIESPROFILER {
             [ "${meta.id}/${branch}/${meta.id}_${suffix}.tsv", rows*.join('\t').join('\n') + '\n' ]
         }
     }
-    model_report.call( POPPUNK_METHODS.out.tool_metrics, 'poppunk', 'model_report' )
+    if ( !params.skip_poppunk ) {
+        model_report.call( POPPUNK_METHODS.out.tool_metrics, 'poppunk', 'model_report' )
+    }
     //
     // SUBWORKFLOW: gene presence/absence (ggCaller gene calls -> Panaroo), over the same genomes.
     //
@@ -280,17 +284,19 @@ workflow SUBSPECIESPROFILER {
             }
             .collectFile(name: 'subspecies_eligibility_mqc.tsv')
     )
-    ch_multiqc_files = ch_multiqc_files.mix(
-        POPPUNK_METHODS.out.best_model
-            .map { species_id, row ->
-                [ species_id, row.model, row.tool_status, row.decision, row.tool_structure_score_HQ ].join('\t') + '\n'
-            }
-            .collectFile(
-                name: 'subspecies_best_model_mqc.tsv',
-                sort: true,
-                seed: "# id: 'subspecies_best_model'\n# section_name: 'Selected model per species'\n# description: 'Best PopPUNK model chosen per species with its evaluation verdict.'\n# plot_type: 'table'\nspecies\tmodel\ttool_status\tdecision\ttool_structure_score_HQ\n",
-            )
-    )
+    if ( !params.skip_poppunk ) {
+        ch_multiqc_files = ch_multiqc_files.mix(
+            POPPUNK_METHODS.out.best_model
+                .map { species_id, row ->
+                    [ species_id, row.model, row.tool_status, row.decision, row.tool_structure_score_HQ ].join('\t') + '\n'
+                }
+                .collectFile(
+                    name: 'subspecies_best_model_mqc.tsv',
+                    sort: true,
+                    seed: "# id: 'subspecies_best_model'\n# section_name: 'Selected model per species'\n# description: 'Best PopPUNK model chosen per species with its evaluation verdict.'\n# plot_type: 'table'\nspecies\tmodel\ttool_status\tdecision\ttool_structure_score_HQ\n",
+                )
+        )
+    }
 
     MULTIQC (
         ch_multiqc_files.collect(),

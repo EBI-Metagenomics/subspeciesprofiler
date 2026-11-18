@@ -52,6 +52,15 @@ An [example samplesheet](../assets/samplesheet.csv) has been provided with the p
 
 The pipeline filters genomes in two steps. The first step uses completeness, contamination and contiguity. The second step uses all-vs-all FastANI. It discards the fewest genomes needed so that every remaining pair has a FastANI value of at least 90%. See [the output documentation](output.md#species-eligibility) for the rule and the output files.
 
+## Species with few genomes
+
+By default, `--qc_filter` keeps only the species labelled `STRONG`, `STRONG_BOUNDARY`, `ACCEPTABLE` or `ACCEPTABLE_BOUNDARY`. SynTracker can also work with smaller species. It needs at least 2 genomes, and at least 1 of them must be HQ. To run SynTracker only on all species, add the other labels and skip the other branches:
+
+```bash
+--qc_filter 'STRONG,STRONG_BOUNDARY,ACCEPTABLE,ACCEPTABLE_BOUNDARY,NOT_ELIGIBLE,DISCARDED_NEAR_THRESHOLD,DISCARDED' \
+--skip_poppunk --skip_pangenome
+```
+
 ## Running the pipeline
 
 The typical command for running the pipeline is as follows:
