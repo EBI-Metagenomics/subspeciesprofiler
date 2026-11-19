@@ -68,6 +68,8 @@ Before you choose a dbscan or refined fit:
 
 Example: on the MGnify _B. fragilis_ set (670 genomes), the first run fitted all 12 dbscan grid points. A later run lost `dbscan_D5_mcp0.001` and `dbscan_D10_mcp0.005`. The other 10 dbscan fits were all `Moderate`, with 126–176 clusters, and their refined fits had 98–101 clusters. The conclusion did not change, because the result was stable across the grid.
 
+Example: _O. splanchnicus_ (1,164 genomes) lost 2 dbscan grid points in one run and 6 in the next, and most of the failed grid points were different. In both runs, all 4 grid points at mcp 0.001 gave the same `Strong` solution of 2 clusters. That solution is the reliable result. In the second run, two `Weak` dbscan fits also refined to a finer `Strong` solution of 12 clusters. Treat such a solution as a candidate, and compare it in Microreact and with SynTracker before you use it.
+
 ## SynTracker rows
 
 SynTracker clusterings have their own table, `<species>/syntracker/<species>_syntracker_model_report.tsv`, one row per `syntracker_leiden_apss<t>_r<res>`: HQ and MQ genomes clustered by **synteny** (all-regions average pairwise synteny score, APSS) into Leiden communities of the APSS graph pruned at `t`, with resolution `res`.
