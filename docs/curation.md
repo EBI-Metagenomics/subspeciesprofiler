@@ -52,6 +52,22 @@ When several fits are `Strong` or `Moderate`:
 
 The pipeline's own `best_model` follows the same order: `tool_status` first, then the HQ structure score.
 
+## Dbscan fits can change between runs
+
+When a species has more than 100,000 genome pairs (about 450 genomes after PopPUNK QC), PopPUNK fits dbscan to a random subsample of the distances (`--model-subsample`, default 100,000). PopPUNK does not seed this subsample (PopPUNK 2.7.8, `models.py`; see [bacpop/PopPUNK#247](https://github.com/bacpop/PopPUNK/issues/247)). This is PopPUNK behaviour, and the pipeline does not change it. As a result:
+
+- A dbscan grid point can fail in one run and pass in the next run. PopPUNK then logs `Failed to find distinct clusters in this dataset`. A missing `dbscan_*` row does not prove that the grid point is invalid. Species below the subsample size are not subsampled, so their failures repeat in each run.
+- A `dbscan_*` fit, and the `refine_from_dbscan_*` fit made from it, can give different clusters in another run. This applies to `Strong` and `Moderate` fits too.
+- The threshold fits do not use random numbers. BGMM uses random initial states, but it runs only for species below `--poppunk_bgmm_max_genomes`.
+
+Before you choose a dbscan or refined fit:
+
+1. Check that several grid points give the same clusters (item 2 of the list above). Then a different subsample is unlikely to change the result.
+2. If only one or two grid points give the solution, run the species again and compare the two reports.
+3. Look for the same groups in a threshold fit or in the SynTracker rows. These do not depend on the subsample.
+
+Example: on the MGnify _B. fragilis_ set (670 genomes), the first run fitted all 12 dbscan grid points. A later run lost `dbscan_D5_mcp0.001` and `dbscan_D10_mcp0.005`. The other 10 dbscan fits were all `Moderate`, with 126–176 clusters, and their refined fits had 98–101 clusters. The conclusion did not change, because the result was stable across the grid.
+
 ## SynTracker rows
 
 SynTracker clusterings have their own table, `<species>/syntracker/<species>_syntracker_model_report.tsv`, one row per `syntracker_leiden_apss<t>_r<res>`: HQ and MQ genomes clustered by **synteny** (all-regions average pairwise synteny score, APSS) into Leiden communities of the APSS graph pruned at `t`, with resolution `res`.
