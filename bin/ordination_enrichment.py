@@ -56,10 +56,16 @@ INPUTS
 --rtab          gene_presence_absence.Rtab  (tab-separated; first column = gene
                 name, remaining columns = genome IDs, values 0/1)
 --clusters      CSV with columns: Taxon,Cluster  (genome id, cluster label)
---annotations   Table with one annotation string per gene. First column = gene
-                id (matching Rtab gene names), second column = annotation string.
-                Delimiter auto-detected; header expected (use --anno-no-header
-                if there is none).
+--annotations   Annotation table. First column = ID, second column = annotation
+                string. Delimiter auto-detected; header expected (use
+                --anno-no-header if there is none). A key can have several rows
+                (e.g. one VF hit and one ARG hit); their annotations are joined.
+                Without --gene-families, the ID is an Rtab gene family name.
+--gene-families (optional) Panaroo's gene_presence_absence.csv. With it, the
+                --annotations ID is a protein ID as in the ggCaller .faa files,
+                and each gene family gets the distinct annotations of its
+                proteins with their counts, e.g. 'vfdb:fliC (48/51)' (48 of the
+                family's 51 proteins carry that annotation).
 --tree          (optional) Newick tree to check the iTOL node names against.
 --metadata      (optional) Genome metadata table (see METADATA). Delimiter
                 auto-detected; header expected.
@@ -97,12 +103,20 @@ EXAMPLES
   python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
       --annotations anno.tsv --tree B_longum_ani_nj_tree.nwk \
       --metadata metadata.tsv --outdir results
+
+  # protein-level annotations (e.g. VF/ARG hits keyed by .faa protein ID)
+  python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
+      --annotations vf_arg_hits.tsv --gene-families gene_presence_absence.csv \
+      --outdir results
 """
 
 import argparse
+import csv
 import os
 import re
 import sys
+from collections import Counter
+
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import pdist, squareform
@@ -401,12 +415,57 @@ def write_itol_strip(path, column, genomes, categories, colour_of, node_of, skip
 
 
 def read_annotations(path, has_header):
+    """Read the annotation table.
+
+    :param path: Table with the ID in column 1 and the annotation in column 2.
+    :param has_header: Whether the first row is a header.
+    :return: The distinct non-empty annotations of each ID, in file order. Empty
+        annotations (e.g. Panaroo genes without a product) are left out.
+    """
     header = 0 if has_header else None
     df = pd.read_csv(path, sep=None, engine="python", header=header, dtype=str)
     if df.shape[1] < 2:
         eprint(f"ERROR: annotation table '{path}' needs >= 2 columns.")
         sys.exit(1)
-    return dict(zip(df.iloc[:, 0].astype(str), df.iloc[:, 1].astype(str)))
+    annotations = {}
+    for key, value in zip(df.iloc[:, 0].astype(str).str.strip(), df.iloc[:, 1].fillna("").astype(str).str.strip()):
+        if value and value not in annotations.setdefault(key, []):
+            annotations[key].append(value)
+    return {key: values for key, values in annotations.items() if values}
+
+
+def family_annotations(gene_families, protein_annotations):
+    """Give each gene family the annotations of its proteins.
+
+    :param gene_families: Panaroo's gene_presence_absence.csv: column 1 = gene family
+        (the Rtab gene name), columns 4 onwards = one column per genome, with the
+        family's protein IDs in that genome (several separated by ';').
+    :param protein_annotations: The annotations of each protein ID.
+    :return: The annotation string of each annotated family, with its distinct
+        annotations as 'annotation (proteins with it/proteins in the family)', most
+        frequent first; and the number of annotated proteins found in the table.
+    """
+    family_map, found = {}, 0
+    with open(gene_families, newline="", encoding="utf-8") as fh:
+        reader = csv.reader(fh)
+        header = next(reader, [])
+        if not header or header[0] != "Gene":
+            eprint(f"ERROR: '{gene_families}' is not a Panaroo gene_presence_absence.csv "
+                   f"(its first column must be 'Gene').")
+            sys.exit(1)
+        for row in reader:
+            proteins = [p.strip() for cell in row[3:] if cell for p in cell.split(";") if p.strip()]
+            counts = Counter()
+            for protein in proteins:
+                hits = protein_annotations.get(protein)
+                if hits:
+                    found += 1
+                    counts.update(hits)
+            if counts:
+                family_map[row[0]] = "; ".join(
+                    f"{label} ({n}/{len(proteins)})"
+                    for label, n in sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+    return family_map, found
 
 
 def fisher_enrichment(mat, anno_map, g_idx, r_idx, group_label, ref_label,
@@ -487,6 +546,10 @@ def main():
                     help="Number of ANOSIM permutations.")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--anno-no-header", action="store_true")
+    ap.add_argument("--gene-families", default=None,
+                    help="Panaroo gene_presence_absence.csv. With it, the --annotations "
+                         "IDs are protein IDs (as in the .faa files), mapped to their "
+                         "gene families.")
     ap.add_argument("--tree", default=None,
                     help="Newick tree the iTOL colour file is for; its leaf "
                          "labels are checked against the genome names.")
@@ -540,7 +603,24 @@ def main():
     sizes = pd.Series(cluster_of).value_counts().to_dict()
     singletons = {c for c, n in sizes.items() if n == 1}
 
-    anno_map = read_annotations(args.annotations, not args.anno_no_header)
+    annotations = read_annotations(args.annotations, not args.anno_no_header)
+    if not annotations:
+        eprint(f"NOTE: the annotation table '{args.annotations}' has no non-empty "
+               f"annotation; the enrichment table will have empty annotations.")
+    if args.gene_families:
+        anno_map, n_found = family_annotations(args.gene_families, annotations)
+        if annotations and n_found == 0:
+            eprint(f"WARNING: no protein ID of the annotation table is in "
+                   f"'{args.gene_families}'. Use the protein IDs of the ggCaller .faa files.")
+        elif annotations:
+            eprint(f"Annotations: {n_found} of {len(annotations)} annotated proteins found, "
+                   f"in {len(anno_map)} gene families.")
+    else:
+        anno_map = {key: "; ".join(values) for key, values in annotations.items()}
+        if annotations and not any(gene in anno_map for gene in mat.index):
+            eprint("WARNING: no ID of the annotation table is an Rtab gene family. If the "
+                   "table uses protein IDs from the .faa files, add --gene-families "
+                   "gene_presence_absence.csv.")
 
     # ---- Metadata (optional) ---------------------------------------------- #
     metadata = None

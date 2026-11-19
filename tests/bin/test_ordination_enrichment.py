@@ -202,6 +202,59 @@ def test_category_colours_grey_for_missing_and_unknown():
     assert colours["CRC"] != colours["control"] and oe.GREY not in (colours["CRC"], colours["control"])
 
 
+def write_gene_families(d, clusters=CLUSTERS):
+    """Panaroo-style gene_presence_absence.csv: protein '<genome>_p<i>' of gene<i> in every genome."""
+    genomes = list(clusters)
+    with open(d / "gpa.csv", "w") as fh:
+        fh.write("Gene,Non-unique Gene name,Annotation," + ",".join(genomes) + "\n")
+        for i in range(12):
+            cells = [f"{g}_p{i}" for g in genomes]
+            if i == 0:
+                cells[0] += f";{genomes[0]}_p0b"  # a second copy of gene0 in g1
+            fh.write(f"gene{i},,," + ",".join(cells) + "\n")
+
+
+def test_family_annotations_count_the_proteins_of_each_family(tmp_path):
+    write_gene_families(tmp_path)
+    proteins = {"g1_p0": ["vfdb:fliC"], "g2_p0": ["vfdb:fliC", "card:tetW"], "g1_p0b": ["vfdb:fliC"],
+                "g3_p5": ["card:tetW"], "not_a_protein": ["x"]}
+    families, found = oe.family_annotations(tmp_path / "gpa.csv", proteins)
+    assert found == 4
+    # gene0 has 9 proteins: 8 genomes + the extra copy in g1
+    assert families == {"gene0": "vfdb:fliC (3/9); card:tetW (1/9)", "gene5": "card:tetW (1/8)"}
+
+
+def test_protein_annotations_reach_the_enrichment_table(tmp_path):
+    write_inputs(tmp_path)
+    write_gene_families(tmp_path)
+    rows = "".join(f"{g}_p{i}\tvfdb:gene{i}_vf\n" for g in CLUSTERS for i in range(12))
+    (tmp_path / "hits.tsv").write_text("protein\tannotation\n" + rows + "g1_p1\tcard:tetW\n")
+    proc = run(tmp_path, "--annotations", str(tmp_path / "hits.tsv"), "--gene-families", str(tmp_path / "gpa.csv"))
+    assert proc.returncode == 0, proc.stderr
+    assert "annotated proteins found, in 12 gene families" in proc.stderr
+    enr = (tmp_path / "sp_enrichment.csv").read_text()
+    assert "vfdb:gene1_vf (8/8); card:tetW (1/8)" in enr
+
+
+def test_annotation_key_mismatch_is_reported(tmp_path):
+    write_inputs(tmp_path)
+    write_gene_families(tmp_path)
+    (tmp_path / "hits.tsv").write_text("protein\tannotation\ng1_p1\tvfdb:fliC\n")
+    proc = run(tmp_path, "--annotations", str(tmp_path / "hits.tsv"))  # protein IDs without --gene-families
+    assert proc.returncode == 0
+    assert "no ID of the annotation table is an Rtab gene family" in proc.stderr
+    (tmp_path / "families.tsv").write_text("gene\tannotation\ngene1\tvfdb:fliC\n")
+    proc = run(tmp_path, "--annotations", str(tmp_path / "families.tsv"), "--gene-families", str(tmp_path / "gpa.csv"))
+    assert "no protein ID of the annotation table is in" in proc.stderr
+
+
+def test_not_a_panaroo_table_is_an_error(tmp_path):
+    write_inputs(tmp_path)
+    (tmp_path / "bad.csv").write_text("family,g1\ngene1,g1_p1\n")
+    proc = run(tmp_path, "--gene-families", str(tmp_path / "bad.csv"))
+    assert proc.returncode == 1 and "is not a Panaroo gene_presence_absence.csv" in proc.stderr
+
+
 def test_node_id_collision_is_an_error(tmp_path):
     write_inputs(tmp_path, {**CLUSTERS, "GCF_7_8": "A"})  # 'GCF_7+8' and 'GCF_7_8' -> same ID
     proc = run(tmp_path)

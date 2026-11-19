@@ -154,17 +154,18 @@ The image is for linux/amd64 only. On Apple Silicon, Docker runs it under emulat
 
 ### Inputs
 
-| Option               | Content                                                                                                                                                                                                                                                           |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--rtab`             | `<species>/pangenome/panaroo/gene_presence_absence.Rtab`.                                                                                                                                                                                                         |
-| `--clusters`         | The `Taxon,Cluster` CSV of the fit you chose. For a PopPUNK fit: `<species>/poppunk/fitmodel/<model>/<species>_fitmodel/<species>_fitmodel_clusters.csv`. For a SynTracker clustering: `<species>/syntracker/clusters/<species>_syntracker_<model>_clusters.csv`. |
-| `--annotations`      | A table with the gene ID in column 1 and its annotation in column 2. Make it from Panaroo's `gene_presence_absence.csv` (see the example below).                                                                                                                  |
-| `--tree`             | Optional. `<species>/<species>_ani_nj_tree.nwk`. The script checks the iTOL node names against the tree leaves and reports mismatches.                                                                                                                            |
-| `--metadata`         | Optional. A table with the genome ID in column 1 and one category variable in each other column (see below).                                                                                                                                                      |
-| `--enrich-cluster`   | Optional. A cluster to compare with all other genomes. Without it, the script compares the two largest clusters.                                                                                                                                                  |
-| `--min-cluster-size` | The smallest cluster for an enrichment test (default 5).                                                                                                                                                                                                          |
-| `--outdir`           | The output directory (default `.`).                                                                                                                                                                                                                               |
-| `--prefix`           | The prefix of the output files (default `pangenome`).                                                                                                                                                                                                             |
+| Option               | Content                                                                                                                                                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--rtab`             | `<species>/pangenome/panaroo/gene_presence_absence.Rtab`.                                                                                                                                                                                                                                         |
+| `--clusters`         | The `Taxon,Cluster` CSV of the fit you chose. For a PopPUNK fit: `<species>/poppunk/fitmodel/<model>/<species>_fitmodel/<species>_fitmodel_clusters.csv`. For a SynTracker clustering: `<species>/syntracker/clusters/<species>_syntracker_<model>_clusters.csv`.                                 |
+| `--annotations`      | A table with an ID in column 1 and its annotation in column 2. The ID is the Rtab gene family name (`group_…`), or with `--gene-families` a protein ID as in the `.faa` files. The pipeline does not annotate gene function, so the annotations must come from another tool (see the note below). |
+| `--gene-families`    | Optional. `<species>/pangenome/panaroo/gene_presence_absence.csv`. With it, the `--annotations` IDs are protein IDs, which the script maps to their gene families.                                                                                                                                |
+| `--tree`             | Optional. `<species>/<species>_ani_nj_tree.nwk`. The script checks the iTOL node names against the tree leaves and reports mismatches.                                                                                                                                                            |
+| `--metadata`         | Optional. A table with the genome ID in column 1 and one category variable in each other column (see below).                                                                                                                                                                                      |
+| `--enrich-cluster`   | Optional. A cluster to compare with all other genomes. Without it, the script compares the two largest clusters.                                                                                                                                                                                  |
+| `--min-cluster-size` | The smallest cluster for an enrichment test (default 5).                                                                                                                                                                                                                                          |
+| `--outdir`           | The output directory (default `.`).                                                                                                                                                                                                                                                               |
+| `--prefix`           | The prefix of the output files (default `pangenome`).                                                                                                                                                                                                                                             |
 
 A metadata table has a header row, and the genome IDs must be the same as in the Rtab:
 
@@ -193,7 +194,17 @@ To see the annotations on the tree, upload `<species>_ani_nj_tree.nwk` to [iTOL]
 
 ### Examples
 
-Make the annotation table from Panaroo's output, inside the container. Panaroo's first and third columns are `Gene` and `Annotation`:
+**Gene annotations.** The pipeline runs ggCaller without functional annotation. All genes are "hypothetical protein", and the `Annotation` column of Panaroo's `gene_presence_absence.csv` is empty. To see gene functions in the enrichment table, annotate the proteins with another tool, for example a virulence factor (VF) or antibiotic resistance gene (ARG) search on the `pangenome/ggcaller/faa/` files. Then give the hits as a table of protein ID and annotation, and add `--gene-families`:
+
+```tsv
+protein_id	annotation
+DRR127515_bin_20275_4	vfdb:fliC
+DRR127515_bin_20275_51	card:tetW
+```
+
+A protein can have several rows, for example a VF hit and an ARG hit. Each gene family in the enrichment table then shows the distinct annotations of its proteins, the most frequent first, as `annotation (annotated proteins/all proteins of the family)`, for example `vfdb:fliC (48/51); card:tetW (3/51)`. The count includes every protein of the family in Panaroo's table, in all genomes. The script reports how many annotated proteins it found, and warns if the IDs match nothing.
+
+Without functional annotations, give a table of gene family names only. The enrichment table then has empty annotations, and the other results do not change:
 
 ```bash
 python -c "import pandas as pd; pd.read_csv('gene_presence_absence.csv', usecols=[0, 2]).to_csv('annotations.csv', index=False)"
@@ -220,6 +231,46 @@ python bin/ordination_enrichment.py \
     --metadata metadata.tsv \
     --outdir ordination --prefix b_fragilis
 ```
+
+A run with VF/ARG hits keyed by the protein IDs of the `.faa` files:
+
+```bash
+python bin/ordination_enrichment.py \
+    --rtab gene_presence_absence.Rtab \
+    --clusters dbscan_D3_mcp0.001_clusters.csv \
+    --annotations vf_arg_hits.tsv \
+    --gene-families gene_presence_absence.csv \
+    --outdir ordination --prefix b_fragilis
+```
+
+### Compare two clusterings
+
+`bin/compare_clusterings.py` compares two `Taxon,Cluster` tables, for example a PopPUNK fit and a SynTracker clustering of the same species. It draws a Sankey plot and measures how well the two agree. Run it in the same container as above, with `python subspeciesprofiler/bin/compare_clusterings.py [options]`; it needs only numpy, pandas and matplotlib.
+
+```bash
+python bin/compare_clusterings.py \
+    --clusters1 bacteroides_fragilis/poppunk/fitmodel/dbscan_D3_mcp0.001/bacteroides_fragilis_fitmodel/bacteroides_fragilis_fitmodel_clusters.csv \
+    --clusters2 bacteroides_fragilis/syntracker/clusters/bacteroides_fragilis_syntracker_leiden_apss0.971_r1.0_clusters.csv \
+    --label1 "PopPUNK dbscan_D3_mcp0.001" --label2 "SynTracker apss0.971_r1.0" \
+    --outdir comparison --prefix b_fragilis
+```
+
+Only the genomes in both tables are compared. The script names the genomes that are in only one table, for example the low-coverage genomes that SynTracker leaves out. `--min-size` (default 3) sets the smallest cluster that the plot draws on its own block.
+
+| File                             | Content                                                                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<prefix>_sankey.{png,pdf}`      | Method-1 clusters on the left, method-2 clusters on the right, joined by bands of genomes. Small clusters and singletons are merged into grey blocks. |
+| `<prefix>_agreement_summary.tsv` | Genome and cluster counts, the two fractions, the two pair agreements and the adjusted Rand index (ARI).                                              |
+| `<prefix>_cluster_matches.tsv`   | The best-matching cluster of each cluster, in both directions, with the shared genome count and fraction.                                             |
+| `<prefix>_contingency.tsv`       | The genome count of each pair of method-1 and method-2 clusters.                                                                                      |
+| `<prefix>_genome_placement.tsv`  | One row per genome: `genome`, `cluster_1`, `cluster_2` and `agreement` (`agreed`, `not_agreed` or `singleton`).                                       |
+
+How to read the summary:
+
+- `fraction_2_in_1`: each method-2 cluster is matched to the method-1 cluster that shares most of its genomes. This is the fraction of genomes whose method-2 cluster matches their own method-1 cluster. Genomes in method-2 singletons are not counted, because a singleton always matches; they get `singleton` in the placement table.
+- `fraction_1_in_2`: the same rule in the other direction. Read the two together. If method 2 splits a method-1 cluster, `fraction_2_in_1` stays high and `fraction_1_in_2` falls. If method 2 merges method-1 clusters, the opposite happens.
+- `pair_agreement_2_in_1`: of the genome pairs that method 2 puts together, the fraction that method 1 also puts together. `pair_agreement_1_in_2` is the reverse.
+- `ARI`: 1 means identical partitions, and values near 0 mean no more agreement than chance.
 
 ## Credits
 
