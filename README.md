@@ -125,6 +125,102 @@ For how to read the per-species model report and choose a model (or conclude a s
 no subspecies structure), see the
 [curation guide](https://github.com/ebi-metagenomics/subspeciesprofiler/blob/master/docs/curation.md).
 
+## After the pipeline: ordination and gene enrichment
+
+`bin/ordination_enrichment.py` compares the gene content of the clusters of one fit. You run it yourself after the pipeline; the pipeline does not run it. It makes a PCoA ordination of the Panaroo gene presence/absence matrix (Jaccard distance), pairwise ANOSIM tests between clusters, a Fisher gene-enrichment table and iTOL annotation files for the ANI tree. With a metadata table, it also colours the ordination and the tree by categories such as disease status.
+
+### Run it in the pipeline's container
+
+You do not need to install anything. The PopPUNK image of the pipeline has every package that the script needs (numpy, pandas, scipy and matplotlib). If you ran the pipeline with PopPUNK, the image is already on your system.
+
+With Singularity (for example on an HPC cluster):
+
+```bash
+singularity exec https://depot.galaxyproject.org/singularity/poppunk:2.7.8--py310h4d0eb5b_0 \
+    python subspeciesprofiler/bin/ordination_enrichment.py [options]
+```
+
+To use the image that Nextflow already downloaded, find it with `ls "$NXF_SINGULARITY_CACHEDIR" | grep poppunk`, and give its path to `singularity exec` in place of the URL. Singularity mounts the current directory and your home directory.
+
+With Docker:
+
+```bash
+docker run --rm --platform linux/amd64 -v "$PWD":"$PWD" -w "$PWD" \
+    quay.io/biocontainers/poppunk:2.7.8--py310h4d0eb5b_0 \
+    python subspeciesprofiler/bin/ordination_enrichment.py [options]
+```
+
+The image is for linux/amd64 only. On Apple Silicon, Docker runs it under emulation, which is enough for this script. Without containers, install the packages with `pip install numpy pandas scipy matplotlib`.
+
+### Inputs
+
+| Option               | Content                                                                                                                                                                                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--rtab`             | `<species>/pangenome/panaroo/gene_presence_absence.Rtab`.                                                                                                                                                                                                         |
+| `--clusters`         | The `Taxon,Cluster` CSV of the fit you chose. For a PopPUNK fit: `<species>/poppunk/fitmodel/<model>/<species>_fitmodel/<species>_fitmodel_clusters.csv`. For a SynTracker clustering: `<species>/syntracker/clusters/<species>_syntracker_<model>_clusters.csv`. |
+| `--annotations`      | A table with the gene ID in column 1 and its annotation in column 2. Make it from Panaroo's `gene_presence_absence.csv` (see the example below).                                                                                                                  |
+| `--tree`             | Optional. `<species>/<species>_ani_nj_tree.nwk`. The script checks the iTOL node names against the tree leaves and reports mismatches.                                                                                                                            |
+| `--metadata`         | Optional. A table with the genome ID in column 1 and one category variable in each other column (see below).                                                                                                                                                      |
+| `--enrich-cluster`   | Optional. A cluster to compare with all other genomes. Without it, the script compares the two largest clusters.                                                                                                                                                  |
+| `--min-cluster-size` | The smallest cluster for an enrichment test (default 5).                                                                                                                                                                                                          |
+| `--outdir`           | The output directory (default `.`).                                                                                                                                                                                                                               |
+| `--prefix`           | The prefix of the output files (default `pangenome`).                                                                                                                                                                                                             |
+
+A metadata table has a header row, and the genome IDs must be the same as in the Rtab:
+
+```tsv
+genome	disease_status	genome_type	genome_source
+GCA_000001.1	CRC	isolate	clinical
+MGYG000002	control	MAG	gut
+MGYG000003	unknown	MAG	oral
+```
+
+A genome that is not in the table, or an empty cell, gets the category `NA`. `NA` and `unknown` are light grey.
+
+### Outputs
+
+| File                                     | Content                                                                                                         |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `<prefix>_ordination.{png,pdf}`          | PCoA coloured by cluster, with a 90% ellipse per cluster. Singletons are hollow.                                |
+| `<prefix>_ordination_coords.csv`         | The PCoA coordinates, cluster and metadata of each genome.                                                      |
+| `<prefix>_anosim.csv`                    | Pairwise ANOSIM between clusters of at least 3 genomes: R statistic, p-value and Benjamini-Hochberg FDR.        |
+| `<prefix>_enrichment.csv`                | Fisher's exact test per gene: odds ratio, p-value, FDR and direction, or a note that the test was not possible. |
+| `<prefix>_itol_colors.txt`               | iTOL file that colours each genome of the tree in its cluster colour.                                           |
+| `<prefix>_ordination_<column>.{png,pdf}` | With `--metadata`: one PCoA per metadata column, coloured by category, with the cluster ellipses in grey.       |
+| `<prefix>_itol_<column>.txt`             | With `--metadata`: one iTOL file per metadata column, drawn as an outer ring of coloured categories.            |
+
+To see the annotations on the tree, upload `<species>_ani_nj_tree.nwk` to [iTOL](https://itol.embl.de/). Then drag `<prefix>_itol_colors.txt` and each `<prefix>_itol_<column>.txt` file onto the tree. iTOL adds the rings from the inside out, in the order that you add the files.
+
+### Examples
+
+Make the annotation table from Panaroo's output, inside the container. Panaroo's first and third columns are `Gene` and `Annotation`:
+
+```bash
+python -c "import pandas as pd; pd.read_csv('gene_presence_absence.csv', usecols=[0, 2]).to_csv('annotations.csv', index=False)"
+```
+
+A basic run, which compares the two largest clusters:
+
+```bash
+python bin/ordination_enrichment.py \
+    --rtab gene_presence_absence.Rtab \
+    --clusters dbscan_D3_mcp0.001_clusters.csv \
+    --annotations annotations.csv \
+    --outdir ordination --prefix b_fragilis
+```
+
+A run with the tree and the metadata, which also writes the metadata plots and the iTOL rings:
+
+```bash
+python bin/ordination_enrichment.py \
+    --rtab gene_presence_absence.Rtab \
+    --clusters dbscan_D3_mcp0.001_clusters.csv \
+    --annotations annotations.csv \
+    --tree bacteroides_fragilis_ani_nj_tree.nwk \
+    --metadata metadata.tsv \
+    --outdir ordination --prefix b_fragilis
+```
+
 ## Credits
 
 ebi-metagenomics/subspeciesprofiler was originally written by Alejandra Escobar.

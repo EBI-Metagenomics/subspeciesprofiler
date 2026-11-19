@@ -20,6 +20,17 @@ this script produces:
   4) An iTOL TREE_COLORS annotation file: one coloured range per genome, in the
      cluster colours of the ordination plot (singletons left uncoloured), to drop onto the
      Newick tree (e.g. the pipeline's <species>_ani_nj_tree.nwk) in iTOL.
+  5) With --metadata, for each metadata column: one more ordination plot with the
+     genomes coloured by category (cluster ellipses as grey outlines), and one iTOL
+     DATASET_COLORSTRIP file, which iTOL draws as an outer ring of the tree.
+
+METADATA
+--------
+The metadata table has a header row. Column 1 is the genome ID; each other column is
+one category variable (e.g. disease_status, genome_type, genome_source). IDs must
+equal the Rtab genome names. A genome that the table does not list, or an empty
+cell, gets the category 'NA'. 'NA' and 'unknown' are light grey. Each column has its
+own colours (tab10, or tab20 above 10 categories), the same in its plot and its ring.
 
 ITOL NODE NAMES
 ---------------
@@ -50,14 +61,19 @@ INPUTS
                 Delimiter auto-detected; header expected (use --anno-no-header
                 if there is none).
 --tree          (optional) Newick tree to check the iTOL node names against.
+--metadata      (optional) Genome metadata table (see METADATA). Delimiter
+                auto-detected; header expected.
 
 OUTPUTS (written to --outdir, prefixed with --prefix)
 -------
   <prefix>_ordination.png / .pdf   ordination plot with 90% ellipses
-  <prefix>_ordination_coords.csv   per-genome PCoA coordinates + cluster
+  <prefix>_ordination_coords.csv   per-genome PCoA coordinates + cluster (+ metadata)
   <prefix>_anosim.csv              pairwise ANOSIM table
   <prefix>_enrichment.csv          gene enrichment table (or a note if skipped)
   <prefix>_itol_colors.txt         iTOL TREE_COLORS file (coloured range per genome)
+  With --metadata, per metadata column <col>:
+  <prefix>_ordination_<col>.png / .pdf   ordination plot coloured by category
+  <prefix>_itol_<col>.txt                iTOL DATASET_COLORSTRIP file (outer ring)
 
 DEPENDENCIES
 ------------
@@ -76,6 +92,11 @@ EXAMPLES
   # one-vs-rest enrichment for a chosen cluster
   python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
       --annotations anno.tsv --enrich-cluster 2 --outdir results
+
+  # metadata plots and iTOL rings (disease_status, genome_type, ...)
+  python ordination_enrichment.py --rtab gpa.Rtab --clusters clusters.csv \
+      --annotations anno.tsv --tree B_longum_ani_nj_tree.nwk \
+      --metadata metadata.tsv --outdir results
 """
 
 import argparse
@@ -195,15 +216,13 @@ def newick_leaf_names(path):
     return [n[1:-1].replace("''", "'") if n.startswith("'") else n for n in names]
 
 
-def write_itol_colors(path, genomes, cluster_of, sizes, singletons, color_of,
-                      leaves=None):
-    """Write an iTOL TREE_COLORS file: one coloured range per genome.
+def match_tree_leaves(genomes, leaves=None):
+    """Map each genome to its iTOL node ID and check the IDs against the tree.
 
-    Colours are those of the ordination plot; singletons get no line, so iTOL
-    leaves them uncoloured (their names are still checked). With
-    `leaves` (the tree's leaf labels), only genomes whose node ID is a leaf are
-    written, and both kinds of mismatch are reported. Returns (n_coloured,
-    unmatched genomes, leaves without a cluster).
+    Fails if two genomes get the same node ID. With `leaves` (the tree's leaf
+    labels), both kinds of mismatch are reported, and no match at all is an
+    error. Returns (node ID per genome, unmatched genomes, leaves without a
+    cluster); both lists are empty without `leaves`.
     """
     node_of = {g: itol_node_id(g) for g in genomes}
     clashes = pd.Series(node_of).loc[lambda s: s.duplicated(keep=False)]
@@ -231,8 +250,17 @@ def write_itol_colors(path, genomes, cluster_of, sizes, singletons, color_of,
             eprint(f"WARNING: {len(uncoloured)} tree leaves have no cluster and "
                    f"stay uncoloured: {uncoloured[:10]}"
                    + (" ..." if len(uncoloured) > 10 else ""))
+    return node_of, unmatched, uncoloured
 
-    skip = set(unmatched)
+
+def write_itol_colors(path, genomes, cluster_of, sizes, singletons, color_of,
+                      node_of, skip):
+    """Write an iTOL TREE_COLORS file: one coloured range per genome.
+
+    Colours are those of the ordination plot; singletons get no line, so iTOL
+    leaves them uncoloured. Genomes in `skip` (not leaves of the tree) are left
+    out. Returns the number of coloured genomes.
+    """
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("TREE_COLORS\n"
                  "#Cluster colours of the ordination plot, one coloured range per "
@@ -247,7 +275,129 @@ def write_itol_colors(path, genomes, cluster_of, sizes, singletons, color_of,
                 continue
             fh.write(f"{node_of[g]}\trange\t{to_hex(color_of[c])}\t{c} (n={sizes[c]})\n")
             n += 1
-    return n, unmatched, uncoloured
+    return n
+
+
+MISSING_CATEGORY = "NA"
+GREY_CATEGORIES = {"na", "unknown"}
+GREY = "#d9d9d9"
+
+
+def read_metadata(path):
+    """Read the genome metadata table.
+
+    :param path: Table with a header row; column 1 = genome ID, the other columns
+        are category variables. The delimiter is auto-detected.
+    :return: One row per genome (index = genome ID), every value a string; empty
+        cells are ``NA``.
+    """
+    df = pd.read_csv(path, sep=None, engine="python", dtype=str)
+    if df.shape[1] < 2:
+        eprint(f"ERROR: metadata table '{path}' needs a genome column and at least "
+               f"one category column.")
+        sys.exit(1)
+    df = df.set_index(df.columns[0])
+    df.index = df.index.astype(str).str.strip()
+    duplicated = sorted(set(df.index[df.index.duplicated()]))
+    if duplicated:
+        eprint(f"ERROR: metadata table '{path}' lists genomes more than once: {duplicated[:10]}")
+        sys.exit(1)
+    df = df.apply(lambda col: col.str.strip()).replace("", np.nan)
+    return df.fillna(MISSING_CATEGORY)
+
+
+def category_colours(values):
+    """Give each category a colour; ``NA`` and ``unknown`` are light grey.
+
+    :param values: The category of each genome.
+    :return: Hex colour per category, in sorted category order.
+    """
+    categories = sorted(set(values))
+    coloured = [c for c in categories if c.lower() not in GREY_CATEGORIES]
+    if len(coloured) > 20:
+        eprint(f"WARNING: {len(coloured)} categories; colours repeat after 20.")
+    cmap = plt.get_cmap("tab10" if len(coloured) <= 10 else "tab20")
+    colours = {c: to_hex(cmap(i % cmap.N)) for i, c in enumerate(coloured)}
+    colours.update({c: GREY for c in categories if c.lower() in GREY_CATEGORIES})
+    return {c: colours[c] for c in categories}
+
+
+def plot_metadata(path_base, column, ax1, ax2, axis_labels, categories, colour_of,
+                  cluster_of, sizes, singletons, conf):
+    """Draw the ordination with the genomes coloured by one metadata column.
+
+    Non-singleton genomes are filled with their category colour; singleton genomes
+    are hollow with a rim in that colour. Each cluster of at least 3 genomes gets its
+    confidence ellipse as a grey outline, with the cluster name at its centre.
+
+    :param path_base: Output path without the extension (``.png`` and ``.pdf`` are written).
+    :param column: The metadata column name, for the title and the legend.
+    :param axis_labels: The x and y axis labels of the cluster plot.
+    """
+    fig, axp = plt.subplots(figsize=(8.5, 6.5))
+    sing_mask = np.array([c in singletons for c in cluster_of])
+    for category, colour in colour_of.items():
+        m = categories == category
+        n = int(m.sum())
+        axp.scatter(ax1[m & ~sing_mask], ax2[m & ~sing_mask], color=colour, s=55,
+                    edgecolor="black", linewidth=0.4, alpha=0.9,
+                    label=f"{category} (n={n})")
+        axp.scatter(ax1[m & sing_mask], ax2[m & sing_mask], s=55, facecolors="none",
+                    edgecolors=colour, linewidth=1.2, alpha=0.9)
+    if sing_mask.any():
+        axp.scatter([], [], s=55, facecolors="none", edgecolors="#404040",
+                    linewidth=1.2, label="hollow = singleton cluster")
+    for cluster in sorted(c for c in sizes if c not in singletons):
+        m = cluster_of == cluster
+        if confidence_ellipse(ax1[m], ax2[m], axp, conf=conf, facecolor="none",
+                              edgecolor="#707070", lw=1.0, ls="--") is not None:
+            axp.text(np.mean(ax1[m]), np.mean(ax2[m]), cluster, ha="center",
+                     va="center", fontsize=8, color="#404040")
+    axp.set_xlabel(axis_labels[0])
+    axp.set_ylabel(axis_labels[1])
+    axp.set_title(f"PCoA of gene presence/absence, coloured by {column}")
+    axp.axhline(0, color="grey", lw=0.5, ls="--")
+    axp.axvline(0, color="grey", lw=0.5, ls="--")
+    axp.legend(title=column, bbox_to_anchor=(1.02, 1), loc="upper left",
+               fontsize=8, frameon=False)
+    fig.text(0.01, 0.01, f"Dashed ellipses: clusters, {conf * 100:.0f}% confidence",
+             fontsize=7, color="grey")
+    fig.tight_layout(rect=[0, 0.02, 1, 1])
+    fig.savefig(f"{path_base}.png", dpi=300)
+    fig.savefig(f"{path_base}.pdf")
+    plt.close(fig)
+
+
+def write_itol_strip(path, column, genomes, categories, colour_of, node_of, skip):
+    """Write an iTOL DATASET_COLORSTRIP file: one outer ring for one metadata column.
+
+    :param column: The metadata column name (dataset label and legend title).
+    :param categories: The category of each genome, in the order of `genomes`.
+    :param colour_of: Hex colour per category.
+    :param node_of: iTOL node ID per genome.
+    :param skip: Genomes to leave out (not leaves of the tree).
+    :return: The number of genomes written.
+    """
+    rows = [(node_of[g], c) for g, c in zip(genomes, categories) if g not in skip]
+    legend = sorted({c for _, c in rows})
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("DATASET_COLORSTRIP\n"
+                 "SEPARATOR TAB\n"
+                 f"DATASET_LABEL\t{column}\n"
+                 "COLOR\t#000000\n"
+                 f"LEGEND_TITLE\t{column}\n"
+                 "LEGEND_SHAPES\t" + "\t".join("1" for _ in legend) + "\n"
+                 "LEGEND_COLORS\t" + "\t".join(colour_of[c] for c in legend) + "\n"
+                 "LEGEND_LABELS\t" + "\t".join(legend) + "\n"
+                 "STRIP_WIDTH\t25\n"
+                 "MARGIN\t5\n"
+                 "BORDER_WIDTH\t0\n"
+                 "#Drop this file onto the tree in iTOL: one outer ring.\n"
+                 "DATA\n"
+                 "#NODE_ID\tCOLOR\tLABEL\n")
+        for node, category in rows:
+            fh.write(f"{node}\t{colour_of[category]}\t{category}\n")
+    return len(rows)
 
 
 def read_annotations(path, has_header):
@@ -272,8 +422,10 @@ def fisher_enrichment(mat, anno_map, g_idx, r_idx, group_label, ref_label,
 
     records = []
     for gi in np.where(variable)[0]:
-        a = int(pres_g[gi]); b = n_g - a
-        c = int(pres_r[gi]); d = n_r - c
+        a = int(pres_g[gi])
+        b = n_g - a
+        c = int(pres_r[gi])
+        d = n_r - c
         orr, p = fisher_exact([[a, b], [c, d]], alternative="two-sided")
         prop_g = a / n_g if n_g else 0.0
         prop_r = c / n_r if n_r else 0.0
@@ -338,6 +490,10 @@ def main():
     ap.add_argument("--tree", default=None,
                     help="Newick tree the iTOL colour file is for; its leaf "
                          "labels are checked against the genome names.")
+    ap.add_argument("--metadata", default=None,
+                    help="Genome metadata table: genome ID, then one column per "
+                         "category variable. Adds one ordination plot and one "
+                         "iTOL ring file per column.")
     args = ap.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -386,6 +542,25 @@ def main():
 
     anno_map = read_annotations(args.annotations, not args.anno_no_header)
 
+    # ---- Metadata (optional) ---------------------------------------------- #
+    metadata = None
+    if args.metadata:
+        metadata = read_metadata(args.metadata)
+        unlisted = [g for g in common if g not in metadata.index]
+        n_extra = len(set(metadata.index) - set(common))
+        metadata = metadata.reindex(common).fillna(MISSING_CATEGORY)
+        if unlisted:
+            eprint(f"WARNING: {len(unlisted)} genome(s) are not in the metadata table "
+                   f"and get '{MISSING_CATEGORY}': {unlisted[:10]}"
+                   + (" ..." if len(unlisted) > 10 else ""))
+        if n_extra:
+            eprint(f"WARNING: {n_extra} metadata row(s) are not analysed genomes and "
+                   f"are ignored.")
+        safe = {col: itol_node_id(col) for col in metadata.columns}
+        if len(set(safe.values())) < len(safe):
+            eprint(f"ERROR: metadata column names collide in file names: {sorted(safe)}")
+            sys.exit(1)
+
     # ---- Ordination (PCoA) ------------------------------------------------ #
     X = mat.T.values.astype(int)  # genomes x genes
     dist = squareform(pdist(X, metric=args.metric))
@@ -401,6 +576,9 @@ def main():
         "Cluster_size": [sizes[c] for c in cluster_of],
         "Is_singleton": [c in singletons for c in cluster_of],
     })
+    if metadata is not None:
+        for col in metadata.columns:
+            coords_df[col] = metadata[col].to_numpy()
     coords_path = os.path.join(args.outdir, f"{args.prefix}_ordination_coords.csv")
     coords_df.to_csv(coords_path, index=False)
 
@@ -443,8 +621,24 @@ def main():
     # ---- iTOL colour ranges (same colours as the plot) -------------------- #
     itol_path = os.path.join(args.outdir, f"{args.prefix}_itol_colors.txt")
     leaves = newick_leaf_names(args.tree) if args.tree else None
-    n_itol, itol_unmatched, _ = write_itol_colors(
-        itol_path, common, cluster_of, sizes, singletons, color_of, leaves)
+    node_of, itol_unmatched, _ = match_tree_leaves(common, leaves)
+    n_itol = write_itol_colors(itol_path, common, cluster_of, sizes, singletons,
+                               color_of, node_of, set(itol_unmatched))
+
+    # ---- Metadata plots and iTOL rings ------------------------------------ #
+    metadata_files = []
+    if metadata is not None:
+        axis_labels = (f"PCo1 ({pc1_pct:.1f}%)", f"PCo2 ({pc2_pct:.1f}%)")
+        for col in metadata.columns:
+            categories = metadata[col].to_numpy()
+            colour_of = category_colours(categories)
+            base = os.path.join(args.outdir, f"{args.prefix}_ordination_{safe[col]}")
+            plot_metadata(base, col, ax1, ax2, axis_labels, categories, colour_of,
+                          cluster_of, sizes, singletons, args.ellipse_conf)
+            strip_path = os.path.join(args.outdir, f"{args.prefix}_itol_{safe[col]}.txt")
+            write_itol_strip(strip_path, col, common, categories, colour_of, node_of,
+                             set(itol_unmatched))
+            metadata_files.append((col, f"{base}.png", strip_path))
 
     # ---- Pairwise ANOSIM -------------------------------------------------- #
     anosim_path = os.path.join(args.outdir, f"{args.prefix}_anosim.csv")
@@ -544,6 +738,8 @@ def main():
               f"({enr['Comparison'].iloc[0]}, {n_tests} tests)")
     else:
         print(f"Enrichment             : {enrich_note}")
+    for col, png, strip in metadata_files:
+        print(f"Metadata '{col}'".ljust(23) + f": {png}, {strip}")
     print("=" * 62)
 
 
