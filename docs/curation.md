@@ -41,6 +41,20 @@ The highest network score thus often marks the **most fragmented** fit, not the 
 
 **Over-fragmentation is not the same as "no structure".** Over-fragmentation is a verdict on **one fit**. "No structure" is a conclusion about the **species**, and is warranted only when **no** fit in the sweep produces separated groups.
 
+### Check the size of the second group
+
+`tool_status` does not look at `largest_cluster_fraction`. A fit with one very large cluster can be `Strong` if it also has one small cluster that is well separated from the large one. The evaluator only rejects a single cluster, or one multi-genome cluster plus singletons. Clusters of 2–4 genomes count as a second group.
+
+**Recommendation:** for every `Strong` or `Moderate` row with `largest_cluster_fraction` above about 0.9, open its `<species>/<tool>/evaluate/<model>/<species>.cluster_metrics.tsv` and look at `cluster_size`:
+
+- If every cluster except the largest has fewer than 5 genomes, treat the fit as **no structure**. It is one cluster plus noise, whatever its `tool_status`.
+- If at least one other cluster has 5 genomes or more, the fit can be real structure: a dominant group plus a minority subspecies. Judge it on the other columns, and look for the same minority group in other fits and in the other tool.
+
+Examples:
+
+- **Treat as no structure.** _F. prausnitzii_, SynTracker `apss0.690_r0.25` and `r0.5`: `Strong`, `synteny_and_ani`, but the clusters have 843 and 3 genomes, plus 21 singletons.
+- **Can be real structure.** _F. prausnitzii_, PopPUNK `dbscan_*` at mcp 0.001: `Strong`, with clusters of 863, 51, 9 and 4 genomes. The 51-genome group is separated in ANI. This `Strong` is close to the limit: the HQ structure score is just at 0.80, and the 3 largest clusters are `Borderline`. Also, SynTracker left out almost all genomes of the minority groups as low-coverage, so SynTracker cannot confirm or reject them.
+
 ## Choosing among several good fits
 
 When several fits are `Strong` or `Moderate`:
